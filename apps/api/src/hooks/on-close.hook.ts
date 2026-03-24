@@ -1,5 +1,6 @@
 import { pool } from '@taskforge/db';
 import type { FastifyInstance } from 'fastify';
+import { closeRedis } from '../utils/redis.js';
 
 let isShuttingDown = false;
 
@@ -22,6 +23,7 @@ export function registerGracefulShutdown(fastify: FastifyInstance) {
 
     try {
       await fastify.close();
+      await closeRedis();
       await pool.end();
       fastify.log.info('Graceful shutdown complete');
     } catch (err) {

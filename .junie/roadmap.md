@@ -10,7 +10,7 @@ The minimum viable product: core task management with auth, projects, a function
 
 ### Auth & Users
 - ~~JWT-based registration and login~~ ✅
-- OAuth 2.0 / OIDC login (Google, GitHub)
+- ~~OAuth 2.0 / OIDC login (Google, GitHub)~~ ✅
 - User profile management
 - MFA support
 - Session invalidation on password change

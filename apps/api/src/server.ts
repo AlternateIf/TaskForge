@@ -10,6 +10,7 @@ import rateLimitPlugin from './plugins/rate-limit.plugin.js';
 import requestIdPlugin from './plugins/request-id.plugin.js';
 import swaggerPlugin from './plugins/swagger.plugin.js';
 import { authRoutes } from './routes/auth/auth.routes.js';
+import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { userRoutes } from './routes/users/users.routes.js';
 import { loggerConfig } from './utils/logger.js';
@@ -39,6 +40,7 @@ export async function buildServer() {
   // Routes
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes);
+  await fastify.register(oauthRoutes);
   await fastify.register(userRoutes);
 
   return fastify;

@@ -46,12 +46,12 @@ apps/api/src/
 - Config via environment variables: `OAUTH_GOOGLE_CLIENT_ID`, `OAUTH_GOOGLE_CLIENT_SECRET`, etc.
 
 ## Acceptance Criteria
-- [ ] Google login creates new account or links to existing
-- [ ] GitHub login creates new account or links to existing
-- [ ] PKCE is used for all OAuth flows
-- [ ] State parameter prevents CSRF
-- [ ] Duplicate email (existing account) links OAuth account rather than creating duplicate
-- [ ] JWT tokens are issued after successful OAuth login
-- [ ] Invalid/expired OAuth callbacks return appropriate errors
-- [ ] Provider configuration is read from environment variables
-- [ ] Tests cover happy path and error cases (invalid state, expired code)
+- [x] Google login creates new account or links to existing
+- [x] GitHub login creates new account or links to existing
+- [x] PKCE is used for all OAuth flows
+- [x] State parameter prevents CSRF
+- [x] Duplicate email (existing account) links OAuth account rather than creating duplicate
+- [x] JWT tokens are issued after successful OAuth login
+- [x] Invalid/expired OAuth callbacks return appropriate errors
+- [x] Provider configuration is read from environment variables
+- [x] Tests cover happy path and error cases (invalid state, expired code)
