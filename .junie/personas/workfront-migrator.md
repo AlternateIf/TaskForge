@@ -31,6 +31,9 @@
 13. **Issue / Bug Tracking** — separate issue type linked to tasks and projects with severity, priority, and resolution tracking
 14. **Templates** — reusable project and task templates to standardize repeatable processes
 15. **Audit Trail** — comprehensive log of who changed what and when, exportable for compliance
+16. **Workfront Import** — API-based import from Workfront: projects, tasks (all fields), subtasks, custom fields + values, comments/activity history, file attachments, users/roles, time entries, and approval chains. Configurable field mapping (e.g., "Planned Completion Date" → "Due Date"). Import preview with validation before committing. Progress tracking and error log.
+17. **Data Export** — export projects, tasks, and all associated data to CSV, JSON, and Workfront-compatible formats for backup, parallel running, or reverse migration
+18. **Bidirectional Sync** — incremental sync between Workfront and TaskForge during transition periods so teams can adopt gradually without a hard cutover
 
 #### Pain Points
 
@@ -38,6 +41,8 @@
 - Losing historical data and custom field configurations during migration is a dealbreaker
 - Lightweight tools that "look modern" but can't handle 500+ task projects with complex dependencies
 - Tools that force a single methodology (pure Kanban or pure Scrum) — his teams use a hybrid approach
+- Hard cutover migrations are too risky — needs parallel running with both tools until teams are confident in the switch
+- Import tools that only support CSV and lose relationships, comments, and file attachments
 
 #### Usage Scenarios
 
@@ -47,3 +52,5 @@
 4. **Approval cycle**: Uploads a deliverable to a task, triggers a three-stage approval (team lead, legal, client). Each approver gets notified, can comment, request changes, or approve — all tracked in the activity log.
 5. **Month-end reporting**: Builds a custom report showing hours logged per project, variance from baseline estimates, and tasks completed vs. planned. Schedules it for automatic email delivery to stakeholders every Monday.
 6. **Automation**: Sets up a workflow rule: when a task's status changes to "Ready for QA", automatically assign it to the QA lead, move it to the QA column, and send a Slack notification.
+7. **Workfront import**: Connects TaskForge to the existing Workfront instance via API, configures field mapping for 15 custom fields, previews the data, and kicks off a full import of 12 projects with 3,000+ tasks, comments, and attachments. Monitors progress and resolves mapping errors.
+8. **Parallel running**: During the 3-month transition, exports weekly snapshots from TaskForge back to Workfront-compatible format so teams still on Workfront can see updates. Once all teams are on TaskForge, disables the sync.

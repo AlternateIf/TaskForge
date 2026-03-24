@@ -161,10 +161,16 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 - Scoped permissions and expiration
 - Last-used tracking
 
-### GitHub Integration
-- PR/branch linking via commit message parsing
-- PR status in task activity log
-- Deployment event ingestion
+### GitHub & GitLab Integration
+- GitHub App installation and GitLab OAuth connection (first-class parity for both platforms)
+- Link PRs (GitHub) and MRs (GitLab) to tasks via UI, API, or branch naming convention (`feature/TASK-123-*`)
+- Commit reference parsing from commit messages
+- CI/CD pipeline status displayed on linked task cards (pass/fail/running per stage)
+- PR/MR review status on tasks (approved, changes requested, pending)
+- Deployment event ingestion with environment awareness (staging vs. production)
+- Issue import: bulk import GitHub Issues / GitLab Issues with labels, assignees, comments, and linked PRs
+- Issue export: create GitHub/GitLab issues from TaskForge tasks
+- CI test result ingestion — auto-create bug issues on test failure, update test case statuses
 
 ### Notifications (Enhanced)
 - Notification digest (daily/weekly summary)
@@ -183,6 +189,21 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 - CSV and JSON import for tasks, projects, users, time entries
 - Column mapping UI with preview and validation
 - Import job tracking with progress and error log
+
+### Workfront Import
+- API-based import directly from a Workfront instance (OAuth connection)
+- Comprehensive entity import: projects, tasks, subtasks, custom fields + values, comments, activity history, file attachments, users/roles, time entries, approval chains
+- Configurable field mapping UI (Workfront field → TaskForge field)
+- Import preview with validation before committing
+- Preserve original timestamps and relationships
+- Progress tracking with error log and partial rollback
+
+### Data Export
+- Export projects, tasks, comments, and associated data to CSV, JSON
+- TaskForge-native export format (reimportable)
+- Workfront-compatible export format for parallel-running scenarios
+- Scoped by permissions — users can only export data they have access to
+- Bulk export with progress tracking
 
 ### In-App Changelog
 - "What's new" announcements for feature releases
@@ -276,9 +297,19 @@ Portfolio management, advanced resource planning, compliance, ecosystem, and sca
 - Granular per-resource scopes
 - Changelog and migration guide
 
-### Workfront Migration Adapter
-- Workfront-specific import mapping (entities, custom fields, activity history)
-- Preserve original timestamps during migration
+### GitHub & GitLab Integration (Advanced)
+- Bidirectional issue sync between TaskForge tasks and GitHub/GitLab issues
+- Repository browser: view linked repos, recent commits, and open PRs from within a TaskForge project
+- Release linking: link TaskForge releases to GitHub Releases / GitLab tags with auto-status update
+- Status automation rules: configurable triggers (e.g., "PR merged → task to Done", "CI fails → add Blocked label")
+- Cross-platform unified activity feed (PRs from GitHub + MRs from GitLab in one view)
+
+### Workfront Bidirectional Sync
+- Incremental two-way sync between Workfront and TaskForge during transition periods
+- Conflict resolution strategy (last-write-wins with manual override option)
+- Change tracking and ID mapping tables between systems
+- Configurable sync frequency and entity scope
+- Sync dashboard showing status, conflicts, and errors
 
 ### Multi-Workspace (Freelancer)
 - Multiple client workspaces within a single account

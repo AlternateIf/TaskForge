@@ -19,6 +19,9 @@
 - No structured way to link a bug to a specific task, user story, or release
 - Test case management is always a separate tool with its own login and data model
 - Developers close bugs without verifiable test evidence — no proof of fix
+- CI test results live only in GitHub Actions / GitLab CI with no connection to task status
+- No way to see which test cases cover the code changed in a PR
+- Release sign-off requires manually checking CI pass rates across multiple repos and PRs
 
 #### Usage Scenarios
 
@@ -27,3 +30,5 @@
 3. **Regression tracking**: Runs a report showing defect count by severity per sprint over the last 6 releases to identify regression trends. Drills into a spike to see which component introduced the most bugs.
 4. **Release sign-off**: Reviews the release dashboard showing all linked bugs (open, fixed, verified), test pass rate, and outstanding blockers. Adds a sign-off approval or flags remaining issues before deployment.
 5. **CI integration**: Automated test results from the CI pipeline are pushed to TaskForge via the API, automatically updating test case statuses and creating bug issues for new failures.
+6. **PR test coverage**: Opens a task linked to a PR and sees which test cases cover the changed code, which CI test suites ran, and their pass/fail status — all without leaving TaskForge.
+7. **Release CI overview**: During release sign-off, views aggregate CI pass rates across all linked PRs for the release. Flags any PR with failing tests or pending reviews before approving.

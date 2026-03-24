@@ -262,11 +262,21 @@ TaskForge is a collaborative task and project management application designed to
 - Webhook-based integration with Slack, email, and other tools
 - Zapier/Make-friendly OAuth flow and event schemas
 
-##### GitHub Integration
-- Link PRs and branches to tasks via commit message parsing (e.g., `TASK-123`)
-- PR and branch status displayed in task activity log
-- Deployment event ingestion — update task status on successful deploy
-- Implemented as a webhook receiver + GitHub App
+##### GitHub & GitLab Integration
+- First-class support for both GitHub and GitLab (including self-hosted GitLab) — feature parity between platforms
+- GitHub App installation and GitLab OAuth/project token connection
+- Link PRs (GitHub) and MRs (GitLab) to tasks via UI, API, or branch naming convention (`feature/TASK-123-*`)
+- Commit reference parsing from commit messages (e.g., `TASK-123`)
+- CI/CD pipeline status displayed on linked task cards (pass/fail/running, per stage)
+- PR/MR review status on tasks (approved, changes requested, pending)
+- Deployment event ingestion with environment awareness (staging, production) — update task status on deploy
+- Issue import: bulk import GitHub Issues / GitLab Issues into TaskForge preserving labels, assignees, comments, and linked PRs
+- Issue export: create GitHub/GitLab issues from TaskForge tasks for external collaborators
+- Bidirectional issue sync for transition periods
+- CI test result ingestion — auto-create bug issues on test failure, update test case statuses
+- Repository browser: view linked repos, recent commits, and open PRs from within a TaskForge project
+- Release linking: connect TaskForge releases to GitHub Releases / GitLab tags
+- Status automation rules: configurable triggers (e.g., "PR merged → move task to Done")
 
 ##### Alert Ingestion
 - Incoming webhook endpoint accepting payloads from monitoring tools (Prometheus AlertManager, Grafana, PagerDuty, Opsgenie)
@@ -282,8 +292,21 @@ TaskForge is a collaborative task and project management application designed to
 - Import preview with validation errors before committing
 - Preserve original timestamps (created/updated dates) during import
 - Import activity history and comments
-- Workfront-specific migration adapter (map Workfront entities to TaskForge equivalents)
 - Import job tracking with progress, error log, and rollback capability
+
+##### Workfront Import
+- API-based import directly from a Workfront instance via OAuth connection
+- Comprehensive entity import: projects, tasks, subtasks, custom fields + values, comments, activity history, file attachments, users/roles, time entries, approval chains
+- Configurable field mapping (Workfront field names → TaskForge field names)
+- Import preview with validation before committing
+- Bidirectional sync during transition periods (Phase 3)
+
+##### Data Export
+- Export projects, tasks, comments, and associated data to CSV, JSON
+- TaskForge-native export format (reimportable into another TaskForge instance)
+- Workfront-compatible export format for parallel-running migration scenarios
+- Scoped by permissions — users can only export data they have access to
+- Bulk export with progress tracking
 
 ---
 
