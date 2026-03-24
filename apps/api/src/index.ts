@@ -1,3 +1,6 @@
-import { APP_NAME } from '@taskforge/shared';
+import { startServer } from './server.js';
 
-console.log(`${APP_NAME} API placeholder`);
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

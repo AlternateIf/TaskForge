@@ -52,7 +52,7 @@ All errors go through the Fastify error handler and return the standard format:
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "...",
-    "details": [...]
+    "details": ["..."]
   }
 }
 ```
@@ -96,16 +96,16 @@ On SIGTERM:
 - Includes auth (Bearer token) security scheme
 
 ## Acceptance Criteria
-- [ ] Server starts and listens on configured port
-- [ ] `GET /health` returns 200
-- [ ] `GET /ready` returns 200 with all dependencies "ok" (503 if any fail)
-- [ ] Unknown routes return 404 in standard error format
-- [ ] Validation errors return 400 with field-level details
-- [ ] Rate limit headers present on all responses
-- [ ] 429 returned when rate limit exceeded
-- [ ] X-Request-Id present on all responses
-- [ ] Swagger UI accessible at `/docs`
-- [ ] Graceful shutdown completes within 30 seconds
-- [ ] ETag helper correctly generates and compares ETags
-- [ ] Pagination helper encodes/decodes cursors correctly
-- [ ] All errors are logged with structured JSON (no stack traces in response)
+- [x] Server starts and listens on configured port
+- [x] `GET /health` returns 200
+- [x] `GET /ready` returns 200 with all dependencies "ok" (503 if any fail)
+- [x] Unknown routes return 404 in standard error format
+- [x] Validation errors return 400 with field-level details
+- [x] Rate limit headers present on all responses
+- [x] 429 returned when rate limit exceeded
+- [x] X-Request-Id present on all responses
+- [x] Swagger UI accessible at `/docs`
+- [x] Graceful shutdown completes within 30 seconds
+- [x] ETag helper correctly generates and compares ETags
+- [x] Pagination helper encodes/decodes cursors correctly
+- [x] All errors are logged with structured JSON (no stack traces in response)
