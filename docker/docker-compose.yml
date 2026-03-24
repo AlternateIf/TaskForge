@@ -1,0 +1,220 @@
+name: taskforge
+
+services:
+  # ── Application ──────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api/Dockerfile
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../apps/api/src:/app/apps/api/src
+      - ../packages/shared/src:/app/packages/shared/src
+      - ../packages/db/src:/app/packages/db/src
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/worker/Dockerfile
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../apps/api/src:/app/apps/api/src
+      - ../packages/shared/src:/app/packages/shared/src
+      - ../packages/db/src:/app/packages/db/src
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - taskforge
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web/Dockerfile
+    ports:
+      - '5173:5173'
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../apps/web/src:/app/apps/web/src
+      - ../packages/shared/src:/app/packages/shared/src
+    networks:
+      - taskforge
+
+  # ── Data stores ──────────────────────────────────────────────
+  mariadb:
+    image: mariadb:11
+    ports:
+      - '3306:3306'
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-taskforge}
+      MARIADB_DATABASE: ${DB_NAME:-taskforge}
+      MARIADB_USER: ${DB_USER:-taskforge}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-taskforge}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-taskforge}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-taskforge}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge
+
+  meilisearch:
+    image: getmeili/meilisearch:v1
+    ports:
+      - '7700:7700'
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-taskforge_dev_key}
+      MEILI_ENV: development
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:7700/health | grep -q available']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskforge
+
+  # ── Email ────────────────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - '8025:8025'
+      - '1025:1025'
+    networks:
+      - taskforge
+
+  # ── Monitoring ───────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/-/healthy']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - taskforge
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - '3002:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/api/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - taskforge
+
+  loki:
+    image: grafana/loki
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - taskforge
+
+  promtail:
+    image: grafana/promtail
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - taskforge
+
+volumes:
+  mariadb_data:
+  redis_data:
+  rabbitmq_data:
+  meilisearch_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+
+networks:
+  taskforge:
+    driver: bridge
