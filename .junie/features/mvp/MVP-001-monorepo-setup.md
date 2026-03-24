@@ -87,9 +87,9 @@ TaskForge/
 ```
 
 ## Acceptance Criteria
-- [ ] `pnpm install` completes successfully
-- [ ] `pnpm lint` runs Biome across all packages
-- [ ] `pnpm build` builds all packages in dependency order
-- [ ] Each package can import from `@taskforge/shared`
-- [ ] TypeScript strict mode enabled everywhere
-- [ ] `.gitignore` covers node_modules, dist, .env, .turbo
+- [x] `pnpm install` completes successfully
+- [x] `pnpm lint` runs Biome across all packages
+- [x] `pnpm build` builds all packages in dependency order
+- [x] Each package can import from `@taskforge/shared`
+- [x] TypeScript strict mode enabled everywhere
+- [x] `.gitignore` covers node_modules, dist, .env, .turbo

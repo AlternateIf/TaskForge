@@ -1,0 +1,1 @@
+export const EMAIL_TEMPLATES_PLACEHOLDER = true;
