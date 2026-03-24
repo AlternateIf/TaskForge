@@ -14,6 +14,7 @@ The minimum viable product: core task management with auth, projects, a function
 - User profile management
 - MFA support
 - Session invalidation on password change
+- Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)
 
 ### Organizations & Multi-Tenancy
 - Organization creation and membership
