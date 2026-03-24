@@ -49,11 +49,11 @@ Modify `POST /auth/login` to:
 4. If valid: return access + refresh tokens
 
 ## Acceptance Criteria
-- [ ] User can set up MFA and receive a QR code URI
-- [ ] First TOTP code must be verified before MFA is enabled
-- [ ] Login flow correctly requires MFA when enabled
-- [ ] Invalid TOTP code returns 401
-- [ ] MFA can be disabled with a valid TOTP code
-- [ ] MFA secret is encrypted at rest
-- [ ] TOTP window allows ±30 second drift
-- [ ] Tests cover setup, verify, login with MFA, disable
+- [x] User can set up MFA and receive a QR code URI
+- [x] First TOTP code must be verified before MFA is enabled
+- [x] Login flow correctly requires MFA when enabled
+- [x] Invalid TOTP code returns 401
+- [x] MFA can be disabled with a valid TOTP code
+- [x] MFA secret is encrypted at rest (AES-256-GCM)
+- [x] TOTP window allows ±30 second drift
+- [x] Tests cover setup, verify, login with MFA, disable

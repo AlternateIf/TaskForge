@@ -57,7 +57,7 @@ export async function loginHandler(
   const jwtSign = (payload: authService.JwtPayload, opts: { expiresIn: number }) =>
     request.server.jwtSign({ ...payload }, opts.expiresIn);
 
-  const { user, tokens } = await authService.loginUser(
+  const result = await authService.loginUser(
     request.body.email,
     request.body.password,
     jwtSign,
@@ -65,12 +65,21 @@ export async function loginHandler(
     request.headers['user-agent'],
   );
 
-  setRefreshCookie(reply, tokens.refreshTokenRaw);
+  if (result.mfaRequired) {
+    return reply.status(200).send(
+      success({
+        mfaRequired: true,
+        mfaToken: result.mfaToken,
+      }),
+    );
+  }
+
+  setRefreshCookie(reply, result.tokens.refreshTokenRaw);
 
   return reply.status(200).send(
     success({
-      user: toUserOutput(user),
-      accessToken: tokens.accessToken,
+      user: toUserOutput(result.user),
+      accessToken: result.tokens.accessToken,
     }),
   );
 }

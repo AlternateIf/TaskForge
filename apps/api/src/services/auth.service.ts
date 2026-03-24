@@ -82,13 +82,17 @@ export async function registerUser(
   return { user, tokens };
 }
 
+export type LoginResult =
+  | { mfaRequired: false; user: typeof users.$inferSelect; tokens: TokenPair }
+  | { mfaRequired: true; mfaToken: string };
+
 export async function loginUser(
   email: string,
   password: string,
   jwtSign: (payload: JwtPayload, options: { expiresIn: number }) => string,
   ip?: string,
   userAgent?: string,
-): Promise<{ user: typeof users.$inferSelect; tokens: TokenPair }> {
+): Promise<LoginResult> {
   const user = (
     await db
       .select()
@@ -106,11 +110,18 @@ export async function loginUser(
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid email or password');
   }
 
+  // If MFA is enabled, return MFA challenge instead of tokens
+  if (user.mfaEnabled) {
+    const { createMfaToken } = await import('./mfa.service.js');
+    const mfaToken = await createMfaToken(user.id);
+    return { mfaRequired: true, mfaToken };
+  }
+
   // Update last login
   await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
   const tokens = await createSession(user, jwtSign, ip, userAgent);
-  return { user, tokens };
+  return { mfaRequired: false, user, tokens };
 }
 
 export async function createSession(
