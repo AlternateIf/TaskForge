@@ -20,6 +20,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@fastify/cookie':
+        specifier: ^11.0.2
+        version: 11.0.2
       '@fastify/cors':
         specifier: ^11.2.0
         version: 11.2.0
@@ -44,6 +47,12 @@ importers:
       amqplib:
         specifier: ^0.10.9
         version: 0.10.9
+      bcrypt:
+        specifier: ^6.0.0
+        version: 6.0.0
+      drizzle-orm:
+        specifier: ^0.45.1
+        version: 0.45.1(mysql2@3.20.0(@types/node@25.5.0))
       fastify:
         specifier: ^5.8.4
         version: 5.8.4
@@ -66,6 +75,9 @@ importers:
       '@types/amqplib':
         specifier: ^0.10.8
         version: 0.10.8
+      '@types/bcrypt':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
@@ -124,6 +136,10 @@ importers:
         version: 5.9.3
 
   packages/shared:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -654,6 +670,9 @@ packages:
   '@fastify/ajv-compiler@4.0.5':
     resolution: {integrity: sha512-KoWKW+MhvfTRWL4qrhUwAAZoaChluo0m0vbiJlGMt2GXvL4LVPQEjt8kSpHI3IBq5Rez8fg+XeH3cneztq+C7A==}
 
+  '@fastify/cookie@11.0.2':
+    resolution: {integrity: sha512-GWdwdGlgJxyvNv+QcKiGNevSspMQXncjMZ1J8IvuDQk0jvkzgWWZFNC2En3s+nHndZBGV8IbLwOI/sxCZw/mzA==}
+
   '@fastify/cors@11.2.0':
     resolution: {integrity: sha512-LbLHBuSAdGdSFZYTLVA3+Ch2t+sA6nq3Ejc6XLAKiQ6ViS2qFnvicpj0htsx03FyYeLs04HfRNBsz/a8SvbcUw==}
 
@@ -840,6 +859,9 @@ packages:
   '@types/amqplib@0.10.8':
     resolution: {integrity: sha512-vtDp8Pk1wsE/AuQ8/Rgtm6KUZYqcnTgNvEHwzCkX8rL7AGsC6zqAfKAAJhUZXFhM/Pp++tbnUHiam/8vVpPztA==}
 
+  '@types/bcrypt@6.0.0':
+    resolution: {integrity: sha512-/oJGukuH3D2+D+3H4JWLaAsJ/ji86dhRidzZ/Od7H/i8g+aCmvkeCc6Ni/f9uxGLSQVCRZkX2/lqEFG2BvWtlQ==}
+
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
@@ -917,6 +939,10 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
+
+  bcrypt@6.0.0:
+    resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
+    engines: {node: '>= 18'}
 
   brace-expansion@5.0.5:
     resolution: {integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==}
@@ -1342,6 +1368,14 @@ packages:
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  node-addon-api@8.6.0:
+    resolution: {integrity: sha512-gBVjCaqDlRUk0EwoPNKzIr9KkS9041G/q31IBShPs1Xz6UTA+EXdZADbzqAJQrpDRq71CIMnOP5VMut3SL0z5Q==}
+    engines: {node: ^18 || ^20 || >= 21}
+
+  node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
     hasBin: true
 
   obug@2.1.1:
@@ -1948,6 +1982,11 @@ snapshots:
       ajv-formats: 3.0.1(ajv@8.18.0)
       fast-uri: 3.1.0
 
+  '@fastify/cookie@11.0.2':
+    dependencies:
+      cookie: 1.1.1
+      fastify-plugin: 5.1.0
+
   '@fastify/cors@11.2.0':
     dependencies:
       fastify-plugin: 5.1.0
@@ -2111,6 +2150,10 @@ snapshots:
     dependencies:
       '@types/node': 25.5.0
 
+  '@types/bcrypt@6.0.0':
+    dependencies:
+      '@types/node': 25.5.0
+
   '@types/chai@5.2.3':
     dependencies:
       '@types/deep-eql': 4.0.2
@@ -2195,6 +2238,11 @@ snapshots:
   aws-ssl-profiles@1.1.2: {}
 
   balanced-match@4.0.4: {}
+
+  bcrypt@6.0.0:
+    dependencies:
+      node-addon-api: 8.6.0
+      node-gyp-build: 4.8.4
 
   brace-expansion@5.0.5:
     dependencies:
@@ -2572,6 +2620,10 @@ snapshots:
       lru.min: 1.1.4
 
   nanoid@3.3.11: {}
+
+  node-addon-api@8.6.0: {}
+
+  node-gyp-build@4.8.4: {}
 
   obug@2.1.1: {}
 

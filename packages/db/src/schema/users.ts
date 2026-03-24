@@ -1,5 +1,13 @@
 import { relations } from 'drizzle-orm';
-import { boolean, datetime, index, mysqlTable, text, varchar } from 'drizzle-orm/mysql-core';
+import {
+  boolean,
+  datetime,
+  index,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  varchar,
+} from 'drizzle-orm/mysql-core';
 
 export const users = mysqlTable(
   'users',
@@ -60,9 +68,29 @@ export const sessions = mysqlTable(
   ],
 );
 
+export const verificationTokens = mysqlTable(
+  'verification_tokens',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    userId: varchar('user_id', { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    type: mysqlEnum('type', ['email_verify', 'password_reset']).notNull(),
+    tokenHash: varchar('token_hash', { length: 255 }).notNull(),
+    expiresAt: datetime('expires_at').notNull(),
+    usedAt: datetime('used_at'),
+    createdAt: datetime('created_at').notNull().default(new Date()),
+  },
+  (table) => [
+    index('verification_tokens_user_idx').on(table.userId),
+    index('verification_tokens_hash_idx').on(table.tokenHash),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   oauthAccounts: many(oauthAccounts),
   sessions: many(sessions),
+  verificationTokens: many(verificationTokens),
 }));
 
 export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
@@ -71,4 +99,8 @@ export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+export const verificationTokensRelations = relations(verificationTokens, ({ one }) => ({
+  user: one(users, { fields: [verificationTokens.userId], references: [users.id] }),
 }));

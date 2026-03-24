@@ -65,17 +65,17 @@ packages/shared/src/
 - Password reset token: random 32-byte hex, expires in 1 hour
 
 ## Acceptance Criteria
-- [ ] User can register with email and password
-- [ ] Duplicate email returns 409 CONFLICT
-- [ ] Login returns JWT access token and sets refresh cookie
-- [ ] Invalid credentials return 401
-- [ ] Access token expires after 15 minutes
-- [ ] Refresh token returns new access token
-- [ ] Expired refresh token returns 401
-- [ ] Logout invalidates session and clears cookie
-- [ ] Password change invalidates all other sessions
-- [ ] Protected endpoints return 401 without token
-- [ ] User profile can be read and updated
-- [ ] All auth endpoints have Zod validation
-- [ ] Passwords are bcrypt hashed (never stored in plain text)
-- [ ] Tests cover registration, login, refresh, logout, password change
+- [x] User can register with email and password
+- [x] Duplicate email returns 409 CONFLICT
+- [x] Login returns JWT access token and sets refresh cookie
+- [x] Invalid credentials return 401
+- [x] Access token expires after 15 minutes
+- [x] Refresh token returns new access token
+- [x] Expired refresh token returns 401
+- [x] Logout invalidates session and clears cookie
+- [x] Password change invalidates all other sessions
+- [x] Protected endpoints return 401 without token
+- [x] User profile can be read and updated
+- [x] All auth endpoints have Zod validation
+- [x] Passwords are bcrypt hashed (never stored in plain text)
+- [x] Tests cover registration, login, refresh, logout, password change

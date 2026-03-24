@@ -9,7 +9,7 @@ This document defines the phasing of features from [requirements.md](requirement
 The minimum viable product: core task management with auth, projects, a functional UI, and real-time updates.
 
 ### Auth & Users
-- JWT-based registration and login
+- ~~JWT-based registration and login~~ ✅
 - OAuth 2.0 / OIDC login (Google, GitHub)
 - User profile management
 - MFA support
