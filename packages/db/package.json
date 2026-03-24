@@ -7,12 +7,22 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "push": "drizzle-kit push",
+    "migrate": "drizzle-kit migrate",
+    "migrate:generate": "drizzle-kit generate",
+    "seed": "tsx src/seed/index.ts",
+    "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@taskforge/shared": "workspace:*"
+    "@taskforge/shared": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "mysql2": "^3.20.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

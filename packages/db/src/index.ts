@@ -1,1 +1,3 @@
-export const DB_PLACEHOLDER = true;
+export { db, pool } from './client.js';
+export type { Database } from './client.js';
+export * from './schema/index.js';

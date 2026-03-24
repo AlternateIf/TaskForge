@@ -101,12 +101,12 @@ const pool = mysql.createPool({
 ```
 
 ## Acceptance Criteria
-- [ ] `pnpm --filter db migrate` creates all MVP tables in MariaDB
-- [ ] `pnpm --filter db seed` populates test data
-- [ ] `pnpm --filter db studio` opens Drizzle Studio for visual DB browsing
-- [ ] All foreign keys and indexes are correctly defined
-- [ ] UUID primary keys on main entities (User, Organization, Project, Task)
-- [ ] Soft delete (deleted_at) on User, Organization, Project, Task, Comment
-- [ ] ActivityLog is append-only (no update/delete in schema)
-- [ ] Factory functions generate valid test data for all entities
-- [ ] Connection pool settings are configurable via environment variables
+- [x] `pnpm --filter db push` creates all MVP tables in MariaDB (push for dev, migrate for prod)
+- [x] `pnpm --filter db seed` populates test data
+- [x] `pnpm --filter db studio` opens Drizzle Studio for visual DB browsing
+- [x] All foreign keys and indexes are correctly defined
+- [x] UUID primary keys on main entities (User, Organization, Project, Task)
+- [x] Soft delete (deleted_at) on User, Organization, Project, Task, Comment
+- [x] ActivityLog is append-only (no update/delete in schema)
+- [x] Factory functions generate valid test data for all entities
+- [x] Connection pool settings are configurable via environment variables
