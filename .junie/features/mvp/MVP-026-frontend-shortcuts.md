@@ -86,3 +86,4 @@ packages/shared/src/constants/
 - [ ] Chord shortcuts work (`g` + `d` within 500ms)
 - [ ] Overlay shows all shortcuts grouped by scope
 - [ ] Shortcuts don't conflict with browser/screen reader hotkeys
+- [ ] Unit tests cover shortcut registration, chord detection, and scope-based activation logic

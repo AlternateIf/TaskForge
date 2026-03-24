@@ -93,3 +93,4 @@ apps/web/src/
 - [ ] Empty states with helpful messages
 - [ ] Responsive: board scrolls horizontally on mobile; list stacks vertically
 - [ ] Accessible drag-and-drop (keyboard support)
+- [ ] Unit tests cover component logic, task filtering, and drag-and-drop state management

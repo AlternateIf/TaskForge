@@ -65,3 +65,4 @@ packages/shared/src/schemas/
 - [ ] Login/registration flows respect org auth settings
 - [ ] Non-admin users receive 403 when attempting to modify auth settings
 - [ ] Changes are audited in the activity log
+- [ ] Unit tests cover service-layer functions, validation schemas, and lockout prevention logic

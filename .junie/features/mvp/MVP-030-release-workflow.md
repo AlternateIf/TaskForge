@@ -122,3 +122,4 @@ git push origin v0.1.0-rc.1
 - [ ] Pre-releases do not update the `latest` Docker tag
 - [ ] Release title matches the tag name
 - [ ] PR labels correctly categorize changelog entries
+- [ ] Unit tests cover version parsing utilities and Docker tag generation logic

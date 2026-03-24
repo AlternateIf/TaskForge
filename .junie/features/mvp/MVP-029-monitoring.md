@@ -189,3 +189,4 @@ The worker process (MVP-018) runs a minimal HTTP server on port 3001 that:
 - [ ] Logs are queryable in Grafana Explore
 - [ ] All dashboards render correctly with live data
 - [ ] `/metrics` endpoint is excluded from auth and rate limiting
+- [ ] Unit tests cover metric registration utilities and configuration logic

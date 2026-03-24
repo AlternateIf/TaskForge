@@ -90,3 +90,4 @@ Sections (top to bottom):
 - [ ] Loading states with skeletons
 - [ ] Empty states with helpful messages
 - [ ] Responsive on mobile
+- [ ] Unit tests cover component logic, search debounce behavior, and notification state management

@@ -116,3 +116,4 @@ apps/web/src/
 - [ ] All edits are optimistic with error handling
 - [ ] Responsive layout works on mobile
 - [ ] Accessible: keyboard navigable, screen reader friendly
+- [ ] Unit tests cover component logic, inline editing behavior, and optimistic update handling

@@ -192,3 +192,4 @@ When user opts in, the API creates:
 - [ ] Returning users skip onboarding
 - [ ] Responsive layout for wizard on mobile
 - [ ] Accessible: keyboard navigable, screen reader friendly
+- [ ] Unit tests cover wizard step navigation logic, onboarding state management, and sample project creation service

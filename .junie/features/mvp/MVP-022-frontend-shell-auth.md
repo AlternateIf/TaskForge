@@ -102,3 +102,4 @@ Button, Input, Label, Card, Dialog, DropdownMenu, Toast/Sonner, Avatar, Badge, S
 - [ ] Loading states show skeleton components
 - [ ] Toast notifications for success/error feedback
 - [ ] WCAG 2.1 AA: keyboard navigable, proper ARIA labels, contrast ratios
+- [ ] Unit tests cover component logic, auth state management, and API client utilities

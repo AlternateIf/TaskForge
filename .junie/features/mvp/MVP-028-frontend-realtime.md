@@ -54,7 +54,7 @@ apps/web/src/
 
 ### Channel manager (`channel-manager.ts`)
 - Subscribe to channels on connect/reconnect:
-  ```json
+  ```jsonl
   { "type": "subscribe", "channel": "project:<projectId>" }
   { "type": "subscribe", "channel": "user:<userId>" }
   ```
@@ -136,3 +136,4 @@ Key behaviors:
 - [ ] Tab visibility change triggers reconnection if needed
 - [ ] Network online event triggers reconnection
 - [ ] Events are batched to prevent render storms
+- [ ] Unit tests cover connection manager logic, channel subscription handling, and TanStack Query cache sync
