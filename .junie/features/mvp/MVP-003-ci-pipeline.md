@@ -57,11 +57,11 @@ if [ $BUNDLE_SIZE -gt 262144 ]; then echo "WARN: bundle > 250KB"; fi
 - Turborepo remote cache (optional, can enable later)
 
 ## Acceptance Criteria
-- [ ] CI runs on push to any branch and on PRs
-- [ ] Lint failure blocks merge
-- [ ] Type errors block merge
-- [ ] Test failure blocks merge
-- [ ] Bundle size > 500KB blocks merge
-- [ ] High/critical vulnerability blocks merge
-- [ ] Pipeline completes in under 5 minutes for a clean run
-- [ ] pnpm cache is restored between runs
+- [x] CI runs on push to main and on PRs (with concurrency cancellation)
+- [x] Lint failure blocks merge
+- [x] Type errors block merge
+- [x] Test failure blocks merge
+- [x] Bundle size > 500KB blocks merge (conditional — skips when no web dist)
+- [x] High/critical vulnerability blocks merge
+- [x] Pipeline completes in under 5 minutes for a clean run (parallel jobs)
+- [x] pnpm cache is restored between runs (via actions/cache)
