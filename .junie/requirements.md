@@ -21,13 +21,18 @@ TaskForge is a collaborative task and project management application designed to
 
 #### Technical Requirements
 
-- **Frontend**: Single-page application (SPA) built with a modern JavaScript framework (e.g., React or Vue).
-- **Backend**: RESTful API server (e.g., Node.js/Express or PHP/Laravel).
-- **Database**: Relational database (e.g., PostgreSQL or MySQL) for structured data storage.
-- **Authentication**: Secure authentication via JWT or session-based tokens; support for OAuth 2.0 social login.
-- **API Documentation**: OpenAPI/Swagger specification for all public endpoints.
-- **Containerization**: Docker and Docker Compose setup for local development and deployment.
-- **CI/CD**: Automated testing and deployment pipeline configuration.
+See **[stack.md](stack.md)** for the full technology stack, libraries, and Docker Compose service definitions.
+
+- **Frontend**: React + TypeScript SPA built with Vite, styled with Tailwind CSS + shadcn/ui.
+- **Backend**: Fastify (Node.js + TypeScript) RESTful API with Drizzle ORM.
+- **Database**: MariaDB for structured data storage; Redis for caching and sessions.
+- **Search**: Meilisearch for full-text search.
+- **Messaging**: RabbitMQ for asynchronous job processing.
+- **Authentication**: JWT-based auth via @fastify/jwt; OAuth 2.0 and OIDC via openid-client.
+- **API Documentation**: Auto-generated OpenAPI/Swagger specification.
+- **Containerization**: Docker Compose for local development and deployment.
+- **CI/CD**: GitHub Actions for automated testing and deployment.
+- **Monitoring**: Prometheus + Grafana + Loki for metrics, dashboards, and log aggregation.
 
 ---
 
