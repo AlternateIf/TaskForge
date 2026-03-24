@@ -73,11 +73,11 @@ Create `.env.example` files:
 - worker depends_on: mariadb (healthy), redis (healthy), rabbitmq (healthy)
 
 ## Acceptance Criteria
-- [ ] `docker compose -f docker/docker-compose.yml up -d` starts all 12 services
-- [ ] All health checks pass within 60 seconds
-- [ ] API container can reach MariaDB, Redis, RabbitMQ, and Meilisearch
-- [ ] Grafana is accessible at localhost:3001 with pre-provisioned Prometheus and Loki data sources
-- [ ] RabbitMQ management UI accessible at localhost:15672
-- [ ] Mailpit web UI accessible at localhost:8025
-- [ ] `docker compose down` cleanly stops all services
-- [ ] `docker compose down -v` also removes volumes (clean reset)
+- [x] `docker compose -f docker/docker-compose.yml up -d` starts all 12 services
+- [x] All health checks pass within 60 seconds
+- [x] API container can reach MariaDB, Redis, RabbitMQ, and Meilisearch
+- [x] Grafana is accessible at localhost:3002 with pre-provisioned Prometheus and Loki data sources
+- [x] RabbitMQ management UI accessible at localhost:15672
+- [x] Mailpit web UI accessible at localhost:8025
+- [x] `docker compose down` cleanly stops all services
+- [x] `docker compose down -v` also removes volumes (clean reset)

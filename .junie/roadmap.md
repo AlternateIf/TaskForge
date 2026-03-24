@@ -80,7 +80,7 @@ The minimum viable product: core task management with auth, projects, a function
 
 ### Infrastructure
 - ~~Monorepo setup (Turborepo + pnpm + Biome + TypeScript)~~ ✅
-- Docker Compose setup (all services)
+- ~~Docker Compose setup (all services)~~ ✅
 - GitHub Actions CI pipeline (lint, test, build, bundle size check, dependency audit)
 - Prometheus + Grafana + Loki monitoring
 
