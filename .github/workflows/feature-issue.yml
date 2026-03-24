@@ -1,0 +1,145 @@
+name: Feature Issue Creator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.junie/features/**/*.md'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-issues:
+    name: Create Issues for New Features
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect new feature files
+        id: detect
+        run: |
+          BEFORE="${{ github.event.before }}"
+
+          # Handle initial commit (all-zero SHA)
+          if echo "$BEFORE" | grep -qE '^0+$'; then
+            echo "Initial push detected — listing all feature files"
+            NEW_FILES=$(git ls-files '.junie/features/**/*.md')
+          else
+            NEW_FILES=$(git diff --name-only --diff-filter=A "$BEFORE" HEAD -- '.junie/features/**/*.md')
+          fi
+
+          if [ -z "$NEW_FILES" ]; then
+            echo "No new feature files detected"
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New feature files:"
+            echo "$NEW_FILES"
+            # Store as multiline output
+            {
+              echo "files<<EOF"
+              echo "$NEW_FILES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "has_files=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure labels exist
+        if: steps.detect.outputs.has_files == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "feature" --color "3B82F6" --description "Feature specification" --force
+          gh label create "mvp" --color "10B981" --description "MVP phase" --force
+          gh label create "phase-2" --color "F59E0B" --description "Phase 2" --force
+          gh label create "phase-3" --color "8B5CF6" --description "Phase 3" --force
+
+      - name: Create issues
+        if: steps.detect.outputs.has_files == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          while IFS= read -r filepath; do
+            [ -z "$filepath" ] && continue
+
+            echo "Processing: $filepath"
+
+            filename=$(basename "$filepath" .md)
+
+            # Extract feature ID (e.g., MVP-031 from MVP-031-auto-feature-issues.md)
+            feature_id=$(echo "$filename" | grep -oE '^[A-Z]+-[0-9]+' || echo "")
+            if [ -z "$feature_id" ]; then
+              echo "  Skipping — no feature ID found in filename"
+              continue
+            fi
+
+            # Check for duplicate (open or closed)
+            existing=$(gh issue list --search "\"[$feature_id]\" in:title" --state all --limit 1 --json number --jq '.[0].number // empty')
+            if [ -n "$existing" ]; then
+              echo "  Skipping — issue #$existing already exists for $feature_id"
+              continue
+            fi
+
+            # Extract title from first # heading
+            title=$(grep -m 1 '^# ' "$filepath" | sed 's/^# //')
+            if [ -z "$title" ]; then
+              title="$filename"
+            fi
+
+            # Extract description (first paragraph after ## Description)
+            description=$(awk '
+              /^## Description/ { found=1; next }
+              found && /^[^#]/ && NF { print; exit }
+            ' "$filepath")
+            # Truncate to 200 chars
+            if [ ${#description} -gt 200 ]; then
+              description="${description:0:197}..."
+            fi
+
+            # Extract acceptance criteria section
+            criteria=$(awk '
+              /^## Acceptance Criteria/ { found=1; next }
+              found && /^## / { exit }
+              found { print }
+            ' "$filepath")
+
+            # Determine phase label from folder path
+            phase_label=""
+            case "$filepath" in
+              *.junie/features/mvp/*) phase_label="mvp" ;;
+              *.junie/features/phase2/*) phase_label="phase-2" ;;
+              *.junie/features/phase3/*) phase_label="phase-3" ;;
+            esac
+
+            labels="feature"
+            if [ -n "$phase_label" ]; then
+              labels="feature,$phase_label"
+            fi
+
+            # Build issue body
+            body="## Description"$'\n'
+            body+="$description"$'\n\n'
+            body+="## Spec"$'\n'
+            body+="[View full specification]($REPO_URL/blob/main/$filepath)"$'\n'
+
+            if [ -n "$criteria" ]; then
+              body+=$'\n'"## Acceptance Criteria"$'\n'
+              body+="$criteria"
+            fi
+
+            body+=$'\n'"---"$'\n'
+            body+="*Auto-generated from \`$filepath\`*"
+
+            # Create the issue
+            issue_url=$(gh issue create \
+              --title "[$feature_id] $title" \
+              --body "$body" \
+              --label "$labels")
+
+            echo "  Created: $issue_url"
+
+          done <<< "${{ steps.detect.outputs.files }}"
