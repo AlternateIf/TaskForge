@@ -1,0 +1,173 @@
+# TaskForge — Environment Setup
+
+How to clone, install, run, and test TaskForge locally.
+
+---
+
+## Prerequisites
+
+| Tool | Minimum Version | Purpose |
+|---|---|---|
+| Node.js | 20 LTS | Runtime |
+| pnpm | 9.x | Package manager |
+| Docker | 24.x | Container runtime |
+| Docker Compose | 2.x | Service orchestration |
+| Git | 2.x | Version control |
+
+---
+
+## Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone git@github.com:<org>/TaskForge.git
+cd TaskForge
+```
+
+### 2. Install dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Set up environment variables
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+Edit `.env` files as needed. Defaults work for local Docker development.
+
+### 4. Start all services
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```
+
+This starts: MariaDB, Redis, RabbitMQ, Meilisearch, Prometheus, Grafana, Loki, Promtail, and Mailpit.
+
+### 5. Run database migrations and seed
+
+```bash
+pnpm --filter db migrate
+pnpm --filter db seed
+```
+
+### 6. Start the development servers
+
+```bash
+pnpm dev
+```
+
+This starts both the API and web dev servers via Turborepo:
+- **API**: http://localhost:3000
+- **Web**: http://localhost:5173
+- **Swagger UI**: http://localhost:3000/docs
+
+---
+
+## Service URLs (Local Development)
+
+| Service | URL | Credentials |
+|---|---|---|
+| Web app | http://localhost:5173 | Seeded test users (see seed output) |
+| API | http://localhost:3000 | — |
+| Swagger docs | http://localhost:3000/docs | — |
+| RabbitMQ management | http://localhost:15672 | guest / guest |
+| Meilisearch | http://localhost:7700 | Master key in .env |
+| Grafana | http://localhost:3001 | admin / admin |
+| Prometheus | http://localhost:9090 | — |
+| Mailpit (email) | http://localhost:8025 | — |
+
+---
+
+## Common Commands
+
+### Development
+
+```bash
+pnpm dev                    # Start all dev servers (Turborepo)
+pnpm dev --filter api       # Start API only
+pnpm dev --filter web       # Start web only
+```
+
+### Building
+
+```bash
+pnpm build                  # Build all packages and apps
+pnpm build --filter api     # Build API only
+pnpm build --filter web     # Build web only
+```
+
+### Database
+
+```bash
+pnpm --filter db migrate          # Run pending migrations
+pnpm --filter db migrate:generate # Generate migration from schema changes
+pnpm --filter db seed             # Seed development data
+pnpm --filter db studio           # Open Drizzle Studio (DB browser)
+```
+
+### Testing
+
+```bash
+pnpm test                   # Run all tests (Turborepo)
+pnpm test --filter api      # Run API tests only
+pnpm test --filter web      # Run web tests only
+pnpm test:e2e               # Run Playwright E2E tests
+pnpm test:coverage          # Run tests with coverage report
+```
+
+### Linting & Formatting
+
+```bash
+pnpm lint                   # Run Biome check
+pnpm lint:fix               # Auto-fix lint and format issues
+```
+
+### Docker
+
+```bash
+docker compose -f docker/docker-compose.yml up -d      # Start all services
+docker compose -f docker/docker-compose.yml down        # Stop all services
+docker compose -f docker/docker-compose.yml logs -f api # Tail API logs
+```
+
+---
+
+## Worker
+
+The worker process runs separately from the API and consumes RabbitMQ messages:
+
+```bash
+pnpm --filter api worker    # Start the worker process
+```
+
+In Docker, the worker runs as a separate container using the same API image with a different entry point.
+
+---
+
+## Troubleshooting
+
+### Port conflicts
+If default ports are in use, override them in `docker/docker-compose.yml` or via `.env`.
+
+### Database connection refused
+Ensure MariaDB container is healthy before running migrations:
+```bash
+docker compose -f docker/docker-compose.yml ps
+```
+
+### RabbitMQ not ready
+RabbitMQ may take a few seconds to initialize. The API and worker will retry connections automatically.
+
+### Clean reset
+To start fresh (destroys all local data):
+```bash
+docker compose -f docker/docker-compose.yml down -v
+docker compose -f docker/docker-compose.yml up -d
+pnpm --filter db migrate
+pnpm --filter db seed
+```
