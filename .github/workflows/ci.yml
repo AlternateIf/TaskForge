@@ -60,6 +60,13 @@ jobs:
 
       - run: pnpm lint
 
+      - name: Enforce frontend DB isolation
+        run: |
+          if grep -q '@taskforge/db' apps/web/package.json; then
+            echo "::error::apps/web must not depend on @taskforge/db — all data access goes through the API"
+            exit 1
+          fi
+
   typecheck:
     name: Type Check
     needs: install

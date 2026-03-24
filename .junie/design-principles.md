@@ -56,6 +56,7 @@ Security is built into every layer, not bolted on:
 - Enforce least-privilege access at every boundary.
 - Encrypt data in transit and at rest.
 - Never expose sensitive information in logs, URLs, or error messages.
+- **Database access separation**: Only the backend (`apps/api`) may access the database via `@taskforge/db`. The frontend (`apps/web`) must never depend on `@taskforge/db` or hold database credentials — all data flows through the REST API. This is enforced by CI.
 
 ---
 
