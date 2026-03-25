@@ -94,6 +94,15 @@ The minimum viable product: core task management with auth, projects, a function
 
 Richer collaboration, reporting, time tracking, enterprise features, and integrations.
 
+### Custom Roles & Granular Permissions
+- Custom role CRUD (create, clone, edit, delete) — per organization
+- Granular per-resource, per-action permission editing with atomic updates
+- Live permission changes — zero downtime, no restart, no re-auth
+- Escalation prevention (cannot grant permissions you don't hold)
+- Built-in system roles remain immutable
+- Permission matrix API and UI
+- Full audit trail for role/permission changes
+
 ### Issues & Bug Tracking
 - Separate issue type linked to tasks and releases
 - Severity, priority, steps to reproduce, resolution tracking
