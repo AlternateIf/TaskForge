@@ -76,6 +76,18 @@ export const updateChecklistItemSchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 
+// --- Dependencies ---
+
+export const DEPENDENCY_TYPES = ['blocked_by'] as const;
+export type DependencyType = (typeof DEPENDENCY_TYPES)[number];
+
+export const createDependencySchema = z.object({
+  dependsOnTaskId: z.string().uuid('Invalid task ID'),
+  type: z.enum(DEPENDENCY_TYPES),
+});
+
+export type CreateDependencyInput = z.infer<typeof createDependencySchema>;
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type AssignTaskInput = z.infer<typeof assignTaskSchema>;

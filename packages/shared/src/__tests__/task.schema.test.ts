@@ -4,6 +4,7 @@ import {
   assignTaskSchema,
   createChecklistItemSchema,
   createChecklistSchema,
+  createDependencySchema,
   createSubtaskSchema,
   createTaskSchema,
   updateChecklistItemSchema,
@@ -303,6 +304,39 @@ describe('task schemas', () => {
 
     it('should reject non-boolean isCompleted', () => {
       expect(() => updateChecklistItemSchema.parse({ isCompleted: 'yes' })).toThrow();
+    });
+  });
+
+  // --- Dependency schemas ---
+
+  describe('createDependencySchema', () => {
+    it('should accept a valid dependency', () => {
+      const result = createDependencySchema.parse({
+        dependsOnTaskId: validUuid,
+        type: 'blocked_by',
+      });
+      expect(result.dependsOnTaskId).toBe(validUuid);
+      expect(result.type).toBe('blocked_by');
+    });
+
+    it('should reject invalid UUID for dependsOnTaskId', () => {
+      expect(() =>
+        createDependencySchema.parse({ dependsOnTaskId: 'not-uuid', type: 'blocked_by' }),
+      ).toThrow();
+    });
+
+    it('should reject missing dependsOnTaskId', () => {
+      expect(() => createDependencySchema.parse({ type: 'blocked_by' })).toThrow();
+    });
+
+    it('should reject missing type', () => {
+      expect(() => createDependencySchema.parse({ dependsOnTaskId: validUuid })).toThrow();
+    });
+
+    it('should reject invalid type', () => {
+      expect(() =>
+        createDependencySchema.parse({ dependsOnTaskId: validUuid, type: 'blocks' }),
+      ).toThrow();
     });
   });
 });

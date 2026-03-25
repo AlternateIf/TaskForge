@@ -98,3 +98,4 @@ await activityService.log({
 - [ ] Project changes (CRUD, member changes, workflow/label changes) create activity log entries (from MVP-011)
 - [ ] Task changes (CRUD, assign, status change, label add/remove) create activity log entries with before/after values (from MVP-012)
 - [ ] Subtask and checklist changes create activity log entries (from MVP-013)
+- [ ] Dependency changes (add, remove) create activity log entries (from MVP-014)

@@ -44,12 +44,12 @@ apps/api/src/
 On creating a new dependency, walk the dependency graph (BFS/DFS) to ensure no cycle is formed. Reject with 422 if circular.
 
 ## Acceptance Criteria
-- [ ] Dependencies can be created (blocks / blocked_by)
-- [ ] Dependencies can be listed for a task (both directions)
-- [ ] Dependencies can be removed
-- [ ] Circular dependencies are detected and rejected
-- [ ] Self-dependencies are rejected
-- [ ] Task response includes `isBlocked` and `blockedByCount` fields
-- [ ] Cross-project dependencies work
-- [ ] Activity log records dependency changes
-- [ ] Tests cover creation, removal, circular detection, blocked status
+- [x] Dependencies can be created (blocks / blocked_by)
+- [x] Dependencies can be listed for a task (both directions)
+- [x] Dependencies can be removed
+- [x] Circular dependencies are detected and rejected
+- [x] Self-dependencies are rejected
+- [x] Task response includes `isBlocked` and `blockedByCount` fields
+- [x] Cross-project dependencies work (within same org; cross-org rejected)
+- [x] ~~Activity log records dependency changes~~ → deferred to MVP-017
+- [x] Tests cover creation, removal, circular detection, blocked status

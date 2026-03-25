@@ -15,6 +15,7 @@ import {
 import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
 import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { computeBlockedStatus } from './dependency.service.js';
 
 const POSITION_GAP = 1000;
 
@@ -41,6 +42,8 @@ export interface TaskOutput {
   estimatedHours: string | null;
   position: number;
   progress: TaskProgress | null;
+  isBlocked: boolean;
+  blockedByCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -138,6 +141,7 @@ function toTaskOutput(
   t: typeof tasks.$inferSelect,
   statusName?: string | null,
   progress?: TaskProgress | null,
+  blockedStatus?: { isBlocked: boolean; blockedByCount: number } | null,
 ): TaskOutput {
   return {
     id: t.id,
@@ -155,6 +159,8 @@ function toTaskOutput(
     estimatedHours: t.estimatedHours ?? null,
     position: t.position,
     progress: progress ?? null,
+    isBlocked: blockedStatus?.isBlocked ?? false,
+    blockedByCount: blockedStatus?.blockedByCount ?? 0,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -372,7 +378,8 @@ export async function getTask(taskId: string): Promise<TaskOutput> {
   }
 
   const progress = await loadTaskProgress(taskId);
-  return toTaskOutput(result[0].task, result[0].statusName, progress);
+  const blocked = await computeBlockedStatus(taskId);
+  return toTaskOutput(result[0].task, result[0].statusName, progress, blocked);
 }
 
 export async function updateTask(
