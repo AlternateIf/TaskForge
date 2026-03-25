@@ -71,10 +71,11 @@ jobs:
             filename=$(basename "$filepath" .md)
 
             # Extract feature ID (e.g., MVP-031 from MVP-031-auto-feature-issues.md)
-            feature_id=$(echo "$filename" | grep -oE '^[A-Z]+-[0-9]+' || echo "")
+            # Falls back to the full filename (without .md) if no ID pattern found
+            feature_id=$(echo "$filename" | grep -oE '^[A-Z0-9]+-[0-9]+' || echo "")
             if [ -z "$feature_id" ]; then
-              echo "  Skipping — no feature ID found in filename"
-              continue
+              feature_id="$filename"
+              echo "  No numeric ID pattern found — using filename: $feature_id"
             fi
 
             # Check for duplicate (open or closed)

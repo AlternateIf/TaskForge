@@ -1,4 +1,4 @@
-# Phase 2: Custom Roles & Granular Permission Management
+# P2-001: Custom Roles & Granular Permission Management
 
 ## Description
 Full customization of roles and permissions at the organization level. Admins can create, edit, clone, and delete custom roles with granular per-resource, per-action permission control — all live, with zero downtime. No Docker restart, no rebuild, no config changes. Changes take effect on the user's next API request.
