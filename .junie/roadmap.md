@@ -22,8 +22,8 @@ The minimum viable product: core task management with auth, projects, a function
 - Trial signup flow (no credit card, minimal setup wizard)
 
 ### Roles & Permissions
-- Built-in roles: Super Admin, Admin, Project Manager, Team Member, Guest
-- Role-based access at organization and project level
+- ~~Built-in roles: Super Admin, Admin, Project Manager, Team Member, Guest~~ ✅
+- ~~Role-based access at organization and project level~~ ✅
 
 ### Projects
 - Create, edit, archive, delete projects

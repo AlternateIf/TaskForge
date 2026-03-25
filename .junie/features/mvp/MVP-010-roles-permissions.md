@@ -64,13 +64,13 @@ app.post('/api/v1/projects/:projectId/tasks',
 ```
 
 ## Acceptance Criteria
-- [ ] All 5 built-in roles are seeded on organization creation
-- [ ] Permission checks gate every CRUD operation
-- [ ] Super Admin can do everything
-- [ ] Guest can only read
-- [ ] Team Member can create/update own tasks but not delete
-- [ ] Project-level roles override org-level roles
-- [ ] 403 returned with standard error format when denied
-- [ ] Permission check is efficient (cached role+permissions per request)
-- [ ] Activity log records permission/role changes
-- [ ] Tests cover each role's access to each resource
+- [x] All 5 built-in roles are seeded on organization creation (with permissions)
+- [x] Permission checks gate every CRUD operation (authorize hook)
+- [x] Super Admin can do everything (fast path bypass)
+- [x] Guest can only read
+- [x] Team Member can create/update own tasks but not delete
+- [x] Project-level roles override org-level roles
+- [x] 403 returned with standard error format when denied
+- [x] Permission check is efficient (cached role+permissions per request)
+- [x] ~~Activity log records permission/role changes~~ → deferred to MVP-017
+- [x] Tests cover each role's access to each resource

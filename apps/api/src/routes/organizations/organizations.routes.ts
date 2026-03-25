@@ -1,4 +1,16 @@
+import {
+  addMemberSchema,
+  createOrganizationSchema,
+  updateMemberRoleSchema,
+  updateOrganizationSchema,
+} from '@taskforge/shared';
+import type {
+  AddMemberInput,
+  UpdateMemberRoleInput,
+  UpdateOrganizationInput,
+} from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
+import { authorize } from '../../hooks/authorize.hook.js';
 import {
   addMemberHandler,
   createOrganizationHandler,
@@ -10,18 +22,12 @@ import {
   updateMemberRoleHandler,
   updateOrganizationHandler,
 } from './organizations.handlers.js';
-import {
-  addMemberSchema,
-  createOrganizationSchema,
-  updateMemberRoleSchema,
-  updateOrganizationSchema,
-} from '@taskforge/shared';
 
 export async function organizationRoutes(fastify: FastifyInstance) {
   // All org routes require authentication
   fastify.addHook('preHandler', fastify.authenticate);
 
-  // Organization CRUD
+  // Create: any authenticated user can create an org (they become Super Admin)
   fastify.post(
     '/api/v1/organizations',
     {
@@ -32,44 +38,73 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     createOrganizationHandler,
   );
 
+  // List: returns only orgs the user belongs to
   fastify.get('/api/v1/organizations', {}, listOrganizationsHandler);
 
-  fastify.get('/api/v1/organizations/:id', {}, getOrganizationHandler);
+  // Get: requires org read permission
+  fastify.get<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id',
+    { preHandler: authorize({ resource: 'organization', action: 'read' }) },
+    getOrganizationHandler,
+  );
 
-  fastify.patch(
+  // Update: requires org update permission (Admin+)
+  fastify.patch<{ Params: { id: string }; Body: UpdateOrganizationInput }>(
     '/api/v1/organizations/:id',
     {
-      preHandler: async (request) => {
-        request.body = updateOrganizationSchema.parse(request.body);
-      },
+      preHandler: [
+        authorize({ resource: 'organization', action: 'update' }),
+        async (request) => {
+          request.body = updateOrganizationSchema.parse(request.body);
+        },
+      ],
     },
     updateOrganizationHandler,
   );
 
-  fastify.delete('/api/v1/organizations/:id', {}, deleteOrganizationHandler);
+  // Delete: requires org delete (Super Admin only)
+  fastify.delete<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id',
+    { preHandler: authorize({ resource: 'organization', action: 'delete' }) },
+    deleteOrganizationHandler,
+  );
 
   // Members
-  fastify.get('/api/v1/organizations/:id/members', {}, listMembersHandler);
+  fastify.get<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id/members',
+    { preHandler: authorize({ resource: 'organization', action: 'read' }) },
+    listMembersHandler,
+  );
 
-  fastify.post(
+  fastify.post<{ Params: { id: string }; Body: AddMemberInput }>(
     '/api/v1/organizations/:id/members',
     {
-      preHandler: async (request) => {
-        request.body = addMemberSchema.parse(request.body);
-      },
+      preHandler: [
+        authorize({ resource: 'organization', action: 'update' }),
+        async (request) => {
+          request.body = addMemberSchema.parse(request.body);
+        },
+      ],
     },
     addMemberHandler,
   );
 
-  fastify.patch(
+  fastify.patch<{ Params: { id: string; memberId: string }; Body: UpdateMemberRoleInput }>(
     '/api/v1/organizations/:id/members/:memberId',
     {
-      preHandler: async (request) => {
-        request.body = updateMemberRoleSchema.parse(request.body);
-      },
+      preHandler: [
+        authorize({ resource: 'organization', action: 'update' }),
+        async (request) => {
+          request.body = updateMemberRoleSchema.parse(request.body);
+        },
+      ],
     },
     updateMemberRoleHandler,
   );
 
-  fastify.delete('/api/v1/organizations/:id/members/:memberId', {}, removeMemberHandler);
+  fastify.delete<{ Params: { id: string; memberId: string } }>(
+    '/api/v1/organizations/:id/members/:memberId',
+    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
+    removeMemberHandler,
+  );
 }

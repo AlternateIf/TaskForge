@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { db, organizationMembers, organizations, roles, users } from '@taskforge/db';
+import { db, organizationMembers, organizations, permissions, roles, users } from '@taskforge/db';
+import { BUILT_IN_PERMISSIONS } from '@taskforge/shared';
 import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -105,6 +106,18 @@ export async function createOrganization(
       updatedAt: now,
     });
     createdRoles.push({ id: roleId, name: role.name });
+
+    // Seed permissions for this role
+    const rolePermissions = BUILT_IN_PERMISSIONS[role.name] ?? [];
+    for (const perm of rolePermissions) {
+      await db.insert(permissions).values({
+        id: crypto.randomUUID(),
+        roleId,
+        resource: perm.resource,
+        action: perm.action,
+        scope: perm.scope,
+      });
+    }
   }
 
   // Add creator as Super Admin
