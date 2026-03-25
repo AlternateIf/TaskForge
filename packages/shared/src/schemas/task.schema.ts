@@ -88,6 +88,45 @@ export const createDependencySchema = z.object({
 
 export type CreateDependencyInput = z.infer<typeof createDependencySchema>;
 
+// --- Bulk Actions ---
+
+export const BULK_ACTIONS = [
+  'updateStatus',
+  'assign',
+  'updatePriority',
+  'addLabel',
+  'delete',
+  'moveToProject',
+] as const;
+export type BulkAction = (typeof BULK_ACTIONS)[number];
+
+export const bulkActionSchema = z.object({
+  action: z.enum(BULK_ACTIONS),
+  ids: z
+    .array(z.string().uuid('Invalid task ID'))
+    .min(1, 'At least one task ID required')
+    .max(100, 'Maximum 100 tasks per bulk request'),
+  data: z
+    .object({
+      statusId: z.string().uuid('Invalid status ID').optional(),
+      assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+      priority: z.enum(TASK_PRIORITIES).optional(),
+      labelId: z.string().uuid('Invalid label ID').optional(),
+      projectId: z.string().uuid('Invalid project ID').optional(),
+    })
+    .optional(),
+});
+
+export type BulkActionInput = z.infer<typeof bulkActionSchema>;
+
+// --- Undo ---
+
+export const undoSchema = z.object({
+  undoToken: z.string().min(1, 'Undo token is required'),
+});
+
+export type UndoInput = z.infer<typeof undoSchema>;
+
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type AssignTaskInput = z.infer<typeof assignTaskSchema>;

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   addTaskLabelSchema,
   assignTaskSchema,
+  bulkActionSchema,
   createChecklistItemSchema,
   createChecklistSchema,
   createDependencySchema,
   createSubtaskSchema,
   createTaskSchema,
+  undoSchema,
   updateChecklistItemSchema,
   updateChecklistSchema,
   updateTaskPositionSchema,
@@ -337,6 +339,83 @@ describe('task schemas', () => {
       expect(() =>
         createDependencySchema.parse({ dependsOnTaskId: validUuid, type: 'blocks' }),
       ).toThrow();
+    });
+  });
+
+  // --- Bulk action schemas ---
+
+  describe('bulkActionSchema', () => {
+    it('should accept a valid bulk updateStatus', () => {
+      const result = bulkActionSchema.parse({
+        action: 'updateStatus',
+        ids: [validUuid],
+        data: { statusId: validUuid },
+      });
+      expect(result.action).toBe('updateStatus');
+      expect(result.ids).toHaveLength(1);
+    });
+
+    it('should accept a valid bulk assign', () => {
+      const result = bulkActionSchema.parse({
+        action: 'assign',
+        ids: [validUuid],
+        data: { assigneeId: validUuid },
+      });
+      expect(result.action).toBe('assign');
+    });
+
+    it('should accept bulk delete without data', () => {
+      const result = bulkActionSchema.parse({
+        action: 'delete',
+        ids: [validUuid],
+      });
+      expect(result.action).toBe('delete');
+    });
+
+    it('should reject empty ids array', () => {
+      expect(() => bulkActionSchema.parse({ action: 'delete', ids: [] })).toThrow();
+    });
+
+    it('should reject more than 100 ids', () => {
+      const ids = Array.from({ length: 101 }, () => validUuid);
+      expect(() => bulkActionSchema.parse({ action: 'delete', ids })).toThrow();
+    });
+
+    it('should reject invalid action', () => {
+      expect(() => bulkActionSchema.parse({ action: 'archive', ids: [validUuid] })).toThrow();
+    });
+
+    it('should reject invalid UUID in ids', () => {
+      expect(() => bulkActionSchema.parse({ action: 'delete', ids: ['not-uuid'] })).toThrow();
+    });
+
+    it('should accept all valid actions', () => {
+      for (const action of [
+        'updateStatus',
+        'assign',
+        'updatePriority',
+        'addLabel',
+        'delete',
+        'moveToProject',
+      ]) {
+        const result = bulkActionSchema.parse({ action, ids: [validUuid] });
+        expect(result.action).toBe(action);
+      }
+    });
+  });
+
+  describe('undoSchema', () => {
+    it('should accept a valid undo token', () => {
+      const result = undoSchema.parse({ undoToken: 'abc-123' });
+      expect(result.undoToken).toBe('abc-123');
+    });
+
+    it('should reject empty undo token', () => {
+      expect(() => undoSchema.parse({ undoToken: '' })).toThrow();
+    });
+
+    it('should reject missing undo token', () => {
+      expect(() => undoSchema.parse({})).toThrow();
     });
   });
 });

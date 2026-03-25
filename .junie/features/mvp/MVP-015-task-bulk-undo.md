@@ -18,7 +18,7 @@ Bulk operations on multiple tasks (assign, move, change status, delete) and undo
 | POST | `/api/v1/tasks/bulk` | Bulk action on multiple tasks |
 
 ### Bulk actions
-```json
+```jsonc
 // Change status
 { "action": "updateStatus", "ids": ["id1", "id2"], "data": { "statusId": "abc" } }
 
@@ -72,17 +72,17 @@ apps/api/src/
 - Partial success: some may succeed while others fail
 
 ## Acceptance Criteria
-- [ ] Bulk status change works on multiple tasks
-- [ ] Bulk assign works
-- [ ] Bulk priority change works
-- [ ] Bulk label add works
-- [ ] Bulk delete works (soft delete)
-- [ ] Bulk move to project works
-- [ ] Max 100 items enforced
-- [ ] Partial success: individual permission checks per task
-- [ ] Response reports succeeded and failed items separately
-- [ ] Each individual task change returns an undoToken
-- [ ] Undo reverses the action within 30 seconds
-- [ ] Expired undo tokens return 410 GONE
-- [ ] Activity log records each individual change in bulk
-- [ ] Tests cover each bulk action, partial failure, undo
+- [x] Bulk status change works on multiple tasks
+- [x] Bulk assign works
+- [x] Bulk priority change works
+- [x] Bulk label add works
+- [x] Bulk delete works (soft delete)
+- [x] Bulk move to project works
+- [x] Max 100 items enforced
+- [x] Partial success: individual permission checks per task
+- [x] Response reports succeeded and failed items separately
+- [x] Each individual task change returns an undoToken (via undo service)
+- [x] Undo reverses the action within 30 seconds
+- [x] Expired undo tokens return 410 GONE
+- [x] ~~Activity log records each individual change in bulk~~ → deferred to MVP-017
+- [x] Tests cover each bulk action, partial failure, undo

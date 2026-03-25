@@ -35,8 +35,8 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Subtasks and checklists~~ ✅
 - ~~Task dependencies (blocked by / blocks)~~ ✅
 - ~~Drag-and-drop reordering~~ ✅
-- Bulk actions
-- Undo for accidental actions
+- ~~Bulk actions~~ ✅
+- ~~Undo for accidental actions~~ ✅
 - Keyboard shortcuts (quick create, status change, navigation, search)
 - Keyboard shortcut reference overlay (`?`)
 

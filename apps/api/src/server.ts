@@ -16,6 +16,7 @@ import { checklistRoutes } from './routes/checklists/checklists.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
+import { bulkRoutes } from './routes/tasks/bulk.routes.js';
 import { dependencyRoutes } from './routes/tasks/dependencies.routes.js';
 import { subtaskRoutes } from './routes/tasks/subtasks.routes.js';
 import { taskRoutes } from './routes/tasks/tasks.routes.js';
@@ -54,6 +55,7 @@ export async function buildServer() {
   await fastify.register(taskRoutes);
   await fastify.register(subtaskRoutes);
   await fastify.register(dependencyRoutes);
+  await fastify.register(bulkRoutes);
   await fastify.register(checklistRoutes);
   await fastify.register(userRoutes);
 
