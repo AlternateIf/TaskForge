@@ -69,14 +69,14 @@ On project creation, auto-create a default workflow with 4 statuses:
 - Sorted by name (default) or created_at
 
 ## Acceptance Criteria
-- [ ] Project CRUD works with proper permission checks
-- [ ] Default workflow is auto-created with 4 statuses
-- [ ] Custom workflow statuses can be added, reordered, renamed, and removed
-- [ ] Cannot delete a status that has tasks assigned to it
-- [ ] Labels CRUD works
-- [ ] Project members can be managed with project-specific roles
-- [ ] Project archival sets status to "archived" (tasks remain accessible)
-- [ ] Soft-delete sets deleted_at (filterable)
-- [ ] Project slug is unique within organization
-- [ ] All changes create activity log entries
-- [ ] Tests cover CRUD, workflow management, membership, permission checks
+- [x] Project CRUD works with proper permission checks
+- [x] Default workflow is auto-created with 4 statuses
+- [x] Custom workflow statuses can be added, reordered, renamed, and removed
+- [x] Cannot delete a status that has tasks assigned to it
+- [x] Labels CRUD works
+- [x] Project members can be managed with project-specific roles
+- [x] Project archival sets status to "archived" (tasks remain accessible)
+- [x] Soft-delete sets deleted_at (filterable)
+- [x] Project slug is unique within organization
+- [x] ~~All changes create activity log entries~~ → deferred to MVP-017
+- [x] Tests cover CRUD, workflow management, membership, permission checks

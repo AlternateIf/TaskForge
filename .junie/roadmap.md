@@ -26,9 +26,9 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Role-based access at organization and project level~~ ✅
 
 ### Projects
-- Create, edit, archive, delete projects
-- Customizable status workflows per project
-- Labels and categories
+- ~~Create, edit, archive, delete projects~~ ✅
+- ~~Customizable status workflows per project~~ ✅
+- ~~Labels and categories~~ ✅
 
 ### Tasks
 - Full CRUD with title, description, assignee, due date, priority, status
