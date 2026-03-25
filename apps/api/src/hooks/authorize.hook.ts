@@ -29,8 +29,9 @@ interface AuthorizeOptions {
   getProjectId?: (request: FastifyRequest) => string | undefined;
   /**
    * Extract the task ID from the request (resolves project + org from the task).
+   * May be async (e.g. when resolving from a checklist or checklist item).
    */
-  getTaskId?: (request: FastifyRequest) => string | undefined;
+  getTaskId?: (request: FastifyRequest) => string | undefined | Promise<string>;
 }
 
 /**
@@ -64,7 +65,7 @@ export function authorize(options: AuthorizeOptions) {
 
     // Resolve from taskId if no projectId/orgId yet
     if (!projectId && !orgId) {
-      const taskId = options.getTaskId?.(request) ?? params.taskId;
+      const taskId = (await options.getTaskId?.(request)) ?? params.taskId;
       if (taskId) {
         const resolved = await getProjectIdFromTask(taskId);
         if (!resolved) {

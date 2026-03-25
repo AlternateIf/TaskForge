@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import {
+  checklistItems,
+  checklists,
   db,
   labels,
   organizationMembers,
@@ -10,11 +12,18 @@ import {
   workflowStatuses,
   workflows,
 } from '@taskforge/db';
-import type { CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
+import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
 import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 const POSITION_GAP = 1000;
+
+export interface TaskProgress {
+  subtaskCount: number;
+  subtaskCompletedCount: number;
+  checklistTotal: number;
+  checklistCompleted: number;
+}
 
 export interface TaskOutput {
   id: string;
@@ -31,6 +40,7 @@ export interface TaskOutput {
   startDate: string | null;
   estimatedHours: string | null;
   position: number;
+  progress: TaskProgress | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -124,7 +134,11 @@ async function getNextPosition(projectId: string, statusId: string): Promise<num
   return (result[0].maxPos ?? 0) + POSITION_GAP;
 }
 
-function toTaskOutput(t: typeof tasks.$inferSelect, statusName?: string | null): TaskOutput {
+function toTaskOutput(
+  t: typeof tasks.$inferSelect,
+  statusName?: string | null,
+  progress?: TaskProgress | null,
+): TaskOutput {
   return {
     id: t.id,
     projectId: t.projectId,
@@ -140,8 +154,56 @@ function toTaskOutput(t: typeof tasks.$inferSelect, statusName?: string | null):
     startDate: t.startDate ? t.startDate.toISOString() : null,
     estimatedHours: t.estimatedHours ?? null,
     position: t.position,
+    progress: progress ?? null,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
+  };
+}
+
+async function loadTaskProgress(taskId: string): Promise<TaskProgress> {
+  // Subtask progress
+  const subtaskRows = await db
+    .select({
+      id: tasks.id,
+      statusId: tasks.statusId,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.parentTaskId, taskId), isNull(tasks.deletedAt)));
+
+  let subtaskCompletedCount = 0;
+  if (subtaskRows.length > 0) {
+    const statusIds = [...new Set(subtaskRows.map((s) => s.statusId))];
+    const finalStatuses = await db
+      .select({ id: workflowStatuses.id })
+      .from(workflowStatuses)
+      .where(and(inArray(workflowStatuses.id, statusIds), eq(workflowStatuses.isFinal, true)));
+    const finalSet = new Set(finalStatuses.map((s) => s.id));
+    subtaskCompletedCount = subtaskRows.filter((s) => finalSet.has(s.statusId)).length;
+  }
+
+  // Checklist progress
+  const checklistRows = await db
+    .select({ id: checklists.id })
+    .from(checklists)
+    .where(eq(checklists.taskId, taskId));
+
+  let checklistTotal = 0;
+  let checklistCompleted = 0;
+  if (checklistRows.length > 0) {
+    const checklistIds = checklistRows.map((c) => c.id);
+    const itemRows = await db
+      .select({ isCompleted: checklistItems.isCompleted })
+      .from(checklistItems)
+      .where(inArray(checklistItems.checklistId, checklistIds));
+    checklistTotal = itemRows.length;
+    checklistCompleted = itemRows.filter((i) => i.isCompleted).length;
+  }
+
+  return {
+    subtaskCount: subtaskRows.length,
+    subtaskCompletedCount,
+    checklistTotal,
+    checklistCompleted,
   };
 }
 
@@ -309,7 +371,8 @@ export async function getTask(taskId: string): Promise<TaskOutput> {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
   }
 
-  return toTaskOutput(result[0].task, result[0].statusName);
+  const progress = await loadTaskProgress(taskId);
+  return toTaskOutput(result[0].task, result[0].statusName, progress);
 }
 
 export async function updateTask(
@@ -569,6 +632,51 @@ export async function updateTaskPosition(
     );
 
   return getTask(taskId);
+}
+
+// --- Subtasks ---
+
+export async function createSubtask(
+  parentTaskId: string,
+  userId: string,
+  input: CreateSubtaskInput,
+): Promise<TaskOutput> {
+  const parent = await db
+    .select({ id: tasks.id, projectId: tasks.projectId, parentTaskId: tasks.parentTaskId })
+    .from(tasks)
+    .where(and(eq(tasks.id, parentTaskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (parent.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Parent task not found');
+  }
+
+  if (parent[0].parentTaskId) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Cannot create subtask of a subtask (max 1 level of nesting)',
+    );
+  }
+
+  return createTask(parent[0].projectId, userId, {
+    ...input,
+    parentTaskId,
+  });
+}
+
+export async function listSubtasks(parentTaskId: string): Promise<TaskOutput[]> {
+  const result = await db
+    .select({
+      task: tasks,
+      statusName: workflowStatuses.name,
+    })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(and(eq(tasks.parentTaskId, parentTaskId), isNull(tasks.deletedAt)))
+    .orderBy(tasks.position);
+
+  return result.map((r) => toTaskOutput(r.task, r.statusName));
 }
 
 // --- Helpers for handlers ---

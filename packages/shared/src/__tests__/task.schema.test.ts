@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   addTaskLabelSchema,
   assignTaskSchema,
+  createChecklistItemSchema,
+  createChecklistSchema,
+  createSubtaskSchema,
   createTaskSchema,
+  updateChecklistItemSchema,
+  updateChecklistSchema,
   updateTaskPositionSchema,
   updateTaskSchema,
 } from '../schemas/task.schema.js';
@@ -166,6 +171,138 @@ describe('task schemas', () => {
 
     it('should reject missing labelId', () => {
       expect(() => addTaskLabelSchema.parse({})).toThrow();
+    });
+  });
+
+  // --- Subtask schemas ---
+
+  describe('createSubtaskSchema', () => {
+    it('should accept minimal subtask (title only)', () => {
+      const result = createSubtaskSchema.parse({ title: 'Subtask' });
+      expect(result.title).toBe('Subtask');
+    });
+
+    it('should accept all optional fields', () => {
+      const result = createSubtaskSchema.parse({
+        title: 'Subtask',
+        description: 'Details',
+        statusId: validUuid,
+        priority: 'high',
+        assigneeId: validUuid,
+        dueDate: '2026-04-01T00:00:00.000Z',
+        startDate: '2026-03-25T00:00:00.000Z',
+        estimatedHours: 2,
+        labelIds: [validUuid],
+      });
+      expect(result.priority).toBe('high');
+      expect(result.labelIds).toHaveLength(1);
+    });
+
+    it('should reject empty title', () => {
+      expect(() => createSubtaskSchema.parse({ title: '' })).toThrow();
+    });
+
+    it('should reject missing title', () => {
+      expect(() => createSubtaskSchema.parse({})).toThrow();
+    });
+
+    it('should reject invalid priority', () => {
+      expect(() => createSubtaskSchema.parse({ title: 'Sub', priority: 'urgent' })).toThrow();
+    });
+  });
+
+  // --- Checklist schemas ---
+
+  describe('createChecklistSchema', () => {
+    it('should accept a valid title', () => {
+      const result = createChecklistSchema.parse({ title: 'QA Checklist' });
+      expect(result.title).toBe('QA Checklist');
+    });
+
+    it('should reject empty title', () => {
+      expect(() => createChecklistSchema.parse({ title: '' })).toThrow();
+    });
+
+    it('should reject missing title', () => {
+      expect(() => createChecklistSchema.parse({})).toThrow();
+    });
+
+    it('should reject title longer than 255 characters', () => {
+      expect(() => createChecklistSchema.parse({ title: 'x'.repeat(256) })).toThrow();
+    });
+  });
+
+  describe('updateChecklistSchema', () => {
+    it('should accept empty object', () => {
+      const result = updateChecklistSchema.parse({});
+      expect(result).toEqual({});
+    });
+
+    it('should accept title update', () => {
+      const result = updateChecklistSchema.parse({ title: 'Renamed' });
+      expect(result.title).toBe('Renamed');
+    });
+
+    it('should accept position update', () => {
+      const result = updateChecklistSchema.parse({ position: 2 });
+      expect(result.position).toBe(2);
+    });
+
+    it('should reject negative position', () => {
+      expect(() => updateChecklistSchema.parse({ position: -1 })).toThrow();
+    });
+
+    it('should reject non-integer position', () => {
+      expect(() => updateChecklistSchema.parse({ position: 1.5 })).toThrow();
+    });
+  });
+
+  describe('createChecklistItemSchema', () => {
+    it('should accept a valid title', () => {
+      const result = createChecklistItemSchema.parse({ title: 'Write tests' });
+      expect(result.title).toBe('Write tests');
+    });
+
+    it('should reject empty title', () => {
+      expect(() => createChecklistItemSchema.parse({ title: '' })).toThrow();
+    });
+
+    it('should reject missing title', () => {
+      expect(() => createChecklistItemSchema.parse({})).toThrow();
+    });
+
+    it('should reject title longer than 500 characters', () => {
+      expect(() => createChecklistItemSchema.parse({ title: 'x'.repeat(501) })).toThrow();
+    });
+  });
+
+  describe('updateChecklistItemSchema', () => {
+    it('should accept empty object', () => {
+      const result = updateChecklistItemSchema.parse({});
+      expect(result).toEqual({});
+    });
+
+    it('should accept title update', () => {
+      const result = updateChecklistItemSchema.parse({ title: 'Updated' });
+      expect(result.title).toBe('Updated');
+    });
+
+    it('should accept isCompleted toggle', () => {
+      const result = updateChecklistItemSchema.parse({ isCompleted: true });
+      expect(result.isCompleted).toBe(true);
+    });
+
+    it('should accept position update', () => {
+      const result = updateChecklistItemSchema.parse({ position: 0 });
+      expect(result.position).toBe(0);
+    });
+
+    it('should reject negative position', () => {
+      expect(() => updateChecklistItemSchema.parse({ position: -1 })).toThrow();
+    });
+
+    it('should reject non-boolean isCompleted', () => {
+      expect(() => updateChecklistItemSchema.parse({ isCompleted: 'yes' })).toThrow();
     });
   });
 });

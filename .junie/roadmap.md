@@ -32,7 +32,7 @@ The minimum viable product: core task management with auth, projects, a function
 
 ### Tasks
 - ~~Full CRUD with title, description, assignee, due date, priority, status~~ ✅
-- Subtasks and checklists
+- ~~Subtasks and checklists~~ ✅
 - Task dependencies (blocked by / blocks)
 - ~~Drag-and-drop reordering~~ ✅
 - Bulk actions

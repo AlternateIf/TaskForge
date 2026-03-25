@@ -57,12 +57,12 @@ apps/api/src/
 - Checklist progress: X/Y items completed (for display)
 
 ## Acceptance Criteria
-- [ ] Subtasks can be created under a parent task
-- [ ] Subtasks appear in parent task's subtask list
-- [ ] Subtasks cannot be nested further (max 1 level)
-- [ ] Checklists can be created, updated, and deleted
-- [ ] Checklist items can be added, reordered, completed, and deleted
-- [ ] Completing an item records who completed it and when
-- [ ] Parent task shows subtask completion count and checklist progress
-- [ ] Activity log records subtask and checklist changes
-- [ ] Tests cover subtask creation, checklist CRUD, item completion
+- [x] Subtasks can be created under a parent task
+- [x] Subtasks appear in parent task's subtask list
+- [x] Subtasks cannot be nested further (max 1 level)
+- [x] Checklists can be created, updated, and deleted
+- [x] Checklist items can be added, reordered, completed, and deleted
+- [x] Completing an item records who completed it and when
+- [x] Parent task shows subtask completion count and checklist progress
+- [x] ~~Activity log records subtask and checklist changes~~ → deferred to MVP-017
+- [x] Tests cover subtask creation, checklist CRUD, item completion
