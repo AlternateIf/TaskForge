@@ -94,3 +94,4 @@ await activityService.log({
 - [ ] Activity log is paginated and filterable by entity
 - [ ] actor_display is denormalized for historical accuracy
 - [ ] Tests cover comment CRUD, threading, mentions, activity logging
+- [ ] Organization membership changes (add, remove, role change) create activity log entries (from MVP-009)

@@ -62,13 +62,13 @@ On `POST /organizations`:
 - Activity log entry for all membership changes
 
 ## Acceptance Criteria
-- [ ] User can create an organization
-- [ ] Creator is automatically Super Admin
-- [ ] Built-in roles are auto-created
-- [ ] Organization has trial_expires_at set
-- [ ] Members can be listed, added, role-changed, and removed
-- [ ] Only Super Admin can delete organization
-- [ ] Soft-delete (deleted_at) preserves data
-- [ ] Organization slug is unique and auto-generated from name
-- [ ] All membership changes create activity log entries
-- [ ] Tests cover CRUD, membership management, permission checks
+- [x] User can create an organization
+- [x] Creator is automatically Super Admin
+- [x] Built-in roles are auto-created
+- [x] Organization has trial_expires_at set
+- [x] Members can be listed, added, role-changed, and removed
+- [x] Only Super Admin can delete organization
+- [x] Soft-delete (deleted_at) preserves data
+- [x] Organization slug is unique and auto-generated from name
+- [x] ~~All membership changes create activity log entries~~ → deferred to MVP-017
+- [x] Tests cover CRUD, membership management, permission checks

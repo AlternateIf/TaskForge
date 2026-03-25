@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth/auth.routes.js';
 import { mfaRoutes } from './routes/auth/mfa.routes.js';
 import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
+import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { userRoutes } from './routes/users/users.routes.js';
 import { loggerConfig } from './utils/logger.js';
 
@@ -43,6 +44,7 @@ export async function buildServer() {
   await fastify.register(authRoutes);
   await fastify.register(oauthRoutes);
   await fastify.register(mfaRoutes);
+  await fastify.register(organizationRoutes);
   await fastify.register(userRoutes);
 
   return fastify;

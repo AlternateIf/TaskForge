@@ -17,7 +17,7 @@ The minimum viable product: core task management with auth, projects, a function
 - Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)
 
 ### Organizations & Multi-Tenancy
-- Organization creation and membership
+- ~~Organization creation and membership~~ ✅
 - Organization-level isolation
 - Trial signup flow (no credit card, minimal setup wizard)
 
