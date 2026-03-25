@@ -75,9 +75,7 @@ describe('task schemas', () => {
     });
 
     it('should reject invalid UUID in labelIds', () => {
-      expect(() =>
-        createTaskSchema.parse({ title: 'Test', labelIds: ['not-uuid'] }),
-      ).toThrow();
+      expect(() => createTaskSchema.parse({ title: 'Test', labelIds: ['not-uuid'] })).toThrow();
     });
   });
 
