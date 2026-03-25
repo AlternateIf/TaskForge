@@ -5,6 +5,7 @@ import {
   projectMembers,
   projects,
   roles,
+  tasks,
 } from '@taskforge/db';
 import { MANAGE_ACTIONS, ROLE_NAMES } from '@taskforge/shared';
 import type { Action, Resource } from '@taskforge/shared';
@@ -168,4 +169,24 @@ export async function getOrgIdFromProject(projectId: string): Promise<string | n
       .limit(1)
   )[0];
   return project?.organizationId ?? null;
+}
+
+/**
+ * Resolve projectId and orgId from a taskId.
+ */
+export async function getProjectIdFromTask(
+  taskId: string,
+): Promise<{ projectId: string; orgId: string } | null> {
+  const result = (
+    await db
+      .select({
+        projectId: tasks.projectId,
+        orgId: projects.organizationId,
+      })
+      .from(tasks)
+      .innerJoin(projects, eq(tasks.projectId, projects.id))
+      .where(eq(tasks.id, taskId))
+      .limit(1)
+  )[0];
+  return result ?? null;
 }

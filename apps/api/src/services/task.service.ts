@@ -1,0 +1,588 @@
+import crypto from 'node:crypto';
+import {
+  db,
+  labels,
+  organizationMembers,
+  projects,
+  taskLabels,
+  taskWatchers,
+  tasks,
+  workflowStatuses,
+  workflows,
+} from '@taskforge/db';
+import type { CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
+import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { AppError, ErrorCode } from '../utils/errors.js';
+
+const POSITION_GAP = 1000;
+
+export interface TaskOutput {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  statusId: string;
+  statusName: string | null;
+  priority: string;
+  assigneeId: string | null;
+  reporterId: string;
+  parentTaskId: string | null;
+  dueDate: string | null;
+  startDate: string | null;
+  estimatedHours: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TaskFilters {
+  status?: string[];
+  priority?: string[];
+  assigneeId?: string;
+  labelId?: string[];
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  search?: string;
+  sort?: string;
+  order?: string;
+}
+
+async function getInitialStatusId(projectId: string): Promise<string> {
+  const result = await db
+    .select({ id: workflowStatuses.id })
+    .from(workflowStatuses)
+    .innerJoin(workflows, eq(workflows.id, workflowStatuses.workflowId))
+    .where(and(eq(workflows.projectId, projectId), eq(workflowStatuses.isInitial, true)))
+    .limit(1);
+
+  if (result.length === 0) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Project has no initial workflow status',
+    );
+  }
+  return result[0].id;
+}
+
+async function validateStatusBelongsToProject(statusId: string, projectId: string): Promise<void> {
+  const result = await db
+    .select({ id: workflowStatuses.id })
+    .from(workflowStatuses)
+    .innerJoin(workflows, eq(workflows.id, workflowStatuses.workflowId))
+    .where(and(eq(workflowStatuses.id, statusId), eq(workflows.projectId, projectId)))
+    .limit(1);
+
+  if (result.length === 0) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Status does not belong to this project',
+    );
+  }
+}
+
+async function validateAssigneeInOrg(assigneeId: string, projectId: string): Promise<void> {
+  const project = await db
+    .select({ organizationId: projects.organizationId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  if (project.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Project not found');
+  }
+
+  const member = await db
+    .select({ id: organizationMembers.id })
+    .from(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.organizationId, project[0].organizationId),
+        eq(organizationMembers.userId, assigneeId),
+      ),
+    )
+    .limit(1);
+
+  if (member.length === 0) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Assignee is not a member of the organization',
+    );
+  }
+}
+
+async function getNextPosition(projectId: string, statusId: string): Promise<number> {
+  const result = await db
+    .select({ maxPos: sql<number>`COALESCE(MAX(${tasks.position}), 0)` })
+    .from(tasks)
+    .where(
+      and(eq(tasks.projectId, projectId), eq(tasks.statusId, statusId), isNull(tasks.deletedAt)),
+    );
+
+  return (result[0].maxPos ?? 0) + POSITION_GAP;
+}
+
+function toTaskOutput(t: typeof tasks.$inferSelect, statusName?: string | null): TaskOutput {
+  return {
+    id: t.id,
+    projectId: t.projectId,
+    title: t.title,
+    description: t.description ?? null,
+    statusId: t.statusId,
+    statusName: statusName ?? null,
+    priority: t.priority,
+    assigneeId: t.assigneeId ?? null,
+    reporterId: t.reporterId,
+    parentTaskId: t.parentTaskId ?? null,
+    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+    startDate: t.startDate ? t.startDate.toISOString() : null,
+    estimatedHours: t.estimatedHours ?? null,
+    position: t.position,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+  };
+}
+
+// --- CRUD ---
+
+export async function createTask(
+  projectId: string,
+  userId: string,
+  input: CreateTaskInput,
+): Promise<TaskOutput> {
+  const statusId = input.statusId ?? (await getInitialStatusId(projectId));
+
+  await validateStatusBelongsToProject(statusId, projectId);
+
+  if (input.assigneeId) {
+    await validateAssigneeInOrg(input.assigneeId, projectId);
+  }
+
+  const taskId = crypto.randomUUID();
+  const position = await getNextPosition(projectId, statusId);
+  const now = new Date();
+
+  await db.insert(tasks).values({
+    id: taskId,
+    projectId,
+    title: input.title,
+    description: input.description ?? null,
+    statusId,
+    priority: input.priority ?? 'none',
+    assigneeId: input.assigneeId ?? null,
+    reporterId: userId,
+    parentTaskId: input.parentTaskId ?? null,
+    dueDate: input.dueDate ? new Date(input.dueDate) : null,
+    startDate: input.startDate ? new Date(input.startDate) : null,
+    estimatedHours: input.estimatedHours?.toString() ?? null,
+    position,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Attach labels if provided
+  if (input.labelIds && input.labelIds.length > 0) {
+    const validLabels = await db
+      .select({ id: labels.id })
+      .from(labels)
+      .where(and(eq(labels.projectId, projectId), inArray(labels.id, input.labelIds)));
+
+    if (validLabels.length > 0) {
+      await db.insert(taskLabels).values(validLabels.map((l) => ({ taskId, labelId: l.id })));
+    }
+  }
+
+  // Auto-add reporter as watcher
+  await db.insert(taskWatchers).values({ taskId, userId });
+
+  // Auto-add assignee as watcher if different from reporter
+  if (input.assigneeId && input.assigneeId !== userId) {
+    await db.insert(taskWatchers).values({ taskId, userId: input.assigneeId });
+  }
+
+  // Fetch the status name for the response
+  const statusRow = await db
+    .select({ name: workflowStatuses.name })
+    .from(workflowStatuses)
+    .where(eq(workflowStatuses.id, statusId))
+    .limit(1);
+
+  const created = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  return toTaskOutput(created[0], statusRow[0]?.name);
+}
+
+export async function listTasks(projectId: string, filters: TaskFilters): Promise<TaskOutput[]> {
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(tasks.projectId, projectId),
+    isNull(tasks.deletedAt),
+  ];
+
+  if (filters.status && filters.status.length > 0) {
+    conditions.push(inArray(tasks.statusId, filters.status));
+  }
+
+  if (filters.priority && filters.priority.length > 0) {
+    conditions.push(
+      inArray(
+        tasks.priority,
+        filters.priority as ('none' | 'low' | 'medium' | 'high' | 'critical')[],
+      ),
+    );
+  }
+
+  if (filters.assigneeId) {
+    conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+  }
+
+  if (filters.dueDateFrom) {
+    conditions.push(gte(tasks.dueDate, new Date(filters.dueDateFrom)));
+  }
+
+  if (filters.dueDateTo) {
+    conditions.push(lte(tasks.dueDate, new Date(filters.dueDateTo)));
+  }
+
+  // Label filtering: find task IDs with matching labels
+  let labelTaskIds: string[] | undefined;
+  if (filters.labelId && filters.labelId.length > 0) {
+    const labelResults = await db
+      .select({ taskId: taskLabels.taskId })
+      .from(taskLabels)
+      .where(inArray(taskLabels.labelId, filters.labelId));
+    labelTaskIds = labelResults.map((r) => r.taskId);
+    if (labelTaskIds.length === 0) {
+      return [];
+    }
+    conditions.push(inArray(tasks.id, labelTaskIds));
+  }
+
+  // Determine sort
+  const sortField = filters.sort ?? 'position';
+  const sortOrder = filters.order === 'desc' ? 'desc' : 'asc';
+
+  const sortColumn =
+    {
+      position: tasks.position,
+      dueDate: tasks.dueDate,
+      priority: tasks.priority,
+      createdAt: tasks.createdAt,
+    }[sortField] ?? tasks.position;
+
+  const query = db
+    .select({
+      task: tasks,
+      statusName: workflowStatuses.name,
+    })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(and(...conditions));
+
+  const ordered =
+    sortOrder === 'desc' ? query.orderBy(sql`${sortColumn} DESC`) : query.orderBy(sortColumn);
+
+  const result = await ordered;
+
+  // In-memory search filter on title (Meilisearch later)
+  let filtered = result;
+  if (filters.search) {
+    const term = filters.search.toLowerCase();
+    filtered = result.filter((r) => r.task.title.toLowerCase().includes(term));
+  }
+
+  return filtered.map((r) => toTaskOutput(r.task, r.statusName));
+}
+
+export async function getTask(taskId: string): Promise<TaskOutput> {
+  const result = await db
+    .select({
+      task: tasks,
+      statusName: workflowStatuses.name,
+    })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (result.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  return toTaskOutput(result[0].task, result[0].statusName);
+}
+
+export async function updateTask(
+  taskId: string,
+  projectId: string,
+  input: UpdateTaskInput,
+): Promise<TaskOutput> {
+  const existing = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  if (input.statusId) {
+    await validateStatusBelongsToProject(input.statusId, projectId);
+  }
+
+  if (input.assigneeId) {
+    await validateAssigneeInOrg(input.assigneeId, projectId);
+  }
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+  if (input.title !== undefined) updates.title = input.title;
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.statusId !== undefined) updates.statusId = input.statusId;
+  if (input.priority !== undefined) updates.priority = input.priority;
+  if (input.assigneeId !== undefined) updates.assigneeId = input.assigneeId;
+  if (input.dueDate !== undefined) updates.dueDate = input.dueDate ? new Date(input.dueDate) : null;
+  if (input.startDate !== undefined)
+    updates.startDate = input.startDate ? new Date(input.startDate) : null;
+  if (input.estimatedHours !== undefined)
+    updates.estimatedHours = input.estimatedHours?.toString() ?? null;
+  if (input.parentTaskId !== undefined) updates.parentTaskId = input.parentTaskId;
+
+  await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+
+  // If assignee changed, add new assignee as watcher
+  if (input.assigneeId && input.assigneeId !== existing[0].assigneeId) {
+    const existingWatcher = await db
+      .select({ taskId: taskWatchers.taskId })
+      .from(taskWatchers)
+      .where(and(eq(taskWatchers.taskId, taskId), eq(taskWatchers.userId, input.assigneeId)))
+      .limit(1);
+
+    if (existingWatcher.length === 0) {
+      await db.insert(taskWatchers).values({ taskId, userId: input.assigneeId });
+    }
+  }
+
+  return getTask(taskId);
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const existing = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  await db.update(tasks).set({ deletedAt: new Date() }).where(eq(tasks.id, taskId));
+}
+
+// --- Assignment ---
+
+export async function assignTask(
+  taskId: string,
+  projectId: string,
+  assigneeId: string | null,
+): Promise<TaskOutput> {
+  const existing = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  if (assigneeId) {
+    await validateAssigneeInOrg(assigneeId, projectId);
+
+    // Add as watcher if not already
+    const existingWatcher = await db
+      .select({ taskId: taskWatchers.taskId })
+      .from(taskWatchers)
+      .where(and(eq(taskWatchers.taskId, taskId), eq(taskWatchers.userId, assigneeId)))
+      .limit(1);
+
+    if (existingWatcher.length === 0) {
+      await db.insert(taskWatchers).values({ taskId, userId: assigneeId });
+    }
+  }
+
+  await db.update(tasks).set({ assigneeId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+
+  return getTask(taskId);
+}
+
+// --- Watchers ---
+
+export async function addWatcher(taskId: string, userId: string): Promise<void> {
+  const existing = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  const alreadyWatching = await db
+    .select({ taskId: taskWatchers.taskId })
+    .from(taskWatchers)
+    .where(and(eq(taskWatchers.taskId, taskId), eq(taskWatchers.userId, userId)))
+    .limit(1);
+
+  if (alreadyWatching.length === 0) {
+    await db.insert(taskWatchers).values({ taskId, userId });
+  }
+}
+
+export async function removeWatcher(taskId: string, userId: string): Promise<void> {
+  await db
+    .delete(taskWatchers)
+    .where(and(eq(taskWatchers.taskId, taskId), eq(taskWatchers.userId, userId)));
+}
+
+// --- Labels ---
+
+export async function getTaskLabels(
+  taskId: string,
+): Promise<{ labelId: string; name: string; color: string | null }[]> {
+  const result = await db
+    .select({
+      labelId: labels.id,
+      name: labels.name,
+      color: labels.color,
+    })
+    .from(taskLabels)
+    .innerJoin(labels, eq(taskLabels.labelId, labels.id))
+    .where(eq(taskLabels.taskId, taskId));
+
+  return result.map((r) => ({
+    labelId: r.labelId,
+    name: r.name,
+    color: r.color ?? null,
+  }));
+}
+
+export async function addTaskLabel(
+  taskId: string,
+  labelId: string,
+  projectId: string,
+): Promise<void> {
+  // Verify task exists
+  const task = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (task.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  // Verify label belongs to the same project
+  const label = await db
+    .select({ id: labels.id })
+    .from(labels)
+    .where(and(eq(labels.id, labelId), eq(labels.projectId, projectId)))
+    .limit(1);
+
+  if (label.length === 0) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Label does not belong to this project',
+    );
+  }
+
+  // Check if already attached
+  const existing = await db
+    .select({ taskId: taskLabels.taskId })
+    .from(taskLabels)
+    .where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    await db.insert(taskLabels).values({ taskId, labelId });
+  }
+}
+
+export async function removeTaskLabel(taskId: string, labelId: string): Promise<void> {
+  await db
+    .delete(taskLabels)
+    .where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)));
+}
+
+// --- Position / Reordering ---
+
+export async function updateTaskPosition(
+  taskId: string,
+  projectId: string,
+  position: number,
+  statusId?: string,
+): Promise<TaskOutput> {
+  const existing = await db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  const targetStatusId = statusId ?? existing[0].statusId;
+
+  if (statusId) {
+    await validateStatusBelongsToProject(statusId, projectId);
+  }
+
+  const updates: Record<string, unknown> = {
+    position,
+    updatedAt: new Date(),
+  };
+
+  if (statusId) {
+    updates.statusId = statusId;
+  }
+
+  await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+
+  // Shift positions of tasks at or after the new position (excluding the moved task)
+  await db
+    .update(tasks)
+    .set({ position: sql`${tasks.position} + ${POSITION_GAP}` })
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        eq(tasks.statusId, targetStatusId),
+        gte(tasks.position, position),
+        isNull(tasks.deletedAt),
+        sql`${tasks.id} != ${taskId}`,
+      ),
+    );
+
+  return getTask(taskId);
+}
+
+// --- Helpers for handlers ---
+
+export async function getProjectIdForTask(taskId: string): Promise<string> {
+  const result = await db
+    .select({ projectId: tasks.projectId })
+    .from(tasks)
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+
+  if (result.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+  }
+
+  return result[0].projectId;
+}

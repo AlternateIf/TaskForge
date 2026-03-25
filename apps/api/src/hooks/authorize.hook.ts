@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   checkPermission,
   getOrgIdFromProject,
+  getProjectIdFromTask,
   loadPermissionContext,
 } from '../services/permission.service.js';
 import type { PermissionContext } from '../services/permission.service.js';
@@ -26,6 +27,10 @@ interface AuthorizeOptions {
    * Extract the project ID from the request (for project-scoped permission checks).
    */
   getProjectId?: (request: FastifyRequest) => string | undefined;
+  /**
+   * Extract the task ID from the request (resolves project + org from the task).
+   */
+  getTaskId?: (request: FastifyRequest) => string | undefined;
 }
 
 /**
@@ -55,6 +60,19 @@ export function authorize(options: AuthorizeOptions) {
       projectId = options.getProjectId(request);
     } else if (params.projectId) {
       projectId = params.projectId;
+    }
+
+    // Resolve from taskId if no projectId/orgId yet
+    if (!projectId && !orgId) {
+      const taskId = options.getTaskId?.(request) ?? params.taskId;
+      if (taskId) {
+        const resolved = await getProjectIdFromTask(taskId);
+        if (!resolved) {
+          throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+        }
+        projectId = resolved.projectId;
+        orgId = resolved.orgId;
+      }
     }
 
     // If we have a projectId but no orgId, resolve orgId from the project

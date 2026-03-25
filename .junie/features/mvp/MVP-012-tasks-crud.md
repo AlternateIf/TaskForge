@@ -68,18 +68,18 @@ Optional fields: `description`, `statusId` (defaults to initial status), `priori
 Every task change (create, update, assign, status change, label add/remove) creates an ActivityLog entry with before/after values.
 
 ## Acceptance Criteria
-- [ ] Tasks can be created with required and optional fields
-- [ ] Task defaults to initial workflow status when no statusId provided
-- [ ] Tasks can be read individually and as paginated lists
-- [ ] Filtering works for all parameters including combinations
-- [ ] Sorting works for position, dueDate, priority, createdAt
-- [ ] Tasks can be updated (partial updates via PATCH)
-- [ ] Status changes are validated against the project's workflow
-- [ ] Tasks can be assigned and unassigned
-- [ ] Watchers can be added and removed
-- [ ] Labels can be added and removed
-- [ ] Position/reordering works correctly including cross-column moves
-- [ ] Soft-delete sets deleted_at
-- [ ] All changes create activity log entries with before/after values
-- [ ] Permission checks enforce role-based access
-- [ ] Tests cover CRUD, filtering, sorting, reordering, permission checks
+- [x] Tasks can be created with required and optional fields
+- [x] Task defaults to initial workflow status when no statusId provided
+- [x] Tasks can be read individually and as paginated lists
+- [x] Filtering works for all parameters including combinations
+- [x] Sorting works for position, dueDate, priority, createdAt
+- [x] Tasks can be updated (partial updates via PATCH)
+- [x] Status changes are validated against the project's workflow
+- [x] Tasks can be assigned and unassigned
+- [x] Watchers can be added and removed
+- [x] Labels can be added and removed
+- [x] Position/reordering works correctly including cross-column moves
+- [x] Soft-delete sets deleted_at
+- [x] ~~All changes create activity log entries with before/after values~~ → deferred to MVP-017
+- [x] Permission checks enforce role-based access
+- [x] Tests cover CRUD, filtering, sorting, reordering, permission checks

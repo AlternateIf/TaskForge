@@ -31,10 +31,10 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Labels and categories~~ ✅
 
 ### Tasks
-- Full CRUD with title, description, assignee, due date, priority, status
+- ~~Full CRUD with title, description, assignee, due date, priority, status~~ ✅
 - Subtasks and checklists
 - Task dependencies (blocked by / blocks)
-- Drag-and-drop reordering
+- ~~Drag-and-drop reordering~~ ✅
 - Bulk actions
 - Undo for accidental actions
 - Keyboard shortcuts (quick create, status change, navigation, search)

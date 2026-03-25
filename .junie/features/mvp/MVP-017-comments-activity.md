@@ -96,3 +96,4 @@ await activityService.log({
 - [ ] Tests cover comment CRUD, threading, mentions, activity logging
 - [ ] Organization membership changes (add, remove, role change) create activity log entries (from MVP-009)
 - [ ] Project changes (CRUD, member changes, workflow/label changes) create activity log entries (from MVP-011)
+- [ ] Task changes (CRUD, assign, status change, label add/remove) create activity log entries with before/after values (from MVP-012)
