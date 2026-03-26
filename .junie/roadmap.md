@@ -11,9 +11,7 @@ The minimum viable product: core task management with auth, projects, a function
 ### Auth & Users
 - ~~JWT-based registration and login~~ ✅
 - ~~OAuth 2.0 / OIDC login (Google, GitHub)~~ ✅
-- User profile management
 - ~~MFA support (TOTP)~~ ✅
-- Session invalidation on password change
 - Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)
 
 ### Organizations & Multi-Tenancy
@@ -78,6 +76,16 @@ The minimum viable product: core task management with auth, projects, a function
 - Health check endpoints (`/health`, `/ready`)
 - Auto-generated OpenAPI/Swagger docs
 - Graceful shutdown behavior
+
+### Backend Hardening
+- Organization feature toggles (enable/disable features per org)
+- Environment configuration hardening (complete .env.example, SMTP TLS)
+- Per-route rate limiting & account lockout (abuse prevention)
+- Queue priority configuration (per-queue prefetch)
+- Internal comments (team-only visibility, hidden from customers)
+- Session invalidation on password change
+- User profile management (display name, avatar, account deletion)
+- ETag & Cache-Control headers
 
 ### Infrastructure
 - ~~Monorepo setup (Turborepo + pnpm + Biome + TypeScript)~~ ✅
@@ -198,6 +206,11 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 ### Real-Time (Enhanced)
 - Presence indicators (who is viewing/editing a task)
 - Channel-based subscriptions (per project, per task, per user)
+
+### Privacy & Presentation
+- Stream-safe mode (hide internal comments, sensitive fields, pricing during screen sharing)
+- CAPTCHA on registration and after repeated failed logins
+- IP reputation and blocking
 
 ### Data Import
 - CSV and JSON import for tasks, projects, users, time entries
