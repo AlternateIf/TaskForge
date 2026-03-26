@@ -17,6 +17,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^5.2.5",
+    "@fastify/websocket": "^11.2.0",
     "@react-email/components": "^1.0.10",
     "@react-email/render": "^2.0.4",
     "@taskforge/db": "workspace:*",

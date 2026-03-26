@@ -61,11 +61,11 @@ describe('publisher', () => {
         durable: true,
       });
 
-      // 3 queues + 3 dead-letter queues = 6
-      expect(mockAssertQueue).toHaveBeenCalledTimes(6);
+      // 4 queues + 4 dead-letter queues = 8
+      expect(mockAssertQueue).toHaveBeenCalledTimes(8);
 
-      // 3 bindings for main queues + 3 for dead-letter = 6
-      expect(mockBindQueue).toHaveBeenCalledTimes(6);
+      // 4 bindings for main queues + 4 for dead-letter = 8
+      expect(mockBindQueue).toHaveBeenCalledTimes(8);
     });
 
     it('should assert dead-letter arguments on main queues', async () => {

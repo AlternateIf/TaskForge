@@ -28,6 +28,11 @@ export const QUEUES: QueueBinding[] = [
     routingPattern: 'search.#',
     deadLetterQueue: 'search.index.dead-letter',
   },
+  {
+    queue: 'realtime.broadcast',
+    routingPattern: 'realtime.#',
+    deadLetterQueue: 'realtime.broadcast.dead-letter',
+  },
 ];
 
 export interface TaskForgeMessage<T = unknown> {

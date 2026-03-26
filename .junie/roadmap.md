@@ -61,9 +61,9 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~User notification preferences~~ ✅
 
 ### Real-Time Updates
-- WebSocket/SSE push for task, comment, and status changes
-- Real-time notification delivery
-- Fallback to polling when WebSocket unavailable
+- ~~WebSocket/SSE push for task, comment, and status changes~~ ✅
+- ~~Real-time notification delivery~~ ✅
+- ~~Fallback to polling when WebSocket unavailable~~ ✅
 
 ### Personalized Dashboard
 - Assigned tasks, upcoming deadlines, project progress

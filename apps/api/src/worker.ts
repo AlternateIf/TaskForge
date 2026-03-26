@@ -2,6 +2,7 @@ import { initConsumer, registerConsumer, shutdownConsumer } from './queues/consu
 import { checkDeadlineReminders } from './queues/handlers/deadline-reminder.handler.js';
 import { emailHandler } from './queues/handlers/email.handler.js';
 import { notificationHandler } from './queues/handlers/notification.handler.js';
+import { realtimeBroadcastHandler } from './queues/handlers/realtime-broadcast.handler.js';
 import { searchIndexHandler } from './queues/handlers/search-index.handler.js';
 import { initPublisher } from './queues/publisher.js';
 
@@ -20,6 +21,7 @@ async function startWorker(): Promise<void> {
   registerConsumer('email.send', emailHandler);
   registerConsumer('notification.create', notificationHandler);
   registerConsumer('search.index', searchIndexHandler);
+  registerConsumer('realtime.broadcast', realtimeBroadcastHandler);
 
   // Deadline reminder cron — runs hourly
   deadlineInterval = setInterval(async () => {

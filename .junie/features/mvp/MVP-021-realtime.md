@@ -79,14 +79,14 @@ apps/api/src/
 - Max connections per user: 5 (prevent resource exhaustion)
 
 ## Acceptance Criteria
-- [ ] WebSocket server accepts connections with valid JWT
-- [ ] Invalid/expired JWT rejects connection
-- [ ] Clients can subscribe to and unsubscribe from channels
-- [ ] Task changes are broadcast to project channel subscribers
-- [ ] Notifications are broadcast to user channel
-- [ ] SSE endpoint works as fallback with same event format
-- [ ] Redis pub/sub enables multi-instance broadcast
-- [ ] Heartbeat keeps connections alive
-- [ ] Max connections per user enforced
-- [ ] Graceful shutdown closes connections with reconnect-friendly code
-- [ ] Tests cover connection, subscription, broadcast, auth rejection
+- [x] WebSocket server accepts connections with valid JWT
+- [x] Invalid/expired JWT rejects connection
+- [x] Clients can subscribe to and unsubscribe from channels
+- [x] Task changes are broadcast to project channel subscribers
+- [x] Notifications are broadcast to user channel
+- [x] SSE endpoint works as fallback with same event format
+- [x] Redis pub/sub enables multi-instance broadcast
+- [x] Heartbeat keeps connections alive
+- [x] Max connections per user enforced
+- [x] Graceful shutdown closes connections with reconnect-friendly code
+- [x] Tests cover connection, subscription, broadcast, auth rejection

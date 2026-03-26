@@ -80,8 +80,8 @@ describe('consumer', () => {
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockPrefetch).toHaveBeenCalledWith(1);
       expect(mockAssertExchange).toHaveBeenCalledTimes(2);
-      expect(mockAssertQueue).toHaveBeenCalledTimes(6);
-      expect(mockBindQueue).toHaveBeenCalledTimes(6);
+      expect(mockAssertQueue).toHaveBeenCalledTimes(8);
+      expect(mockBindQueue).toHaveBeenCalledTimes(8);
     });
   });
 

@@ -31,6 +31,8 @@ import { taskRoutes } from './routes/tasks/tasks.routes.js';
 import { userRoutes } from './routes/users/users.routes.js';
 import { initIndexes } from './services/search.service.js';
 import { loggerConfig } from './utils/logger.js';
+import { realtimeGateway } from './ws/gateway.js';
+import { sseRoutes } from './ws/sse.js';
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -74,6 +76,8 @@ export async function buildServer() {
   await fastify.register(savedFilterRoutes);
   await fastify.register(notificationRoutes);
   await fastify.register(userRoutes);
+  await fastify.register(realtimeGateway);
+  await fastify.register(sseRoutes);
 
   return fastify;
 }
