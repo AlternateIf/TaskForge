@@ -93,7 +93,7 @@ await activityService.log({
 - [x] Activity log is immutable (no update/delete endpoints)
 - [x] Activity log is paginated and filterable by entity
 - [x] actor_display is denormalized for historical accuracy
-- [ ] Tests cover comment CRUD, threading, mentions, activity logging
+- [x] Tests cover comment CRUD, threading, mentions, activity logging
 - [x] Organization membership changes (add, remove, role change) create activity log entries (from MVP-009)
 - [x] Project changes (CRUD, member changes, workflow/label changes) create activity log entries (from MVP-011)
 - [x] Task changes (CRUD, assign, status change, label add/remove) create activity log entries with before/after values (from MVP-012)
