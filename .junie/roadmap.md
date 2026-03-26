@@ -80,7 +80,7 @@ The minimum viable product: core task management with auth, projects, a function
 ### Backend Hardening
 - ~~Organization feature toggles (enable/disable features per org)~~ ✅
 - ~~Environment configuration hardening (complete .env.example, SMTP TLS)~~ ✅
-- Per-route rate limiting & account lockout (abuse prevention)
+- ~~Per-route rate limiting & account lockout (abuse prevention)~~ ✅
 - Queue priority configuration (per-queue prefetch)
 - Internal comments (team-only visibility, hidden from customers)
 - Session invalidation on password change

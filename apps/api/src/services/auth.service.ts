@@ -93,6 +93,19 @@ export async function loginUser(
   ip?: string,
   userAgent?: string,
 ): Promise<LoginResult> {
+  // Check account lockout before any expensive work
+  const { checkLockout, recordFailedAttempt, resetLockout } = await import(
+    './account-lockout.service.js'
+  );
+  const lockoutRemaining = await checkLockout(email);
+  if (lockoutRemaining > 0) {
+    throw new AppError(
+      429,
+      ErrorCode.RATE_LIMITED,
+      `Account temporarily locked. Try again in ${lockoutRemaining} seconds.`,
+    );
+  }
+
   const user = (
     await db
       .select()
@@ -102,13 +115,18 @@ export async function loginUser(
   )[0];
 
   if (!user || !user.passwordHash) {
+    await recordFailedAttempt(email);
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid email or password');
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    await recordFailedAttempt(email);
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid email or password');
   }
+
+  // Successful login — reset lockout counter
+  await resetLockout(email);
 
   // If MFA is enabled, return MFA challenge instead of tokens
   if (user.mfaEnabled) {

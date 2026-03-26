@@ -40,10 +40,10 @@ Differentiated rate limits per route group, account lockout with progressive del
 - Failed login tracking via Redis key with TTL
 
 ## Acceptance Criteria
-- [ ] Auth endpoints have stricter rate limits than general endpoints
-- [ ] Read endpoints allow higher request rates
-- [ ] Account lockout activates after 5 consecutive failed logins
-- [ ] Lockout duration increases progressively
-- [ ] Successful login resets lockout counter
-- [ ] Rate limit headers are returned on all responses
-- [ ] Tests cover rate limit differentiation and account lockout progression
+- [x] Auth endpoints have stricter rate limits than general endpoints
+- [x] Read endpoints allow higher request rates
+- [x] Account lockout activates after 5 consecutive failed logins
+- [x] Lockout duration increases progressively
+- [x] Successful login resets lockout counter
+- [x] Rate limit headers are returned on all responses
+- [x] Tests cover rate limit differentiation and account lockout progression

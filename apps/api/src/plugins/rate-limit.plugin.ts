@@ -1,11 +1,20 @@
 import rateLimit from '@fastify/rate-limit';
 import fp from 'fastify-plugin';
+import { getRedis } from '../utils/redis.js';
 
 export default fp(
   async (fastify) => {
     await fastify.register(rateLimit, {
-      max: 20,
+      global: true,
+      max: (request, _key) => {
+        // Write methods get a stricter limit; reads are more generous
+        if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+          return 30;
+        }
+        return 120;
+      },
       timeWindow: '1 minute',
+      redis: getRedis(),
       keyGenerator: (request) => {
         return request.ip;
       },

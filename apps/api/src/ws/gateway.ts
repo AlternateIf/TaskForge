@@ -54,88 +54,92 @@ export async function realtimeGateway(fastify: FastifyInstance): Promise<void> {
     await shutdownRealtimeSubscriber();
   });
 
-  fastify.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
-    // Auth: extract token from query string
-    const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
-    const token = url.searchParams.get('token');
+  fastify.get(
+    '/ws',
+    { websocket: true, config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    (socket: WebSocket, request) => {
+      // Auth: extract token from query string
+      const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
+      const token = url.searchParams.get('token');
 
-    if (!token) {
-      socket.close(4001, 'Missing token');
-      return;
-    }
-
-    let userId: string;
-    try {
-      const payload = fastify.jwtVerify(token);
-      userId = payload.sub;
-    } catch {
-      socket.close(4001, 'Invalid or expired token');
-      return;
-    }
-
-    // Enforce max connections
-    if (!canConnect(userId)) {
-      socket.close(4002, 'Too many connections');
-      return;
-    }
-
-    const conn: ClientConnection = {
-      ws: socket,
-      userId,
-      channels: new Set(),
-    };
-
-    addConnection(conn);
-
-    // Idle timeout — close if no subscriptions after 5 minutes
-    let idleTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      if (conn.channels.size === 0 && socket.readyState === socket.OPEN) {
-        socket.close(4003, 'Idle timeout');
+      if (!token) {
+        socket.close(4001, 'Missing token');
+        return;
       }
-    }, IDLE_TIMEOUT_MS);
 
-    socket.on('message', (raw: Buffer | string) => {
+      let userId: string;
       try {
-        const msg: ClientMessage = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
-
-        if (!msg.action || !msg.channel) return;
-        if (!isValidChannel(msg.channel)) {
-          socket.send(JSON.stringify({ error: 'Invalid channel format' }));
-          return;
-        }
-
-        // Resolve user:me to actual userId
-        const channel = msg.channel === 'user:me' ? `user:${userId}` : msg.channel;
-
-        if (msg.action === 'subscribe') {
-          subscribe(conn, channel);
-          socket.send(JSON.stringify({ ack: 'subscribed', channel }));
-
-          // Clear idle timer once subscribed
-          if (idleTimer) {
-            clearTimeout(idleTimer);
-            idleTimer = null;
-          }
-        } else if (msg.action === 'unsubscribe') {
-          unsubscribe(conn, channel);
-          socket.send(JSON.stringify({ ack: 'unsubscribed', channel }));
-        }
+        const payload = fastify.jwtVerify(token);
+        userId = payload.sub;
       } catch {
-        // Ignore malformed messages
+        socket.close(4001, 'Invalid or expired token');
+        return;
       }
-    });
 
-    socket.on('close', () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      removeConnection(conn);
-    });
+      // Enforce max connections
+      if (!canConnect(userId)) {
+        socket.close(4002, 'Too many connections');
+        return;
+      }
 
-    socket.on('error', () => {
-      if (idleTimer) clearTimeout(idleTimer);
-      removeConnection(conn);
-    });
+      const conn: ClientConnection = {
+        ws: socket,
+        userId,
+        channels: new Set(),
+      };
 
-    // Confirm connection
-    socket.send(JSON.stringify({ type: 'connected', userId }));
-  });
+      addConnection(conn);
+
+      // Idle timeout — close if no subscriptions after 5 minutes
+      let idleTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+        if (conn.channels.size === 0 && socket.readyState === socket.OPEN) {
+          socket.close(4003, 'Idle timeout');
+        }
+      }, IDLE_TIMEOUT_MS);
+
+      socket.on('message', (raw: Buffer | string) => {
+        try {
+          const msg: ClientMessage = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
+
+          if (!msg.action || !msg.channel) return;
+          if (!isValidChannel(msg.channel)) {
+            socket.send(JSON.stringify({ error: 'Invalid channel format' }));
+            return;
+          }
+
+          // Resolve user:me to actual userId
+          const channel = msg.channel === 'user:me' ? `user:${userId}` : msg.channel;
+
+          if (msg.action === 'subscribe') {
+            subscribe(conn, channel);
+            socket.send(JSON.stringify({ ack: 'subscribed', channel }));
+
+            // Clear idle timer once subscribed
+            if (idleTimer) {
+              clearTimeout(idleTimer);
+              idleTimer = null;
+            }
+          } else if (msg.action === 'unsubscribe') {
+            unsubscribe(conn, channel);
+            socket.send(JSON.stringify({ ack: 'unsubscribed', channel }));
+          }
+        } catch {
+          // Ignore malformed messages
+        }
+      });
+
+      socket.on('close', () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        removeConnection(conn);
+      });
+
+      socket.on('error', () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        removeConnection(conn);
+      });
+
+      // Confirm connection
+      socket.send(JSON.stringify({ type: 'connected', userId }));
+    },
+  );
 }

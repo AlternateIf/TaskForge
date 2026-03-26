@@ -42,7 +42,11 @@ export async function authRoutes(fastify: FastifyInstance) {
     loginHandler,
   );
 
-  fastify.post('/api/v1/auth/refresh', {}, refreshHandler);
+  fastify.post(
+    '/api/v1/auth/refresh',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    refreshHandler,
+  );
 
   fastify.post('/api/v1/auth/logout', {}, logoutHandler);
 

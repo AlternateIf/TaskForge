@@ -18,6 +18,7 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
     '/api/v1/attachments',
     {
       preHandler: [requireFeature('file_uploads')],
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     },
     uploadAttachmentHandler,
   );
