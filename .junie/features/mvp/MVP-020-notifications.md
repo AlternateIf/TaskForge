@@ -85,13 +85,13 @@ packages/email-templates/src/templates/
 - Creates notification + email
 
 ## Acceptance Criteria
-- [ ] Notifications are created asynchronously via RabbitMQ
-- [ ] User preferences are checked before creating notifications
-- [ ] In-app notifications can be listed, marked read, and bulk-marked read
-- [ ] Unread count endpoint works
-- [ ] Email notifications use react-email templates
-- [ ] Emails are sent via Nodemailer (Mailpit in dev)
-- [ ] Deadline reminder runs on schedule and notifies once per task
-- [ ] Notification preferences can be read and updated
-- [ ] Disabling a channel prevents that notification type
-- [ ] Tests cover notification creation, preference checks, email sending
+- [x] Notifications are created asynchronously via RabbitMQ
+- [x] User preferences are checked before creating notifications
+- [x] In-app notifications can be listed, marked read, and bulk-marked read
+- [x] Unread count endpoint works
+- [x] Email notifications use react-email templates
+- [x] Emails are sent via Nodemailer (Mailpit in dev)
+- [x] Deadline reminder runs on schedule and notifies once per task
+- [x] Notification preferences can be read and updated
+- [x] Disabling a channel prevents that notification type
+- [x] Tests cover notification creation, preference checks, email sending

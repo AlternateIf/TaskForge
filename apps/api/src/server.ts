@@ -19,6 +19,7 @@ import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { checklistRoutes } from './routes/checklists/checklists.routes.js';
 import { commentRoutes } from './routes/comments/comments.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
+import { notificationRoutes } from './routes/notifications/notifications.routes.js';
 import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
 import { savedFilterRoutes } from './routes/saved-filters/saved-filters.routes.js';
@@ -71,6 +72,7 @@ export async function buildServer() {
   await fastify.register(activityRoutes);
   await fastify.register(searchRoutes);
   await fastify.register(savedFilterRoutes);
+  await fastify.register(notificationRoutes);
   await fastify.register(userRoutes);
 
   return fastify;

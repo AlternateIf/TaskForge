@@ -56,9 +56,9 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Saved filter presets~~ ✅
 
 ### Notifications
-- In-app notification center
-- Email notifications for assignments, status changes, mentions, deadlines
-- User notification preferences
+- ~~In-app notification center~~ ✅
+- ~~Email notifications for assignments, status changes, mentions, deadlines~~ ✅
+- ~~User notification preferences~~ ✅
 
 ### Real-Time Updates
 - WebSocket/SSE push for task, comment, and status changes

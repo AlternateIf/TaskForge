@@ -10,6 +10,12 @@
     "test": "echo \"No tests yet\""
   },
   "devDependencies": {
+    "@types/react": "^19.2.14",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@react-email/components": "^1.0.10",
+    "@react-email/render": "^2.0.4",
+    "react": "^19.2.4"
   }
 }

@@ -1,9 +1,49 @@
+import {
+  renderDeadlineReminder,
+  renderMention,
+  renderTaskAssigned,
+  renderTaskStatusChanged,
+  renderWelcome,
+} from '@taskforge/email-templates';
+import { sendEmail } from '../../services/email.service.js';
 import type { TaskForgeMessage } from '../config.js';
 
-export async function emailHandler(message: TaskForgeMessage): Promise<void> {
-  console.info(`[Email] Processing ${message.type}`, { correlationId: message.correlationId });
+interface EmailData {
+  to: string;
+  subject: string;
+  templateName: string;
+  templateData: Record<string, unknown>;
+}
 
-  // TODO: Implement email sending via Mailpit/SMTP in MVP-019
-  // For now, log the message data
-  console.info('[Email] Message data:', JSON.stringify(message.data));
+async function renderTemplate(
+  templateName: string,
+  data: Record<string, unknown>,
+): Promise<string> {
+  switch (templateName) {
+    case 'task_assigned':
+      return renderTaskAssigned(data as never);
+    case 'task_status_changed':
+      return renderTaskStatusChanged(data as never);
+    case 'comment_mentioned':
+      return renderMention(data as never);
+    case 'task_deadline_approaching':
+      return renderDeadlineReminder(data as never);
+    case 'welcome':
+      return renderWelcome(data as never);
+    default:
+      throw new Error(`Unknown email template: ${templateName}`);
+  }
+}
+
+export async function emailHandler(message: TaskForgeMessage): Promise<void> {
+  const data = message.data as EmailData;
+  console.info(`[Email] Sending ${data.templateName} to ${data.to}`);
+
+  const html = await renderTemplate(data.templateName, data.templateData);
+
+  await sendEmail({
+    to: data.to,
+    subject: data.subject,
+    html,
+  });
 }
