@@ -53,7 +53,7 @@ async function checkMeilisearch(): Promise<DependencyStatus> {
   try {
     const client = new MeiliSearch({
       host: process.env.MEILISEARCH_URL ?? 'http://localhost:7700',
-      apiKey: process.env.MEILISEARCH_API_KEY ?? 'taskforge-dev-key',
+      apiKey: process.env.MEILISEARCH_MASTER_KEY ?? 'taskforge_dev_key',
     });
     await client.health();
     return 'ok';

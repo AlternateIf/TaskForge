@@ -59,6 +59,7 @@ Only load personas listed in the feature file or directly relevant to the discus
 - **Consistency**: Follow existing code style, naming conventions, and project structure.
 - **Minimal changes**: Make the smallest change that correctly solves the issue.
 - **Test coverage**: Write or update tests for any logic changes.
+- **Lint after every change**: Run `npx biome check` (and `npx biome format --write` if needed) after each code change. All code must pass linting and formatting before moving on to the next task.
 - **Meetings update docs**: All persona meetings and planning discussions must result in updates to the relevant `.junie/` markdown files (requirements, roadmap, data model, etc.). Meeting notes are optional artifacts — the source-of-truth documents must always reflect the latest decisions.
 - **Keep guidelines current**: After any change that affects project structure, personas, documents, or working principles, update this `guidelines.md` file immediately. This file is the entry point — it must always reflect the current state of the project.
 - **Model selection**: Use Opus 4.6 for all planning, architecture, and design tasks. For coding/implementation, use whichever model is best suited for the task.

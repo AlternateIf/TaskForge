@@ -1,8 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import {
-  type FeatureKey,
-  isFeatureEnabled,
-} from '../services/feature-toggle.service.js';
+import { type FeatureKey, isFeatureEnabled } from '../services/feature-toggle.service.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 /**
