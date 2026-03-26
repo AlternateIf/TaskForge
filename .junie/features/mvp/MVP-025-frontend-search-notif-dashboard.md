@@ -7,6 +7,7 @@ Global search bar, notification center dropdown, and the personalized dashboard 
 - **Sarah (PM)**: Dashboard is her morning standup prep
 - **Derek (Workfront)**: Expects a rich personal overview
 - **Finn (Onboarding)**: Dashboard is the first thing a new user sees
+- **Ava (Visual Designer)**: Dashboard widgets, charts, and notification dropdown must be visually cohesive and data-dense without clutter
 
 ## Dependencies
 - MVP-022 (app shell — search bar in header, notification bell in header)

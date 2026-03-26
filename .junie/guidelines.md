@@ -39,6 +39,8 @@ Only load personas listed in the feature file or directly relevant to the discus
 - [Compliance Auditor — Hana](personas/compliance-auditor.md)
 - [People Manager — Rosa](personas/people-manager.md)
 - [SCM Integrator — Niko](personas/scm-integrator.md)
+- [Unit Test Engineer — Tara](personas/unit-test-engineer.md)
+- [Visual Designer — Ava](personas/visual-designer.md)
 
 ### Token Usage Rule
 **Load only what you need.** When working on a feature or task:

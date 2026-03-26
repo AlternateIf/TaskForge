@@ -7,6 +7,7 @@ Initialize the React app with Vite, Tailwind CSS, shadcn/ui, routing, the app sh
 - **Priya (Frontend)**: Clean React setup with good DX
 - **Finn (Onboarding)**: Auth pages must be simple and inviting
 - **Lena (UX)**: Consistent layout, accessible components
+- **Ava (Visual Designer)**: Clean, polished auth pages and app shell — typography, spacing, color palette foundation
 
 ## Dependencies
 - MVP-001 (apps/web exists)

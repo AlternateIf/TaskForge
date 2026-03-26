@@ -7,6 +7,7 @@ Global keyboard shortcut system with a reference overlay. Power users can naviga
 - **Derek (Workfront)**: Lives on keyboard shortcuts
 - **Sarah (PM)**: Quick task creation saves minutes daily
 - **Marcus (Backend)**: Prefers keyboard-driven workflows
+- **Ava (Visual Designer)**: Shortcut overlay and command palette must be minimal and elegant — clean grid, readable key caps
 
 ## Dependencies
 - MVP-022 (app shell)

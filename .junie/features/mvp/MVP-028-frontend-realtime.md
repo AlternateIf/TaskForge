@@ -7,6 +7,7 @@ WebSocket client with SSE fallback that integrates with TanStack Query to automa
 - **Sarah (PM)**: Sees board update in real-time when team moves tasks
 - **Marcus (Backend)**: Expects reliable connection handling and reconnection
 - **Priya (Frontend)**: Clean integration with existing data fetching layer
+- **Ava (Visual Designer)**: Real-time visual indicators (toast animations, card highlight on update, presence dots) must feel purposeful, not distracting
 
 ## Dependencies
 - MVP-021 (WebSocket/SSE server)

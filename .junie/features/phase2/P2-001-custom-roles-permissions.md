@@ -18,6 +18,7 @@ See [2026-03-25-custom-roles-permissions.md](../../meetings/2026-03-25-custom-ro
 - **Yuki (Freelancer)**: Per-org custom roles, lightweight UI
 - **Lena (UX)**: Visual permission matrix, diff view, inline help, role cloning wizard
 - **Anil (QA)**: Fine-grained action control (e.g., "Bug Triager" role)
+- **Ava (Visual Designer)**: Permission matrix, diff view, and role editor must be clean and scannable despite high information density
 
 ## Dependencies
 - MVP-010 (built-in roles and permission system)

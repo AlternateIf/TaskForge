@@ -7,6 +7,7 @@ Project list page, project detail page with Kanban board and list view, project 
 - **Sarah (PM)**: Lives in the Kanban board during sprints
 - **Priya (Frontend)**: List view for bulk scanning of tasks
 - **Derek (Workfront)**: Expects Kanban + table views at minimum
+- **Ava (Visual Designer)**: Card elevation, column spacing, drag handles, empty states — Kanban and list views must feel sleek and uncluttered
 
 ## Dependencies
 - MVP-022 (app shell, routing, API client)

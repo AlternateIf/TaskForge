@@ -7,6 +7,7 @@ Guided onboarding flow for new users and organizations, including a welcome wiza
 - **Finn (Onboarding)**: First impression must be smooth and inviting
 - **Sarah (PM)**: Wants to see the tool in action immediately
 - **Claire (Executive)**: Needs to understand value quickly without deep exploration
+- **Ava (Visual Designer)**: Onboarding sets the visual tone — welcoming illustrations, smooth transitions, polished empty states
 
 ## Dependencies
 - MVP-022 (app shell, auth)

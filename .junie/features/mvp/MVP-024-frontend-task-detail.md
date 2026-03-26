@@ -7,6 +7,7 @@ Task detail panel/page showing all task information, subtasks, checklists, depen
 - **Sarah (PM)**: Reviews full task context in one view
 - **Marcus (Backend)**: Reads task description and comments for context
 - **Elena (Customer)**: Views task status and adds comments
+- **Ava (Visual Designer)**: Dense task detail panel must remain scannable — clear hierarchy, consistent spacing, no visual noise
 
 ## Dependencies
 - MVP-023 (Kanban/list views trigger task detail)
