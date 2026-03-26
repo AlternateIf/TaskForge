@@ -28,14 +28,14 @@ apps/api/src/
 ```
 
 ### Rascal configuration
-```typescript
-// Exchanges
-- taskforge.events (topic exchange)
+```
+Exchanges:
+  taskforge.events (topic exchange)
 
-// Queues + bindings
-- email.send          ← taskforge.events / email.#
-- notification.create ← taskforge.events / notification.#
-- search.index        ← taskforge.events / search.#
+Queues + bindings:
+  email.send          <- taskforge.events / email.#
+  notification.create <- taskforge.events / notification.#
+  search.index        <- taskforge.events / search.#
 ```
 
 ### Publisher API
@@ -81,18 +81,21 @@ registerConsumer(broker, 'search.index', searchIndexHandler);
 {
   "type": "notification.task_assigned",
   "timestamp": "2026-03-24T14:30:00.000Z",
-  "data": { ... },
+  "data": {
+    "userId": "abc",
+    "taskId": "123"
+  },
   "correlationId": "req_abc123"
 }
 ```
 
 ## Acceptance Criteria
-- [ ] Rascal connects to RabbitMQ on API and worker startup
-- [ ] Publisher can send messages from any API service
-- [ ] Worker starts and consumes messages from all queues
-- [ ] Messages include type, timestamp, data, and correlationId
-- [ ] Failed messages retry 3 times then dead-letter
-- [ ] Dead-letter queues exist for each consumer queue
-- [ ] Worker gracefully shuts down (finishes in-progress messages)
-- [ ] Publisher confirmations ensure messages are persisted
-- [ ] Tests cover publishing and consuming (using test broker)
+- [x] Rascal connects to RabbitMQ on API and worker startup
+- [x] Publisher can send messages from any API service
+- [x] Worker starts and consumes messages from all queues
+- [x] Messages include type, timestamp, data, and correlationId
+- [x] Failed messages retry 3 times then dead-letter
+- [x] Dead-letter queues exist for each consumer queue
+- [x] Worker gracefully shuts down (finishes in-progress messages)
+- [x] Publisher confirmations ensure messages are persisted
+- [x] Tests cover publishing and consuming (using test broker)

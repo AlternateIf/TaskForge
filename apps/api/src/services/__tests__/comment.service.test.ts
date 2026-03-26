@@ -46,12 +46,30 @@ vi.mock('@taskforge/db', () => ({
     update: mockUpdate,
     delete: mockDelete,
   },
-  comments: { id: 'comments.id', entityType: 'comments.entityType', entityId: 'comments.entityId', authorId: 'comments.authorId', body: 'comments.body', parentCommentId: 'comments.parentCommentId', createdAt: 'comments.createdAt', updatedAt: 'comments.updatedAt', deletedAt: 'comments.deletedAt' },
-  commentMentions: { id: 'commentMentions.id', commentId: 'commentMentions.commentId', userId: 'commentMentions.userId', createdAt: 'commentMentions.createdAt' },
+  comments: {
+    id: 'comments.id',
+    entityType: 'comments.entityType',
+    entityId: 'comments.entityId',
+    authorId: 'comments.authorId',
+    body: 'comments.body',
+    parentCommentId: 'comments.parentCommentId',
+    createdAt: 'comments.createdAt',
+    updatedAt: 'comments.updatedAt',
+    deletedAt: 'comments.deletedAt',
+  },
+  commentMentions: {
+    id: 'commentMentions.id',
+    commentId: 'commentMentions.commentId',
+    userId: 'commentMentions.userId',
+    createdAt: 'commentMentions.createdAt',
+  },
   tasks: { id: 'tasks.id', projectId: 'tasks.projectId', deletedAt: 'tasks.deletedAt' },
   users: { id: 'users.id', displayName: 'users.displayName' },
   projects: { id: 'projects.id', organizationId: 'projects.organizationId' },
-  organizationMembers: { userId: 'organizationMembers.userId', organizationId: 'organizationMembers.organizationId' },
+  organizationMembers: {
+    userId: 'organizationMembers.userId',
+    organizationId: 'organizationMembers.organizationId',
+  },
 }));
 
 vi.mock('../activity.service.js', () => ({
@@ -59,8 +77,9 @@ vi.mock('../activity.service.js', () => ({
 }));
 
 // Import after mocking
-const { createComment, updateComment, deleteComment, getTaskIdForComment } =
-  await import('../comment.service.js');
+const { createComment, updateComment, deleteComment, getTaskIdForComment } = await import(
+  '../comment.service.js'
+);
 const activityService = await import('../activity.service.js');
 
 const uuid1 = '00000000-0000-0000-0000-000000000001';
@@ -69,7 +88,6 @@ const uuid3 = '00000000-0000-0000-0000-000000000003';
 const orgId = '00000000-0000-0000-0000-000000000099';
 
 const now = new Date('2025-01-01T00:00:00.000Z');
-
 
 describe('comment.service', () => {
   beforeEach(() => {
@@ -139,9 +157,7 @@ describe('comment.service', () => {
     it('should reject comment on non-existent task', async () => {
       mockLimit.mockResolvedValue([]); // task not found
 
-      await expect(createComment(uuid1, uuid2, { body: 'test' })).rejects.toThrow(
-        'Task not found',
-      );
+      await expect(createComment(uuid1, uuid2, { body: 'test' })).rejects.toThrow('Task not found');
     });
 
     it('should reject comment with non-existent parent', async () => {
@@ -242,9 +258,9 @@ describe('comment.service', () => {
         },
       ]);
 
-      await expect(
-        updateComment(uuid1, 'different-user-id', { body: 'hacked' }),
-      ).rejects.toThrow('Only the author can edit a comment');
+      await expect(updateComment(uuid1, 'different-user-id', { body: 'hacked' })).rejects.toThrow(
+        'Only the author can edit a comment',
+      );
     });
 
     it('should allow author to edit their comment', async () => {
@@ -417,9 +433,7 @@ describe('comment.service', () => {
     it('should throw for non-task entity type', async () => {
       mockLimit.mockResolvedValue([{ entityType: 'project', entityId: uuid2 }]);
 
-      await expect(getTaskIdForComment(uuid1)).rejects.toThrow(
-        'Only task comments are supported',
-      );
+      await expect(getTaskIdForComment(uuid1)).rejects.toThrow('Only task comments are supported');
     });
   });
 });

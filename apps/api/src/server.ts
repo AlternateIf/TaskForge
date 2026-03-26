@@ -10,6 +10,7 @@ import multipartPlugin from './plugins/multipart.plugin.js';
 import rateLimitPlugin from './plugins/rate-limit.plugin.js';
 import requestIdPlugin from './plugins/request-id.plugin.js';
 import swaggerPlugin from './plugins/swagger.plugin.js';
+import { initPublisher, shutdownPublisher } from './queues/publisher.js';
 import { activityRoutes } from './routes/activity/activity.routes.js';
 import { attachmentRoutes } from './routes/attachments/attachments.routes.js';
 import { authRoutes } from './routes/auth/auth.routes.js';
@@ -76,6 +77,22 @@ export async function startServer() {
   const host = process.env.HOST ?? '0.0.0.0';
 
   registerGracefulShutdown(server);
+
+  // Initialize RabbitMQ publisher
+  try {
+    await initPublisher();
+    server.log.info('RabbitMQ publisher connected');
+  } catch (err) {
+    server.log.warn(
+      { err },
+      'RabbitMQ publisher failed to connect — messages will not be published',
+    );
+  }
+
+  // Shutdown publisher on server close
+  server.addHook('onClose', async () => {
+    await shutdownPublisher();
+  });
 
   await server.listen({ port, host });
   server.log.info(`Server listening on ${host}:${port}`);
