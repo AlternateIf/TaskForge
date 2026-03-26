@@ -4,6 +4,7 @@ import { BUILT_IN_PERMISSIONS } from '@taskforge/shared';
 import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 
 const TRIAL_DAYS = 14;
 
@@ -140,6 +141,14 @@ export async function createOrganization(
     await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1)
   )[0];
 
+  await activityService.log({
+    organizationId: orgId,
+    actorId: creatorUserId,
+    entityType: 'organization',
+    entityId: orgId,
+    action: 'created',
+  });
+
   return { organization: toOrganizationOutput(org), roles: createdRoles };
 }
 
@@ -191,7 +200,30 @@ export async function updateOrganization(
   if (input.logoUrl !== undefined) updateData.logoUrl = input.logoUrl;
   if (input.settings !== undefined) updateData.settings = input.settings;
 
+  // Capture before values for activity log
+  const orgBefore = (
+    await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1)
+  )[0];
+
   await db.update(organizations).set(updateData).where(eq(organizations.id, orgId));
+
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+  if (input.name !== undefined && orgBefore.name !== input.name) {
+    changes.name = { before: orgBefore.name, after: input.name };
+  }
+  if (input.logoUrl !== undefined && orgBefore.logoUrl !== input.logoUrl) {
+    changes.logoUrl = { before: orgBefore.logoUrl, after: input.logoUrl };
+  }
+  if (Object.keys(changes).length > 0) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: userId,
+      entityType: 'organization',
+      entityId: orgId,
+      action: 'updated',
+      changes,
+    });
+  }
 
   return getOrganization(orgId, userId);
 }
@@ -215,6 +247,14 @@ export async function deleteOrganization(orgId: string, userId: string): Promise
     .update(organizations)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(organizations.id, orgId));
+
+  await activityService.log({
+    organizationId: orgId,
+    actorId: userId,
+    entityType: 'organization',
+    entityId: orgId,
+    action: 'deleted',
+  });
 }
 
 export async function listMembers(orgId: string, userId: string): Promise<MemberOutput[]> {
@@ -306,6 +346,18 @@ export async function addMember(
     updatedAt: now,
   });
 
+  await activityService.log({
+    organizationId: orgId,
+    actorId: actorUserId,
+    entityType: 'organization',
+    entityId: orgId,
+    action: 'member_added',
+    changes: {
+      member: { before: null, after: user.displayName },
+      role: { before: null, after: role.name },
+    },
+  });
+
   return {
     id: memberId,
     userId: user.id,
@@ -352,12 +404,31 @@ export async function updateMemberRole(
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found in this organization');
   }
 
+  // Get old role name for activity log
+  const oldRole = (
+    await db.select({ name: roles.name }).from(roles).where(eq(roles.id, member.roleId)).limit(1)
+  )[0];
+
   await db
     .update(organizationMembers)
     .set({ roleId, updatedAt: new Date() })
     .where(eq(organizationMembers.id, memberId));
 
   const user = (await db.select().from(users).where(eq(users.id, member.userId)).limit(1))[0];
+
+  if (oldRole?.name !== role.name) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: actorUserId,
+      entityType: 'organization',
+      entityId: orgId,
+      action: 'member_role_changed',
+      changes: {
+        member: { before: user.displayName, after: user.displayName },
+        role: { before: oldRole?.name ?? null, after: role.name },
+      },
+    });
+  }
 
   return {
     id: memberId,
@@ -406,7 +477,27 @@ export async function removeMember(
     }
   }
 
+  // Get member display name for activity log
+  const memberUser = (
+    await db
+      .select({ displayName: users.displayName })
+      .from(users)
+      .where(eq(users.id, member.userId))
+      .limit(1)
+  )[0];
+
   await db.delete(organizationMembers).where(eq(organizationMembers.id, memberId));
+
+  await activityService.log({
+    organizationId: orgId,
+    actorId: actorUserId,
+    entityType: 'organization',
+    entityId: orgId,
+    action: 'member_removed',
+    changes: {
+      member: { before: memberUser?.displayName ?? null, after: null },
+    },
+  });
 }
 
 // --- Helpers ---

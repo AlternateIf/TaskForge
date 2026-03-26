@@ -12,6 +12,16 @@ import {
 import type { CreateProjectInput, UpdateProjectInput } from '@taskforge/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
+
+async function getOrgIdForProject(projectId: string): Promise<string | null> {
+  const result = await db
+    .select({ orgId: projects.organizationId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  return result[0]?.orgId ?? null;
+}
 
 const DEFAULT_STATUSES = [
   { name: 'To Do', color: '#6B7280', position: 0, isInitial: true, isFinal: false },
@@ -142,6 +152,14 @@ export async function createProject(
 
   const project = (await db.select().from(projects).where(eq(projects.id, projectId)).limit(1))[0];
 
+  await activityService.log({
+    organizationId: orgId,
+    actorId: userId,
+    entityType: 'project',
+    entityId: projectId,
+    action: 'created',
+  });
+
   return toProjectOutput(project);
 }
 
@@ -190,6 +208,7 @@ export async function getProject(projectId: string): Promise<ProjectOutput> {
 export async function updateProject(
   projectId: string,
   input: UpdateProjectInput,
+  actorId?: string,
 ): Promise<ProjectOutput> {
   const project = (
     await db
@@ -211,10 +230,30 @@ export async function updateProject(
 
   await db.update(projects).set(updateData).where(eq(projects.id, projectId));
 
+  if (actorId) {
+    const changes: Record<string, { before: unknown; after: unknown }> = {};
+    if (input.name !== undefined && project.name !== input.name) {
+      changes.name = { before: project.name, after: input.name };
+    }
+    if (input.description !== undefined && project.description !== input.description) {
+      changes.description = { before: project.description, after: input.description };
+    }
+    if (Object.keys(changes).length > 0) {
+      await activityService.log({
+        organizationId: project.organizationId,
+        actorId,
+        entityType: 'project',
+        entityId: projectId,
+        action: 'updated',
+        changes,
+      });
+    }
+  }
+
   return getProject(projectId);
 }
 
-export async function archiveProject(projectId: string): Promise<ProjectOutput> {
+export async function archiveProject(projectId: string, actorId?: string): Promise<ProjectOutput> {
   const project = (
     await db
       .select()
@@ -232,10 +271,21 @@ export async function archiveProject(projectId: string): Promise<ProjectOutput> 
     .set({ status: 'archived', updatedAt: new Date() })
     .where(eq(projects.id, projectId));
 
+  if (actorId) {
+    await activityService.log({
+      organizationId: project.organizationId,
+      actorId,
+      entityType: 'project',
+      entityId: projectId,
+      action: 'archived',
+      changes: { status: { before: project.status, after: 'archived' } },
+    });
+  }
+
   return getProject(projectId);
 }
 
-export async function deleteProject(projectId: string): Promise<void> {
+export async function deleteProject(projectId: string, actorId?: string): Promise<void> {
   const project = (
     await db
       .select()
@@ -252,6 +302,16 @@ export async function deleteProject(projectId: string): Promise<void> {
     .update(projects)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(projects.id, projectId));
+
+  if (actorId) {
+    await activityService.log({
+      organizationId: project.organizationId,
+      actorId,
+      entityType: 'project',
+      entityId: projectId,
+      action: 'deleted',
+    });
+  }
 }
 
 // --- Members ---
@@ -354,6 +414,18 @@ export async function addProjectMember(
     createdAt: now,
   });
 
+  const orgId = await getOrgIdForProject(projectId);
+  if (orgId) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: userId,
+      entityType: 'project',
+      entityId: projectId,
+      action: 'member_added',
+      changes: { userId: { before: null, after: userId } },
+    });
+  }
+
   return {
     id: memberId,
     userId,
@@ -401,6 +473,20 @@ export async function updateProjectMember(
     roleName = role?.name ?? null;
   }
 
+  if (member.roleId !== roleId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId: member.userId,
+        entityType: 'project',
+        entityId: projectId,
+        action: 'member_role_changed',
+        changes: { roleId: { before: member.roleId, after: roleId } },
+      });
+    }
+  }
+
   return {
     id: memberId,
     userId: member.userId,
@@ -415,7 +501,7 @@ export async function updateProjectMember(
 export async function removeProjectMember(projectId: string, memberId: string): Promise<void> {
   const member = (
     await db
-      .select({ id: projectMembers.id })
+      .select({ id: projectMembers.id, userId: projectMembers.userId })
       .from(projectMembers)
       .where(and(eq(projectMembers.id, memberId), eq(projectMembers.projectId, projectId)))
       .limit(1)
@@ -426,6 +512,18 @@ export async function removeProjectMember(projectId: string, memberId: string): 
   }
 
   await db.delete(projectMembers).where(eq(projectMembers.id, memberId));
+
+  const orgId = await getOrgIdForProject(projectId);
+  if (orgId) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: member.userId,
+      entityType: 'project',
+      entityId: projectId,
+      action: 'member_removed',
+      changes: { userId: { before: member.userId, after: null } },
+    });
+  }
 }
 
 // --- Workflows ---
@@ -494,6 +592,7 @@ export async function createWorkflow(projectId: string, name: string): Promise<W
 export async function addWorkflowStatus(
   projectId: string,
   input: { name: string; color?: string; isInitial?: boolean; isFinal?: boolean },
+  actorId?: string,
 ): Promise<WorkflowStatusOutput> {
   // Find the default workflow for this project
   const workflow = (
@@ -528,6 +627,20 @@ export async function addWorkflowStatus(
     isFinal: input.isFinal ?? false,
     createdAt: new Date(),
   });
+
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'project',
+        entityId: projectId,
+        action: 'workflow_status_added',
+        changes: { statusName: { before: null, after: input.name } },
+      });
+    }
+  }
 
   return {
     id: statusId,
@@ -582,7 +695,11 @@ export async function updateWorkflowStatus(
   };
 }
 
-export async function deleteWorkflowStatus(projectId: string, statusId: string): Promise<void> {
+export async function deleteWorkflowStatus(
+  projectId: string,
+  statusId: string,
+  actorId?: string,
+): Promise<void> {
   const status = (
     await db.select().from(workflowStatuses).where(eq(workflowStatuses.id, statusId)).limit(1)
   )[0];
@@ -609,6 +726,20 @@ export async function deleteWorkflowStatus(projectId: string, statusId: string):
   }
 
   await db.delete(workflowStatuses).where(eq(workflowStatuses.id, statusId));
+
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'project',
+        entityId: projectId,
+        action: 'workflow_status_removed',
+        changes: { statusName: { before: status.name, after: null } },
+      });
+    }
+  }
 }
 
 // --- Labels ---
@@ -634,6 +765,7 @@ export async function listLabels(projectId: string): Promise<LabelOutput[]> {
 export async function createLabel(
   projectId: string,
   input: { name: string; color?: string },
+  actorId?: string,
 ): Promise<LabelOutput> {
   const labelId = crypto.randomUUID();
   const now = new Date();
@@ -645,6 +777,20 @@ export async function createLabel(
     color: input.color ?? null,
     createdAt: now,
   });
+
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'project',
+        entityId: projectId,
+        action: 'label_created',
+        changes: { labelName: { before: null, after: input.name } },
+      });
+    }
+  }
 
   return {
     id: labelId,
@@ -682,7 +828,7 @@ export async function updateLabel(
   };
 }
 
-export async function deleteLabel(labelId: string): Promise<void> {
+export async function deleteLabel(labelId: string, actorId?: string): Promise<void> {
   const label = (await db.select().from(labels).where(eq(labels.id, labelId)).limit(1))[0];
 
   if (!label) {
@@ -690,4 +836,18 @@ export async function deleteLabel(labelId: string): Promise<void> {
   }
 
   await db.delete(labels).where(eq(labels.id, labelId));
+
+  if (actorId) {
+    const orgId = await getOrgIdForProject(label.projectId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'project',
+        entityId: label.projectId,
+        action: 'label_deleted',
+        changes: { labelName: { before: label.name, after: null } },
+      });
+    }
+  }
 }

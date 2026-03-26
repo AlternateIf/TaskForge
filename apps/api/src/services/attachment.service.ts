@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { attachments, db, tasks } from '@taskforge/db';
+import { attachments, db, projects, tasks } from '@taskforge/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 
@@ -160,6 +161,32 @@ export async function uploadAttachment(
     createdAt: now,
   });
 
+  // Log activity
+  const taskWithProject = await db
+    .select({ projectId: tasks.projectId })
+    .from(tasks)
+    .where(eq(tasks.id, entityId))
+    .limit(1);
+
+  if (taskWithProject.length > 0) {
+    const projectResult = await db
+      .select({ orgId: projects.organizationId })
+      .from(projects)
+      .where(eq(projects.id, taskWithProject[0].projectId))
+      .limit(1);
+
+    if (projectResult.length > 0) {
+      await activityService.log({
+        organizationId: projectResult[0].orgId,
+        actorId: userId,
+        entityType: 'task',
+        entityId,
+        action: 'attachment_added',
+        changes: { filename: { before: null, after: filename } },
+      });
+    }
+  }
+
   return {
     id,
     entityType,
@@ -220,9 +247,15 @@ export async function listAttachments(
   return result.map(toOutput);
 }
 
-export async function deleteAttachment(attachmentId: string): Promise<void> {
+export async function deleteAttachment(attachmentId: string, actorId?: string): Promise<void> {
   const result = await db
-    .select({ id: attachments.id, storagePath: attachments.storagePath })
+    .select({
+      id: attachments.id,
+      storagePath: attachments.storagePath,
+      entityType: attachments.entityType,
+      entityId: attachments.entityId,
+      filename: attachments.filename,
+    })
     .from(attachments)
     .where(eq(attachments.id, attachmentId))
     .limit(1);
@@ -239,6 +272,33 @@ export async function deleteAttachment(attachmentId: string): Promise<void> {
   }
 
   await db.delete(attachments).where(eq(attachments.id, attachmentId));
+
+  if (actorId && result[0].entityType === 'task') {
+    const taskWithProject = await db
+      .select({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(eq(tasks.id, result[0].entityId))
+      .limit(1);
+
+    if (taskWithProject.length > 0) {
+      const projectResult = await db
+        .select({ orgId: projects.organizationId })
+        .from(projects)
+        .where(eq(projects.id, taskWithProject[0].projectId))
+        .limit(1);
+
+      if (projectResult.length > 0) {
+        await activityService.log({
+          organizationId: projectResult[0].orgId,
+          actorId,
+          entityType: 'task',
+          entityId: result[0].entityId,
+          action: 'attachment_removed',
+          changes: { filename: { before: result[0].filename, after: null } },
+        });
+      }
+    }
+  }
 }
 
 /**

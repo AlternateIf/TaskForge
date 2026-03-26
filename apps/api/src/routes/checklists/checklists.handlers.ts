@@ -22,8 +22,12 @@ export async function createChecklistHandler(
   request: FastifyRequest<{ Params: { taskId: string }; Body: CreateChecklistInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const checklist = await checklistService.createChecklist(request.params.taskId, request.body);
+  const userId = requireAuth(request);
+  const checklist = await checklistService.createChecklist(
+    request.params.taskId,
+    request.body,
+    userId,
+  );
   return reply.status(201).send(success(checklist));
 }
 
@@ -40,8 +44,8 @@ export async function updateChecklistHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateChecklistInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const checklist = await checklistService.updateChecklist(request.params.id, request.body);
+  const userId = requireAuth(request);
+  const checklist = await checklistService.updateChecklist(request.params.id, request.body, userId);
   return reply.status(200).send(success(checklist));
 }
 
@@ -49,8 +53,8 @@ export async function deleteChecklistHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await checklistService.deleteChecklist(request.params.id);
+  const userId = requireAuth(request);
+  await checklistService.deleteChecklist(request.params.id, userId);
   return reply.status(204).send();
 }
 
@@ -60,8 +64,8 @@ export async function createChecklistItemHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: CreateChecklistItemInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const item = await checklistService.createChecklistItem(request.params.id, request.body);
+  const userId = requireAuth(request);
+  const item = await checklistService.createChecklistItem(request.params.id, request.body, userId);
   return reply.status(201).send(success(item));
 }
 
@@ -78,7 +82,7 @@ export async function deleteChecklistItemHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await checklistService.deleteChecklistItem(request.params.id);
+  const userId = requireAuth(request);
+  await checklistService.deleteChecklistItem(request.params.id, userId);
   return reply.status(204).send();
 }

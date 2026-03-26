@@ -3,6 +3,7 @@ import { db, projects, taskDependencies, tasks, workflowStatuses } from '@taskfo
 import type { CreateDependencyInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 
 export interface DependencyOutput {
   id: string;
@@ -87,6 +88,7 @@ function toOutput(d: typeof taskDependencies.$inferSelect): DependencyOutput {
 export async function createDependency(
   taskId: string,
   input: CreateDependencyInput,
+  actorId?: string,
 ): Promise<DependencyOutput> {
   // Self-dependency check
   if (taskId === input.dependsOnTaskId) {
@@ -141,6 +143,17 @@ export async function createDependency(
     createdAt: now,
   });
 
+  if (actorId) {
+    await activityService.log({
+      organizationId: orgA,
+      actorId,
+      entityType: 'task',
+      entityId: taskId,
+      action: 'dependency_added',
+      changes: { dependsOn: { before: null, after: input.dependsOnTaskId } },
+    });
+  }
+
   return {
     id,
     taskId,
@@ -169,9 +182,9 @@ export async function listDependencies(taskId: string): Promise<DependencyListOu
   };
 }
 
-export async function deleteDependency(dependencyId: string): Promise<void> {
+export async function deleteDependency(dependencyId: string, actorId?: string): Promise<void> {
   const existing = await db
-    .select({ id: taskDependencies.id })
+    .select()
     .from(taskDependencies)
     .where(eq(taskDependencies.id, dependencyId))
     .limit(1);
@@ -181,6 +194,18 @@ export async function deleteDependency(dependencyId: string): Promise<void> {
   }
 
   await db.delete(taskDependencies).where(eq(taskDependencies.id, dependencyId));
+
+  if (actorId) {
+    const orgId = await getOrgIdForTask(existing[0].taskId);
+    await activityService.log({
+      organizationId: orgId,
+      actorId,
+      entityType: 'task',
+      entityId: existing[0].taskId,
+      action: 'dependency_removed',
+      changes: { dependsOn: { before: existing[0].dependsOnTaskId, after: null } },
+    });
+  }
 }
 
 /**

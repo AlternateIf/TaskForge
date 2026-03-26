@@ -15,8 +15,12 @@ export async function createDependencyHandler(
   request: FastifyRequest<{ Params: { taskId: string }; Body: CreateDependencyInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const dependency = await dependencyService.createDependency(request.params.taskId, request.body);
+  const userId = requireAuth(request);
+  const dependency = await dependencyService.createDependency(
+    request.params.taskId,
+    request.body,
+    userId,
+  );
   return reply.status(201).send(success(dependency));
 }
 
@@ -33,7 +37,7 @@ export async function deleteDependencyHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await dependencyService.deleteDependency(request.params.id);
+  const userId = requireAuth(request);
+  await dependencyService.deleteDependency(request.params.id, userId);
   return reply.status(204).send();
 }

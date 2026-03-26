@@ -73,8 +73,8 @@ export async function deleteAttachmentHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await attachmentService.deleteAttachment(request.params.id);
+  const userId = requireAuth(request);
+  await attachmentService.deleteAttachment(request.params.id, userId);
   return reply.status(204).send();
 }
 

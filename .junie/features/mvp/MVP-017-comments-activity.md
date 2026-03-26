@@ -83,21 +83,21 @@ await activityService.log({
 - For MVP: store mention references; notification creation deferred to notification feature
 
 ## Acceptance Criteria
-- [ ] Comments can be created on tasks
-- [ ] Comments support threading (1 level deep)
-- [ ] @mentions are parsed and resolved to user IDs
-- [ ] Comment body is HTML-sanitized (no XSS)
-- [ ] Comments can be edited by author only
-- [ ] Comments can be soft-deleted by author or admin
-- [ ] Activity log records all entity changes with before/after values
-- [ ] Activity log is immutable (no update/delete endpoints)
-- [ ] Activity log is paginated and filterable by entity
-- [ ] actor_display is denormalized for historical accuracy
+- [x] Comments can be created on tasks
+- [x] Comments support threading (1 level deep)
+- [x] @mentions are parsed and resolved to user IDs
+- [x] Comment body is HTML-sanitized (no XSS)
+- [x] Comments can be edited by author only
+- [x] Comments can be soft-deleted by author or admin
+- [x] Activity log records all entity changes with before/after values
+- [x] Activity log is immutable (no update/delete endpoints)
+- [x] Activity log is paginated and filterable by entity
+- [x] actor_display is denormalized for historical accuracy
 - [ ] Tests cover comment CRUD, threading, mentions, activity logging
-- [ ] Organization membership changes (add, remove, role change) create activity log entries (from MVP-009)
-- [ ] Project changes (CRUD, member changes, workflow/label changes) create activity log entries (from MVP-011)
-- [ ] Task changes (CRUD, assign, status change, label add/remove) create activity log entries with before/after values (from MVP-012)
-- [ ] Subtask and checklist changes create activity log entries (from MVP-013)
-- [ ] Dependency changes (add, remove) create activity log entries (from MVP-014)
-- [ ] Bulk action changes create individual activity log entries per task (from MVP-015)
-- [ ] Attachment add/remove creates activity log entries (from MVP-016)
+- [x] Organization membership changes (add, remove, role change) create activity log entries (from MVP-009)
+- [x] Project changes (CRUD, member changes, workflow/label changes) create activity log entries (from MVP-011)
+- [x] Task changes (CRUD, assign, status change, label add/remove) create activity log entries with before/after values (from MVP-012)
+- [x] Subtask and checklist changes create activity log entries (from MVP-013)
+- [x] Dependency changes (add, remove) create activity log entries (from MVP-014)
+- [x] Bulk action changes create individual activity log entries per task (from MVP-015)
+- [x] Attachment add/remove creates activity log entries (from MVP-016)

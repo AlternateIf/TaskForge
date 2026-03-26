@@ -74,9 +74,9 @@ export async function updateTaskHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateTaskInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const projectId = await taskService.getProjectIdForTask(request.params.id);
-  const task = await taskService.updateTask(request.params.id, projectId, request.body);
+  const task = await taskService.updateTask(request.params.id, projectId, request.body, userId);
   return reply.status(200).send(success(task));
 }
 
@@ -84,8 +84,8 @@ export async function deleteTaskHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await taskService.deleteTask(request.params.id);
+  const userId = requireAuth(request);
+  await taskService.deleteTask(request.params.id, userId);
   return reply.status(204).send();
 }
 
@@ -136,9 +136,9 @@ export async function addTaskLabelHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AddTaskLabelInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const projectId = await taskService.getProjectIdForTask(request.params.id);
-  await taskService.addTaskLabel(request.params.id, request.body.labelId, projectId);
+  await taskService.addTaskLabel(request.params.id, request.body.labelId, projectId, userId);
   return reply
     .status(201)
     .send(success({ taskId: request.params.id, labelId: request.body.labelId }));
@@ -148,8 +148,8 @@ export async function removeTaskLabelHandler(
   request: FastifyRequest<{ Params: { id: string; labelId: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  await taskService.removeTaskLabel(request.params.id, request.params.labelId);
+  const userId = requireAuth(request);
+  await taskService.removeTaskLabel(request.params.id, request.params.labelId, userId);
   return reply.status(204).send();
 }
 

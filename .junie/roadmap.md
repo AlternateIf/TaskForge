@@ -45,9 +45,9 @@ The minimum viable product: core task management with auth, projects, a function
 - List view (sortable, filterable table)
 
 ### Comments & Activity
-- Threaded comments with @mentions
+- ~~Threaded comments with @mentions~~ ✅
 - Rich text and file attachments
-- Activity log per task and project
+- ~~Activity log per task and project~~ ✅
 - ~~File upload validation (MIME type whitelist, extension check, max size)~~ ✅
 
 ### Search & Filtering

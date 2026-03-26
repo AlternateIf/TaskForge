@@ -10,11 +10,13 @@ import multipartPlugin from './plugins/multipart.plugin.js';
 import rateLimitPlugin from './plugins/rate-limit.plugin.js';
 import requestIdPlugin from './plugins/request-id.plugin.js';
 import swaggerPlugin from './plugins/swagger.plugin.js';
+import { activityRoutes } from './routes/activity/activity.routes.js';
 import { attachmentRoutes } from './routes/attachments/attachments.routes.js';
 import { authRoutes } from './routes/auth/auth.routes.js';
 import { mfaRoutes } from './routes/auth/mfa.routes.js';
 import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { checklistRoutes } from './routes/checklists/checklists.routes.js';
+import { commentRoutes } from './routes/comments/comments.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
@@ -60,7 +62,9 @@ export async function buildServer() {
   await fastify.register(dependencyRoutes);
   await fastify.register(bulkRoutes);
   await fastify.register(checklistRoutes);
+  await fastify.register(commentRoutes);
   await fastify.register(attachmentRoutes);
+  await fastify.register(activityRoutes);
   await fastify.register(userRoutes);
 
   return fastify;

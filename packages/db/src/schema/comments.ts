@@ -24,6 +24,24 @@ export const comments = mysqlTable(
   ],
 );
 
+export const commentMentions = mysqlTable(
+  'comment_mentions',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    commentId: varchar('comment_id', { length: 36 })
+      .notNull()
+      .references(() => comments.id),
+    userId: varchar('user_id', { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    createdAt: datetime('created_at').notNull().default(new Date()),
+  },
+  (table) => [
+    index('comment_mentions_comment_idx').on(table.commentId),
+    index('comment_mentions_user_idx').on(table.userId),
+  ],
+);
+
 export const commentsRelations = relations(comments, ({ one, many }) => ({
   author: one(users, { fields: [comments.authorId], references: [users.id] }),
   parent: one(comments, {
@@ -32,4 +50,10 @@ export const commentsRelations = relations(comments, ({ one, many }) => ({
     relationName: 'replies',
   }),
   replies: many(comments, { relationName: 'replies' }),
+  mentions: many(commentMentions),
+}));
+
+export const commentMentionsRelations = relations(commentMentions, ({ one }) => ({
+  comment: one(comments, { fields: [commentMentions.commentId], references: [comments.id] }),
+  user: one(users, { fields: [commentMentions.userId], references: [users.id] }),
 }));

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { checklistItems, checklists, db, tasks } from '@taskforge/db';
+import { checklistItems, checklists, db, projects, tasks } from '@taskforge/db';
 import type {
   CreateChecklistInput,
   CreateChecklistItemInput,
@@ -8,6 +8,7 @@ import type {
 } from '@taskforge/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 
 export interface ChecklistItemOutput {
   id: string;
@@ -44,6 +45,16 @@ function toItemOutput(i: typeof checklistItems.$inferSelect): ChecklistItemOutpu
   };
 }
 
+async function getOrgIdForTask(taskId: string): Promise<string | null> {
+  const result = await db
+    .select({ orgId: projects.organizationId })
+    .from(tasks)
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .where(eq(tasks.id, taskId))
+    .limit(1);
+  return result[0]?.orgId ?? null;
+}
+
 async function requireTask(taskId: string): Promise<void> {
   const result = await db
     .select({ id: tasks.id })
@@ -60,6 +71,7 @@ async function requireTask(taskId: string): Promise<void> {
 export async function createChecklist(
   taskId: string,
   input: CreateChecklistInput,
+  actorId?: string,
 ): Promise<ChecklistOutput> {
   await requireTask(taskId);
 
@@ -82,6 +94,20 @@ export async function createChecklist(
     position,
     createdAt: now,
   });
+
+  if (actorId) {
+    const orgId = await getOrgIdForTask(taskId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: taskId,
+        action: 'checklist_added',
+        changes: { title: { before: null, after: input.title } },
+      });
+    }
+  }
 
   return { id, taskId, title: input.title, position, createdAt: now.toISOString(), items: [] };
 }
@@ -117,6 +143,7 @@ export async function listChecklists(taskId: string): Promise<ChecklistOutput[]>
 export async function updateChecklist(
   checklistId: string,
   input: UpdateChecklistInput,
+  actorId?: string,
 ): Promise<ChecklistOutput> {
   const existing = await db
     .select()
@@ -134,6 +161,26 @@ export async function updateChecklist(
 
   if (Object.keys(updates).length > 0) {
     await db.update(checklists).set(updates).where(eq(checklists.id, checklistId));
+
+    if (actorId) {
+      const orgId = await getOrgIdForTask(existing[0].taskId);
+      if (orgId) {
+        const changes: Record<string, { before: unknown; after: unknown }> = {};
+        if (input.title !== undefined && input.title !== existing[0].title) {
+          changes.title = { before: existing[0].title, after: input.title };
+        }
+        if (Object.keys(changes).length > 0) {
+          await activityService.log({
+            organizationId: orgId,
+            actorId,
+            entityType: 'task',
+            entityId: existing[0].taskId,
+            action: 'checklist_updated',
+            changes,
+          });
+        }
+      }
+    }
   }
 
   const items = await db
@@ -153,9 +200,9 @@ export async function updateChecklist(
   };
 }
 
-export async function deleteChecklist(checklistId: string): Promise<void> {
+export async function deleteChecklist(checklistId: string, actorId?: string): Promise<void> {
   const existing = await db
-    .select({ id: checklists.id })
+    .select({ id: checklists.id, taskId: checklists.taskId, title: checklists.title })
     .from(checklists)
     .where(eq(checklists.id, checklistId))
     .limit(1);
@@ -167,6 +214,20 @@ export async function deleteChecklist(checklistId: string): Promise<void> {
   // Cascade delete items
   await db.delete(checklistItems).where(eq(checklistItems.checklistId, checklistId));
   await db.delete(checklists).where(eq(checklists.id, checklistId));
+
+  if (actorId) {
+    const orgId = await getOrgIdForTask(existing[0].taskId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: existing[0].taskId,
+        action: 'checklist_removed',
+        changes: { title: { before: existing[0].title, after: null } },
+      });
+    }
+  }
 }
 
 // --- Checklist Items ---
@@ -174,9 +235,10 @@ export async function deleteChecklist(checklistId: string): Promise<void> {
 export async function createChecklistItem(
   checklistId: string,
   input: CreateChecklistItemInput,
+  actorId?: string,
 ): Promise<ChecklistItemOutput> {
   const cl = await db
-    .select({ id: checklists.id })
+    .select({ id: checklists.id, taskId: checklists.taskId })
     .from(checklists)
     .where(eq(checklists.id, checklistId))
     .limit(1);
@@ -205,6 +267,20 @@ export async function createChecklistItem(
     createdAt: now,
     updatedAt: now,
   });
+
+  if (actorId) {
+    const orgId = await getOrgIdForTask(cl[0].taskId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: cl[0].taskId,
+        action: 'checklist_item_added',
+        changes: { title: { before: null, after: input.title } },
+      });
+    }
+  }
 
   return {
     id,
@@ -251,6 +327,22 @@ export async function updateChecklistItem(
 
   await db.update(checklistItems).set(updates).where(eq(checklistItems.id, itemId));
 
+  // Log activity for completion changes
+  if (input.isCompleted !== undefined && input.isCompleted !== existing[0].isCompleted) {
+    const taskId = await getTaskIdForChecklistItem(itemId);
+    const orgId = await getOrgIdForTask(taskId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId: userId,
+        entityType: 'task',
+        entityId: taskId,
+        action: input.isCompleted ? 'checklist_item_completed' : 'checklist_item_uncompleted',
+        changes: { title: { before: existing[0].title, after: existing[0].title } },
+      });
+    }
+  }
+
   const updated = await db
     .select()
     .from(checklistItems)
@@ -260,15 +352,30 @@ export async function updateChecklistItem(
   return toItemOutput(updated[0]);
 }
 
-export async function deleteChecklistItem(itemId: string): Promise<void> {
+export async function deleteChecklistItem(itemId: string, actorId?: string): Promise<void> {
   const existing = await db
-    .select({ id: checklistItems.id })
+    .select({ id: checklistItems.id, title: checklistItems.title })
     .from(checklistItems)
     .where(eq(checklistItems.id, itemId))
     .limit(1);
 
   if (existing.length === 0) {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Checklist item not found');
+  }
+
+  if (actorId) {
+    const taskId = await getTaskIdForChecklistItem(itemId);
+    const orgId = await getOrgIdForTask(taskId);
+    if (orgId) {
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: taskId,
+        action: 'checklist_item_removed',
+        changes: { title: { before: existing[0].title, after: null } },
+      });
+    }
   }
 
   await db.delete(checklistItems).where(eq(checklistItems.id, itemId));

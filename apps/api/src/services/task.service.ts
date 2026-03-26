@@ -15,6 +15,7 @@ import {
 import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
 import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 import { computeBlockedStatus } from './dependency.service.js';
 
 const POSITION_GAP = 1000;
@@ -213,6 +214,15 @@ async function loadTaskProgress(taskId: string): Promise<TaskProgress> {
   };
 }
 
+async function getOrgIdForProject(projectId: string): Promise<string> {
+  const result = await db
+    .select({ organizationId: projects.organizationId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  return result[0]?.organizationId ?? '';
+}
+
 // --- CRUD ---
 
 export async function createTask(
@@ -278,6 +288,18 @@ export async function createTask(
     .limit(1);
 
   const created = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+
+  const orgId = await getOrgIdForProject(projectId);
+  if (orgId) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: userId,
+      entityType: 'task',
+      entityId: taskId,
+      action: 'created',
+    });
+  }
+
   return toTaskOutput(created[0], statusRow[0]?.name);
 }
 
@@ -386,6 +408,7 @@ export async function updateTask(
   taskId: string,
   projectId: string,
   input: UpdateTaskInput,
+  actorId?: string,
 ): Promise<TaskOutput> {
   const existing = await db
     .select()
@@ -421,6 +444,43 @@ export async function updateTask(
 
   await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
 
+  // Log activity with before/after changes
+  if (actorId) {
+    const changes: Record<string, { before: unknown; after: unknown }> = {};
+    const old = existing[0];
+    if (input.title !== undefined && old.title !== input.title) {
+      changes.title = { before: old.title, after: input.title };
+    }
+    if (input.statusId !== undefined && old.statusId !== input.statusId) {
+      changes.statusId = { before: old.statusId, after: input.statusId };
+    }
+    if (input.priority !== undefined && old.priority !== input.priority) {
+      changes.priority = { before: old.priority, after: input.priority };
+    }
+    if (input.assigneeId !== undefined && old.assigneeId !== input.assigneeId) {
+      changes.assigneeId = { before: old.assigneeId, after: input.assigneeId };
+    }
+    if (input.description !== undefined && old.description !== input.description) {
+      changes.description = { before: old.description, after: input.description };
+    }
+    if (Object.keys(changes).length > 0) {
+      const orgId = await getOrgIdForProject(projectId);
+      const action = changes.statusId
+        ? 'status_changed'
+        : changes.assigneeId
+          ? 'assigned'
+          : 'updated';
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: taskId,
+        action,
+        changes,
+      });
+    }
+  }
+
   // If assignee changed, add new assignee as watcher
   if (input.assigneeId && input.assigneeId !== existing[0].assigneeId) {
     const existingWatcher = await db
@@ -437,9 +497,9 @@ export async function updateTask(
   return getTask(taskId);
 }
 
-export async function deleteTask(taskId: string): Promise<void> {
+export async function deleteTask(taskId: string, actorId?: string): Promise<void> {
   const existing = await db
-    .select({ id: tasks.id })
+    .select({ id: tasks.id, projectId: tasks.projectId })
     .from(tasks)
     .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
     .limit(1);
@@ -449,6 +509,17 @@ export async function deleteTask(taskId: string): Promise<void> {
   }
 
   await db.update(tasks).set({ deletedAt: new Date() }).where(eq(tasks.id, taskId));
+
+  if (actorId) {
+    const orgId = await getOrgIdForProject(existing[0].projectId);
+    await activityService.log({
+      organizationId: orgId,
+      actorId,
+      entityType: 'task',
+      entityId: taskId,
+      action: 'deleted',
+    });
+  }
 }
 
 // --- Assignment ---
@@ -544,6 +615,7 @@ export async function addTaskLabel(
   taskId: string,
   labelId: string,
   projectId: string,
+  actorId?: string,
 ): Promise<void> {
   // Verify task exists
   const task = await db
@@ -580,13 +652,42 @@ export async function addTaskLabel(
 
   if (existing.length === 0) {
     await db.insert(taskLabels).values({ taskId, labelId });
+
+    if (actorId) {
+      const orgId = await getOrgIdForProject(projectId);
+      await activityService.log({
+        organizationId: orgId,
+        actorId,
+        entityType: 'task',
+        entityId: taskId,
+        action: 'label_added',
+        changes: { labelId: { before: null, after: labelId } },
+      });
+    }
   }
 }
 
-export async function removeTaskLabel(taskId: string, labelId: string): Promise<void> {
+export async function removeTaskLabel(
+  taskId: string,
+  labelId: string,
+  actorId?: string,
+): Promise<void> {
   await db
     .delete(taskLabels)
     .where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)));
+
+  if (actorId) {
+    const projectId = await getProjectIdForTask(taskId);
+    const orgId = await getOrgIdForProject(projectId);
+    await activityService.log({
+      organizationId: orgId,
+      actorId,
+      entityType: 'task',
+      entityId: taskId,
+      action: 'label_removed',
+      changes: { labelId: { before: labelId, after: null } },
+    });
+  }
 }
 
 // --- Position / Reordering ---

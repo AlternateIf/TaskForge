@@ -15,8 +15,8 @@ export async function bulkActionHandler(
   request: FastifyRequest<{ Body: BulkActionInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const result = await executeBulkAction(request.body);
+  const userId = requireAuth(request);
+  const result = await executeBulkAction(request.body, userId);
   return reply.status(200).send({
     data: {
       succeeded: result.succeeded,

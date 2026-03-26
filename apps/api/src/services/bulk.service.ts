@@ -10,6 +10,7 @@ import {
 import type { BulkActionInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError } from '../utils/errors.js';
+import * as activityService from './activity.service.js';
 
 interface BulkFailure {
   id: string;
@@ -41,7 +42,10 @@ async function getInitialStatusForProject(projectId: string): Promise<string | n
   return result[0]?.id ?? null;
 }
 
-export async function executeBulkAction(input: BulkActionInput): Promise<BulkResult> {
+export async function executeBulkAction(
+  input: BulkActionInput,
+  actorId?: string,
+): Promise<BulkResult> {
   const succeeded: string[] = [];
   const failed: BulkFailure[] = [];
 
@@ -91,6 +95,19 @@ export async function executeBulkAction(input: BulkActionInput): Promise<BulkRes
             .update(tasks)
             .set({ statusId, updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'status_changed',
+                changes: { statusId: { before: task.statusId, after: statusId } },
+              });
+            }
+          }
           succeeded.push(taskId);
           break;
         }
@@ -101,6 +118,19 @@ export async function executeBulkAction(input: BulkActionInput): Promise<BulkRes
             .update(tasks)
             .set({ assigneeId, updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'assigned',
+                changes: { assigneeId: { before: task.assigneeId, after: assigneeId } },
+              });
+            }
+          }
           succeeded.push(taskId);
           break;
         }
@@ -118,6 +148,19 @@ export async function executeBulkAction(input: BulkActionInput): Promise<BulkRes
             .update(tasks)
             .set({ priority, updatedAt: new Date() })
             .where(eq(tasks.id, taskId));
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'updated',
+                changes: { priority: { before: task.priority, after: priority } },
+              });
+            }
+          }
           succeeded.push(taskId);
           break;
         }
@@ -156,12 +199,37 @@ export async function executeBulkAction(input: BulkActionInput): Promise<BulkRes
           if (existingLabel.length === 0) {
             await db.insert(taskLabels).values({ taskId, labelId });
           }
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'label_added',
+                changes: { labelId: { before: null, after: labelId } },
+              });
+            }
+          }
           succeeded.push(taskId);
           break;
         }
 
         case 'delete': {
           await db.update(tasks).set({ deletedAt: new Date() }).where(eq(tasks.id, taskId));
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'deleted',
+              });
+            }
+          }
           succeeded.push(taskId);
           break;
         }
@@ -215,6 +283,20 @@ export async function executeBulkAction(input: BulkActionInput): Promise<BulkRes
 
           // Clear labels (project-scoped)
           await db.delete(taskLabels).where(eq(taskLabels.taskId, taskId));
+
+          if (actorId) {
+            const orgId = await getOrgIdForProject(task.projectId);
+            if (orgId) {
+              await activityService.log({
+                organizationId: orgId,
+                actorId,
+                entityType: 'task',
+                entityId: taskId,
+                action: 'moved_to_project',
+                changes: { projectId: { before: task.projectId, after: targetProjectId } },
+              });
+            }
+          }
 
           succeeded.push(taskId);
           break;
