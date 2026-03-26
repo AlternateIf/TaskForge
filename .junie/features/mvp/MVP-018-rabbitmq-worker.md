@@ -1,7 +1,7 @@
 # MVP-018: RabbitMQ & Worker Process
 
 ## Description
-Set up RabbitMQ connection via rascal, publisher utility for the API, and the worker process that consumes messages. This is the async backbone for notifications, emails, search indexing, and future features.
+Set up RabbitMQ connection via amqplib, publisher utility for the API, and the worker process that consumes messages. This is the async backbone for notifications, emails, search indexing, and future features.
 
 ## Personas
 - **Marcus (Backend)**: Decoupled async processing
@@ -17,7 +17,7 @@ Set up RabbitMQ connection via rascal, publisher utility for the API, and the wo
 ```
 apps/api/src/
 ├── queues/
-│   ├── config.ts              # Rascal broker config (exchanges, queues, bindings)
+│   ├── config.ts              # amqplib broker config (exchanges, queues, bindings)
 │   ├── publisher.ts           # Publish messages from API services
 │   ├── consumer.ts            # Consume messages in worker process
 │   └── handlers/
@@ -27,7 +27,7 @@ apps/api/src/
 ├── worker.ts                  # Worker entry point: connect to RabbitMQ, register consumers
 ```
 
-### Rascal configuration
+### amqplib configuration
 ```
 Exchanges:
   taskforge.events (topic exchange)
@@ -65,10 +65,10 @@ await publish('search.index', {
 ### Worker process
 ```typescript
 // worker.ts
-const broker = await createBroker(rascalConfig);
-registerConsumer(broker, 'email.send', emailHandler);
-registerConsumer(broker, 'notification.create', notificationHandler);
-registerConsumer(broker, 'search.index', searchIndexHandler);
+await initConsumer();
+registerConsumer('email.send', emailHandler);
+registerConsumer('notification.create', notificationHandler);
+registerConsumer('search.index', searchIndexHandler);
 ```
 
 ### Error handling
@@ -90,7 +90,7 @@ registerConsumer(broker, 'search.index', searchIndexHandler);
 ```
 
 ## Acceptance Criteria
-- [x] Rascal connects to RabbitMQ on API and worker startup
+- [x] amqplib connects to RabbitMQ on API and worker startup
 - [x] Publisher can send messages from any API service
 - [x] Worker starts and consumes messages from all queues
 - [x] Messages include type, timestamp, data, and correlationId

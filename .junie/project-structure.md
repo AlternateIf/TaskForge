@@ -80,8 +80,8 @@ apps/api/
 │   │   ├── presence.ts       # Presence tracking (who is viewing what)
 │   │   └── sse.ts            # SSE fallback endpoint
 │   ├── queues/               # RabbitMQ producers and consumers
-│   │   ├── publisher.ts      # Rascal publisher setup
-│   │   ├── consumer.ts       # Rascal consumer setup
+│   │   ├── publisher.ts      # amqplib publisher setup
+│   │   ├── consumer.ts       # amqplib consumer setup
 │   │   └── handlers/         # Message handlers per event type
 │   │       ├── notification.handler.ts
 │   │       ├── email.handler.ts
@@ -368,7 +368,7 @@ External:
 - **api → MariaDB**: Drizzle ORM queries
 - **api → Redis**: Cache reads/writes, session management, real-time pub/sub for multi-instance broadcast
 - **api → Meilisearch**: Search queries
-- **api → RabbitMQ**: Publishes events (rascal)
+- **api → RabbitMQ**: Publishes events (amqplib)
 - **worker ← RabbitMQ**: Consumes events, sends emails, updates search indexes, processes automations, handles imports, checks workload thresholds, enforces retention
 - **Redis pub/sub**: Used by API instances to broadcast real-time events across multiple API server instances (horizontal scaling)
 - **GitHub → api**: Incoming webhooks for PR linking and deployment events

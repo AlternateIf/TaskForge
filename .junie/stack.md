@@ -19,7 +19,7 @@
 | ORM | Drizzle | Type-safe database access and migrations |
 | Database | MariaDB | Primary relational data store |
 | Cache / Sessions | Redis (ioredis) | Caching, session storage, real-time pub/sub for multi-instance broadcast |
-| Message queue | RabbitMQ (rascal) | Async messaging and job processing |
+| Message queue | RabbitMQ (amqplib) | Async messaging and job processing |
 | Search | Meilisearch (official JS SDK) | Full-text search |
 | Real-time | @fastify/websocket + sse | WebSocket/SSE server for push updates and presence |
 | Auth | @fastify/jwt + openid-client | JWT-based auth, OAuth 2.0, OIDC |

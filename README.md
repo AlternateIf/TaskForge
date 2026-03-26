@@ -32,7 +32,7 @@ A collaborative task and project management application designed for teams of al
 | Backend | Fastify, Drizzle ORM, Zod |
 | Database | MariaDB |
 | Cache | Redis |
-| Queue | RabbitMQ (rascal) |
+| Queue | RabbitMQ (amqplib) |
 | Search | Meilisearch |
 | Email | Nodemailer, react-email |
 | Monitoring | Prometheus, Grafana, Loki |
