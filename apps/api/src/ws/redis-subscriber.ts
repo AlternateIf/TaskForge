@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import { broadcast, type RealtimeEvent } from './channels.js';
+import { type RealtimeEvent, broadcast } from './channels.js';
 
 const REDIS_CHANNEL_PREFIX = 'realtime:';
 

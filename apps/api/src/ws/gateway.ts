@@ -1,14 +1,14 @@
-import type { FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
+import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import {
+  type ClientConnection,
   addConnection,
   canConnect,
   getAllConnections,
   removeConnection,
   subscribe,
   unsubscribe,
-  type ClientConnection,
 } from './channels.js';
 import { initRealtimeSubscriber, shutdownRealtimeSubscriber } from './redis-subscriber.js';
 

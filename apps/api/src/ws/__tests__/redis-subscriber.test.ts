@@ -62,11 +62,13 @@ describe('redis-subscriber', () => {
     await initRealtimeSubscriber();
 
     // Get the pmessage handler
-    const pmessageCall = mockOn.mock.calls.find(
-      (call: unknown[]) => call[0] === 'pmessage',
-    );
+    const pmessageCall = mockOn.mock.calls.find((call: unknown[]) => call[0] === 'pmessage');
     expect(pmessageCall).toBeDefined();
-    const handler = pmessageCall![1] as (pattern: string, channel: string, message: string) => void;
+    const handler = pmessageCall?.[1] as (
+      pattern: string,
+      channel: string,
+      message: string,
+    ) => void;
 
     const event = {
       type: 'task.updated',
@@ -83,10 +85,12 @@ describe('redis-subscriber', () => {
   it('should ignore malformed messages', async () => {
     await initRealtimeSubscriber();
 
-    const pmessageCall = mockOn.mock.calls.find(
-      (call: unknown[]) => call[0] === 'pmessage',
-    );
-    const handler = pmessageCall![1] as (pattern: string, channel: string, message: string) => void;
+    const pmessageCall = mockOn.mock.calls.find((call: unknown[]) => call[0] === 'pmessage');
+    const handler = pmessageCall?.[1] as (
+      pattern: string,
+      channel: string,
+      message: string,
+    ) => void;
 
     // Should not throw
     handler('realtime:*', 'realtime:project:p1', 'not-valid-json');

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  type ClientConnection,
+  type RealtimeEvent,
   addConnection,
   addSseClient,
   broadcast,
@@ -10,8 +12,6 @@ import {
   removeSseClient,
   subscribe,
   unsubscribe,
-  type ClientConnection,
-  type RealtimeEvent,
 } from '../channels.js';
 
 function mockWs(readyState = 1 /* OPEN */): ClientConnection['ws'] {

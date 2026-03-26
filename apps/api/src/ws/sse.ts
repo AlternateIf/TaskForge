@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { addSseClient, removeSseClient, type RealtimeEvent } from './channels.js';
+import { type RealtimeEvent, addSseClient, removeSseClient } from './channels.js';
 
 const SSE_RETRY_MS = 3000;
 
@@ -8,7 +8,10 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
     '/api/v1/events/stream',
     { preHandler: [fastify.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const userId = request.authUser!.userId;
+      const userId = request.authUser?.userId ?? '';
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
 
       // Parse channels from query string
       const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
@@ -53,7 +56,7 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
       });
 
       // Send initial connected event
-      reply.raw.write(`event: connected\n`);
+      reply.raw.write('event: connected\n');
       reply.raw.write(`data: ${JSON.stringify({ type: 'connected', userId, channels })}\n\n`);
 
       // Clean up on disconnect
