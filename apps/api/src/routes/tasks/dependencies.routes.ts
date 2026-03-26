@@ -2,6 +2,7 @@ import { createDependencySchema } from '@taskforge/shared';
 import type { CreateDependencyInput } from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
+import { requireFeature } from '../../hooks/require-feature.hook.js';
 import { getTaskIdForDependency } from '../../services/dependency.service.js';
 import {
   createDependencyHandler,
@@ -25,6 +26,7 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
           action: 'update',
           getTaskId: getTaskIdFromParams,
         }),
+        requireFeature('dependencies'),
         async (request) => {
           request.body = createDependencySchema.parse(request.body);
         },
@@ -37,11 +39,14 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/dependencies',
     {
-      preHandler: authorize({
-        resource: 'task',
-        action: 'read',
-        getTaskId: getTaskIdFromParams,
-      }),
+      preHandler: [
+        authorize({
+          resource: 'task',
+          action: 'read',
+          getTaskId: getTaskIdFromParams,
+        }),
+        requireFeature('dependencies'),
+      ],
     },
     listDependenciesHandler,
   );
@@ -50,14 +55,17 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/task-dependencies/:id',
     {
-      preHandler: authorize({
-        resource: 'task',
-        action: 'update',
-        getTaskId: async (req) => {
-          const depId = (req.params as { id: string }).id;
-          return getTaskIdForDependency(depId);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'task',
+          action: 'update',
+          getTaskId: async (req) => {
+            const depId = (req.params as { id: string }).id;
+            return getTaskIdForDependency(depId);
+          },
+        }),
+        requireFeature('dependencies'),
+      ],
     },
     deleteDependencyHandler,
   );

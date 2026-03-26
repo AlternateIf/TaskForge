@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
+import { requireFeature } from '../../hooks/require-feature.hook.js';
 import { getTaskIdForAttachment } from '../../services/attachment.service.js';
 import {
   deleteAttachmentHandler,
@@ -16,7 +17,7 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.post(
     '/api/v1/attachments',
     {
-      preHandler: [],
+      preHandler: [requireFeature('file_uploads')],
     },
     uploadAttachmentHandler,
   );
@@ -25,14 +26,17 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/api/v1/attachments/:id',
     {
-      preHandler: authorize({
-        resource: 'attachment',
-        action: 'read',
-        getTaskId: async (req) => {
-          const id = (req.params as { id: string }).id;
-          return getTaskIdForAttachment(id);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'attachment',
+          action: 'read',
+          getTaskId: async (req) => {
+            const id = (req.params as { id: string }).id;
+            return getTaskIdForAttachment(id);
+          },
+        }),
+        requireFeature('file_uploads'),
+      ],
     },
     getAttachmentHandler,
   );
@@ -41,14 +45,17 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/api/v1/attachments/:id/download',
     {
-      preHandler: authorize({
-        resource: 'attachment',
-        action: 'read',
-        getTaskId: async (req) => {
-          const id = (req.params as { id: string }).id;
-          return getTaskIdForAttachment(id);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'attachment',
+          action: 'read',
+          getTaskId: async (req) => {
+            const id = (req.params as { id: string }).id;
+            return getTaskIdForAttachment(id);
+          },
+        }),
+        requireFeature('file_uploads'),
+      ],
     },
     downloadAttachmentHandler,
   );
@@ -57,14 +64,17 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/attachments/:id',
     {
-      preHandler: authorize({
-        resource: 'attachment',
-        action: 'delete',
-        getTaskId: async (req) => {
-          const id = (req.params as { id: string }).id;
-          return getTaskIdForAttachment(id);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'attachment',
+          action: 'delete',
+          getTaskId: async (req) => {
+            const id = (req.params as { id: string }).id;
+            return getTaskIdForAttachment(id);
+          },
+        }),
+        requireFeature('file_uploads'),
+      ],
     },
     deleteAttachmentHandler,
   );
@@ -73,11 +83,14 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/attachments',
     {
-      preHandler: authorize({
-        resource: 'attachment',
-        action: 'read',
-        getTaskId: (req) => (req.params as { taskId: string }).taskId,
-      }),
+      preHandler: [
+        authorize({
+          resource: 'attachment',
+          action: 'read',
+          getTaskId: (req) => (req.params as { taskId: string }).taskId,
+        }),
+        requireFeature('file_uploads'),
+      ],
     },
     listTaskAttachmentsHandler,
   );

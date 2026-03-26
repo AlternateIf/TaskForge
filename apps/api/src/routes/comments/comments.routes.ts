@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
+import { requireFeature } from '../../hooks/require-feature.hook.js';
 import { getTaskIdForComment } from '../../services/comment.service.js';
 import {
   createCommentHandler,
@@ -16,11 +17,14 @@ export async function commentRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/comments',
     {
-      preHandler: authorize({
-        resource: 'comment',
-        action: 'create',
-        getTaskId: (req) => (req.params as { taskId: string }).taskId,
-      }),
+      preHandler: [
+        authorize({
+          resource: 'comment',
+          action: 'create',
+          getTaskId: (req) => (req.params as { taskId: string }).taskId,
+        }),
+        requireFeature('comments'),
+      ],
       schema: {
         body: { $ref: 'createCommentSchema' },
       },
@@ -35,11 +39,14 @@ export async function commentRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/comments',
     {
-      preHandler: authorize({
-        resource: 'comment',
-        action: 'read',
-        getTaskId: (req) => (req.params as { taskId: string }).taskId,
-      }),
+      preHandler: [
+        authorize({
+          resource: 'comment',
+          action: 'read',
+          getTaskId: (req) => (req.params as { taskId: string }).taskId,
+        }),
+        requireFeature('comments'),
+      ],
     },
     listCommentsHandler,
   );
@@ -48,14 +55,17 @@ export async function commentRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Params: { id: string } }>(
     '/api/v1/comments/:id',
     {
-      preHandler: authorize({
-        resource: 'comment',
-        action: 'update',
-        getTaskId: async (req) => {
-          const id = (req.params as { id: string }).id;
-          return getTaskIdForComment(id);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'comment',
+          action: 'update',
+          getTaskId: async (req) => {
+            const id = (req.params as { id: string }).id;
+            return getTaskIdForComment(id);
+          },
+        }),
+        requireFeature('comments'),
+      ],
     },
     async (request, reply) => {
       request.body = updateCommentSchema.parse(request.body);
@@ -67,14 +77,17 @@ export async function commentRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/comments/:id',
     {
-      preHandler: authorize({
-        resource: 'comment',
-        action: 'delete',
-        getTaskId: async (req) => {
-          const id = (req.params as { id: string }).id;
-          return getTaskIdForComment(id);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'comment',
+          action: 'delete',
+          getTaskId: async (req) => {
+            const id = (req.params as { id: string }).id;
+            return getTaskIdForComment(id);
+          },
+        }),
+        requireFeature('comments'),
+      ],
     },
     deleteCommentHandler,
   );

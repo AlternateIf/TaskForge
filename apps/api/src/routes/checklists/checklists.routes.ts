@@ -12,6 +12,7 @@ import type {
 } from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
+import { requireFeature } from '../../hooks/require-feature.hook.js';
 import {
   getTaskIdForChecklist,
   getTaskIdForChecklistItem,
@@ -41,6 +42,7 @@ export async function checklistRoutes(fastify: FastifyInstance) {
           action: 'update',
           getTaskId: (req) => (req.params as { taskId: string }).taskId,
         }),
+        requireFeature('subtasks'),
         async (request) => {
           request.body = createChecklistSchema.parse(request.body);
         },
@@ -53,11 +55,14 @@ export async function checklistRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/checklists',
     {
-      preHandler: authorize({
-        resource: 'task',
-        action: 'read',
-        getTaskId: (req) => (req.params as { taskId: string }).taskId,
-      }),
+      preHandler: [
+        authorize({
+          resource: 'task',
+          action: 'read',
+          getTaskId: (req) => (req.params as { taskId: string }).taskId,
+        }),
+        requireFeature('subtasks'),
+      ],
     },
     listChecklistsHandler,
   );
@@ -75,6 +80,7 @@ export async function checklistRoutes(fastify: FastifyInstance) {
             return getTaskIdForChecklist(checklistId);
           },
         }),
+        requireFeature('subtasks'),
         async (request) => {
           request.body = updateChecklistSchema.parse(request.body);
         },
@@ -87,14 +93,17 @@ export async function checklistRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/checklists/:id',
     {
-      preHandler: authorize({
-        resource: 'task',
-        action: 'delete',
-        getTaskId: async (req) => {
-          const checklistId = (req.params as { id: string }).id;
-          return getTaskIdForChecklist(checklistId);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'task',
+          action: 'delete',
+          getTaskId: async (req) => {
+            const checklistId = (req.params as { id: string }).id;
+            return getTaskIdForChecklist(checklistId);
+          },
+        }),
+        requireFeature('subtasks'),
+      ],
     },
     deleteChecklistHandler,
   );
@@ -114,6 +123,7 @@ export async function checklistRoutes(fastify: FastifyInstance) {
             return getTaskIdForChecklist(checklistId);
           },
         }),
+        requireFeature('subtasks'),
         async (request) => {
           request.body = createChecklistItemSchema.parse(request.body);
         },
@@ -135,6 +145,7 @@ export async function checklistRoutes(fastify: FastifyInstance) {
             return getTaskIdForChecklistItem(itemId);
           },
         }),
+        requireFeature('subtasks'),
         async (request) => {
           request.body = updateChecklistItemSchema.parse(request.body);
         },
@@ -147,14 +158,17 @@ export async function checklistRoutes(fastify: FastifyInstance) {
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/checklist-items/:id',
     {
-      preHandler: authorize({
-        resource: 'task',
-        action: 'delete',
-        getTaskId: async (req) => {
-          const itemId = (req.params as { id: string }).id;
-          return getTaskIdForChecklistItem(itemId);
-        },
-      }),
+      preHandler: [
+        authorize({
+          resource: 'task',
+          action: 'delete',
+          getTaskId: async (req) => {
+            const itemId = (req.params as { id: string }).id;
+            return getTaskIdForChecklistItem(itemId);
+          },
+        }),
+        requireFeature('subtasks'),
+      ],
     },
     deleteChecklistItemHandler,
   );

@@ -11,6 +11,8 @@ import type {
 } from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
+import type { FeatureMap } from '../../services/feature-toggle.service.js';
+import { getFeaturesHandler, updateFeaturesHandler } from './features.handlers.js';
 import {
   addMemberHandler,
   createOrganizationHandler,
@@ -106,5 +108,18 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     '/api/v1/organizations/:id/members/:memberId',
     { preHandler: authorize({ resource: 'organization', action: 'update' }) },
     removeMemberHandler,
+  );
+
+  // Feature toggles
+  fastify.get<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id/features',
+    { preHandler: authorize({ resource: 'organization', action: 'read' }) },
+    getFeaturesHandler,
+  );
+
+  fastify.patch<{ Params: { id: string }; Body: Partial<FeatureMap> }>(
+    '/api/v1/organizations/:id/features',
+    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
+    updateFeaturesHandler,
   );
 }

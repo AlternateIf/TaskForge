@@ -38,8 +38,8 @@ Allow organization admins to enable/disable optional features (notifications, fi
 - Frontend reads features on app init and conditionally renders UI
 
 ## Acceptance Criteria
-- [ ] Admin can toggle features on/off per organization
-- [ ] Non-admin users cannot modify feature toggles
-- [ ] Disabled features return 403 from their API endpoints
-- [ ] GET endpoint returns current feature state with defaults for missing keys
-- [ ] Tests cover toggle, access control, and middleware filtering
+- [x] Admin can toggle features on/off per organization
+- [x] Non-admin users cannot modify feature toggles
+- [x] Disabled features return 403 from their API endpoints
+- [x] GET endpoint returns current feature state with defaults for missing keys
+- [x] Tests cover toggle, access control, and middleware filtering
