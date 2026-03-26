@@ -25,5 +25,8 @@ Thumbs.db
 # Testing
 coverage/
 
+# Uploads
+uploads/
+
 # Logs
 *.log

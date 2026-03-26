@@ -100,3 +100,4 @@ await activityService.log({
 - [ ] Subtask and checklist changes create activity log entries (from MVP-013)
 - [ ] Dependency changes (add, remove) create activity log entries (from MVP-014)
 - [ ] Bulk action changes create individual activity log entries per task (from MVP-015)
+- [ ] Attachment add/remove creates activity log entries (from MVP-016)

@@ -48,7 +48,7 @@ The minimum viable product: core task management with auth, projects, a function
 - Threaded comments with @mentions
 - Rich text and file attachments
 - Activity log per task and project
-- File upload validation (MIME type whitelist, extension check, max size)
+- ~~File upload validation (MIME type whitelist, extension check, max size)~~ ✅
 
 ### Search & Filtering
 - Full-text search (Meilisearch)

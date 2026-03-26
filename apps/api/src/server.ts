@@ -6,9 +6,11 @@ import authPlugin from './plugins/auth.plugin.js';
 import cookiePlugin from './plugins/cookie.plugin.js';
 import corsPlugin from './plugins/cors.plugin.js';
 import helmetPlugin from './plugins/helmet.plugin.js';
+import multipartPlugin from './plugins/multipart.plugin.js';
 import rateLimitPlugin from './plugins/rate-limit.plugin.js';
 import requestIdPlugin from './plugins/request-id.plugin.js';
 import swaggerPlugin from './plugins/swagger.plugin.js';
+import { attachmentRoutes } from './routes/attachments/attachments.routes.js';
 import { authRoutes } from './routes/auth/auth.routes.js';
 import { mfaRoutes } from './routes/auth/mfa.routes.js';
 import { oauthRoutes } from './routes/auth/oauth.routes.js';
@@ -37,6 +39,7 @@ export async function buildServer() {
   await fastify.register(rateLimitPlugin);
   await fastify.register(swaggerPlugin);
   await fastify.register(cookiePlugin);
+  await fastify.register(multipartPlugin);
   await fastify.register(authPlugin);
 
   // Hooks
@@ -57,6 +60,7 @@ export async function buildServer() {
   await fastify.register(dependencyRoutes);
   await fastify.register(bulkRoutes);
   await fastify.register(checklistRoutes);
+  await fastify.register(attachmentRoutes);
   await fastify.register(userRoutes);
 
   return fastify;
