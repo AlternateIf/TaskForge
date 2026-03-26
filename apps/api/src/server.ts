@@ -21,11 +21,14 @@ import { commentRoutes } from './routes/comments/comments.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
+import { savedFilterRoutes } from './routes/saved-filters/saved-filters.routes.js';
+import { searchRoutes } from './routes/search/search.routes.js';
 import { bulkRoutes } from './routes/tasks/bulk.routes.js';
 import { dependencyRoutes } from './routes/tasks/dependencies.routes.js';
 import { subtaskRoutes } from './routes/tasks/subtasks.routes.js';
 import { taskRoutes } from './routes/tasks/tasks.routes.js';
 import { userRoutes } from './routes/users/users.routes.js';
+import { initIndexes } from './services/search.service.js';
 import { loggerConfig } from './utils/logger.js';
 
 export async function buildServer() {
@@ -66,6 +69,8 @@ export async function buildServer() {
   await fastify.register(commentRoutes);
   await fastify.register(attachmentRoutes);
   await fastify.register(activityRoutes);
+  await fastify.register(searchRoutes);
+  await fastify.register(savedFilterRoutes);
   await fastify.register(userRoutes);
 
   return fastify;
@@ -77,6 +82,14 @@ export async function startServer() {
   const host = process.env.HOST ?? '0.0.0.0';
 
   registerGracefulShutdown(server);
+
+  // Initialize Meilisearch indexes
+  try {
+    await initIndexes();
+    server.log.info('Meilisearch indexes initialized');
+  } catch (err) {
+    server.log.warn({ err }, 'Meilisearch index initialization failed — search may not work');
+  }
 
   // Initialize RabbitMQ publisher
   try {

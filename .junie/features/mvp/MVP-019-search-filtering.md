@@ -73,9 +73,9 @@ Response:
 ```json
 {
   "data": {
-    "tasks": { "hits": [...], "totalHits": 5 },
-    "projects": { "hits": [...], "totalHits": 1 },
-    "comments": { "hits": [...], "totalHits": 3 }
+    "tasks": { "hits": [], "totalHits": 5 },
+    "projects": { "hits": [], "totalHits": 1 },
+    "comments": { "hits": [], "totalHits": 3 }
   }
 }
 ```
@@ -96,13 +96,13 @@ Response:
 - "me" and "today" are dynamic values resolved at query time
 
 ## Acceptance Criteria
-- [ ] Meilisearch indexes are created on application start
-- [ ] Tasks, projects, and comments are indexed on create/update
-- [ ] Deleted entities are removed from index
-- [ ] Global search returns results across all types
-- [ ] Search results respect permission checks (user can only see searchable entities)
-- [ ] Task list filtering works for all parameters (status, priority, assignee, labels, date range)
-- [ ] Saved filter presets can be created, listed, updated, and deleted
-- [ ] Dynamic values ("me", "today") resolve correctly at query time
-- [ ] Search is fast (<100ms for typical queries)
-- [ ] Tests cover indexing, search, filtering, saved presets
+- [x] Meilisearch indexes are created on application start
+- [x] Tasks, projects, and comments are indexed on create/update
+- [x] Deleted entities are removed from index
+- [x] Global search returns results across all types
+- [x] Search results respect permission checks (user can only see searchable entities)
+- [x] Task list filtering works for all parameters (status, priority, assignee, labels, date range)
+- [x] Saved filter presets can be created, listed, updated, and deleted
+- [x] Dynamic values ("me", "today") resolve correctly at query time
+- [x] Search is fast (<100ms for typical queries)
+- [x] Tests cover indexing, search, filtering, saved presets

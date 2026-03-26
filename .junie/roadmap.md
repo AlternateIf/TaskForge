@@ -51,9 +51,9 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~File upload validation (MIME type whitelist, extension check, max size)~~ ✅
 
 ### Search & Filtering
-- Full-text search (Meilisearch)
-- Filtering by status, priority, assignee, label, date range
-- Saved filter presets
+- ~~Full-text search (Meilisearch)~~ ✅
+- ~~Filtering by status, priority, assignee, label, date range~~ ✅
+- ~~Saved filter presets~~ ✅
 
 ### Notifications
 - In-app notification center

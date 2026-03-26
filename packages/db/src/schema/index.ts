@@ -6,3 +6,4 @@ export * from './comments.js';
 export * from './activity.js';
 export * from './notifications.js';
 export * from './attachments.js';
+export * from './saved-filters.js';
