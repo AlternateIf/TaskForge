@@ -25,9 +25,6 @@ export async function commentRoutes(fastify: FastifyInstance) {
         }),
         requireFeature('comments'),
       ],
-      schema: {
-        body: { $ref: 'createCommentSchema' },
-      },
     },
     async (request, reply) => {
       request.body = createCommentSchema.parse(request.body);
