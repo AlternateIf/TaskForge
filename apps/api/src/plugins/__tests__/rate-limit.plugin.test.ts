@@ -6,6 +6,7 @@ vi.mock('../../utils/redis.js', () => ({
 }));
 
 import Fastify from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import rateLimitPlugin from '../rate-limit.plugin.js';
 
 describe('rate-limit.plugin', () => {
@@ -21,7 +22,7 @@ describe('rate-limit.plugin', () => {
   });
 
   it('applies rate limit headers on GET requests', async () => {
-    fastify.get('/test', (_req, reply) => {
+    fastify.get('/test', (_req: FastifyRequest, reply: FastifyReply) => {
       reply.send({ ok: true });
     });
     await fastify.ready();
@@ -33,7 +34,7 @@ describe('rate-limit.plugin', () => {
   });
 
   it('allows higher limit for GET requests (120/min)', async () => {
-    fastify.get('/test', (_req, reply) => {
+    fastify.get('/test', (_req: FastifyRequest, reply: FastifyReply) => {
       reply.send({ ok: true });
     });
     await fastify.ready();
@@ -43,7 +44,7 @@ describe('rate-limit.plugin', () => {
   });
 
   it('applies stricter limit for POST requests (30/min)', async () => {
-    fastify.post('/test', (_req, reply) => {
+    fastify.post('/test', (_req: FastifyRequest, reply: FastifyReply) => {
       reply.send({ ok: true });
     });
     await fastify.ready();
@@ -53,7 +54,7 @@ describe('rate-limit.plugin', () => {
   });
 
   it('applies stricter limit for DELETE requests (30/min)', async () => {
-    fastify.delete('/test', (_req, reply) => {
+    fastify.delete('/test', (_req: FastifyRequest, reply: FastifyReply) => {
       reply.send({ ok: true });
     });
     await fastify.ready();
@@ -63,7 +64,7 @@ describe('rate-limit.plugin', () => {
   });
 
   it('applies stricter limit for PATCH requests (30/min)', async () => {
-    fastify.patch('/test', (_req, reply) => {
+    fastify.patch('/test', (_req: FastifyRequest, reply: FastifyReply) => {
       reply.send({ ok: true });
     });
     await fastify.ready();
@@ -77,7 +78,7 @@ describe('rate-limit.plugin', () => {
     fastify.get(
       '/strict',
       { config: { rateLimit: { max: 2, timeWindow: '1 minute' } } },
-      (_req, reply) => {
+      (_req: FastifyRequest, reply: FastifyReply) => {
         reply.send({ ok: true });
       },
     );

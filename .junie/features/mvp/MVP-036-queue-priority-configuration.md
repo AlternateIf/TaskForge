@@ -33,7 +33,7 @@ Configure per-queue consumer prefetch counts to prioritize processing of time-se
 - `QUEUE_PREFETCH_SEARCH=1`
 
 ## Acceptance Criteria
-- [ ] Each queue has a configurable prefetch count
-- [ ] High-priority queues process messages faster than low-priority ones
-- [ ] Default prefetch values are sensible without env configuration
-- [ ] Tests verify per-queue prefetch setup
+- [x] Each queue has a configurable prefetch count
+- [x] High-priority queues process messages faster than low-priority ones
+- [x] Default prefetch values are sensible without env configuration
+- [x] Tests verify per-queue prefetch setup

@@ -10,28 +10,41 @@ export interface QueueBinding {
   queue: string;
   routingPattern: string;
   deadLetterQueue: string;
+  /** Per-queue consumer prefetch count. Higher = higher throughput priority. */
+  prefetch: number;
+}
+
+function envInt(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) || parsed < 1 ? fallback : parsed;
 }
 
 export const QUEUES: QueueBinding[] = [
   {
-    queue: 'email.send',
-    routingPattern: 'email.#',
-    deadLetterQueue: 'email.send.dead-letter',
+    queue: 'realtime.broadcast',
+    routingPattern: 'realtime.#',
+    deadLetterQueue: 'realtime.broadcast.dead-letter',
+    prefetch: envInt('QUEUE_PREFETCH_REALTIME', 10),
   },
   {
     queue: 'notification.create',
     routingPattern: 'notification.#',
     deadLetterQueue: 'notification.create.dead-letter',
+    prefetch: envInt('QUEUE_PREFETCH_NOTIFICATION', 5),
+  },
+  {
+    queue: 'email.send',
+    routingPattern: 'email.#',
+    deadLetterQueue: 'email.send.dead-letter',
+    prefetch: envInt('QUEUE_PREFETCH_EMAIL', 3),
   },
   {
     queue: 'search.index',
     routingPattern: 'search.#',
     deadLetterQueue: 'search.index.dead-letter',
-  },
-  {
-    queue: 'realtime.broadcast',
-    routingPattern: 'realtime.#',
-    deadLetterQueue: 'realtime.broadcast.dead-letter',
+    prefetch: envInt('QUEUE_PREFETCH_SEARCH', 1),
   },
 ];
 

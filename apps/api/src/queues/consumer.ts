@@ -12,23 +12,26 @@ import {
 export type MessageHandler = (message: TaskForgeMessage) => Promise<void>;
 
 let connection: amqplib.ChannelModel | null = null;
-let channel: amqplib.Channel | null = null;
+const channels = new Map<string, amqplib.Channel>();
 let isShuttingDown = false;
 let activeMessages = 0;
 
 export async function initConsumer(): Promise<void> {
   isShuttingDown = false;
   activeMessages = 0;
+  channels.clear();
+
   const conn = await amqplib.connect(RABBITMQ_URL);
-  const ch = await conn.createChannel();
-  await ch.prefetch(1);
 
-  // Assert exchanges
-  await ch.assertExchange(EXCHANGE, 'topic', { durable: true });
-  await ch.assertExchange(DEAD_LETTER_EXCHANGE, 'topic', { durable: true });
+  // Create a dedicated channel per queue with independent prefetch
+  for (const { queue, routingPattern, deadLetterQueue, prefetch } of QUEUES) {
+    const ch = await conn.createChannel();
+    await ch.prefetch(prefetch);
 
-  // Assert queues and bindings
-  for (const { queue, routingPattern, deadLetterQueue } of QUEUES) {
+    // Assert exchanges on the first channel (idempotent on subsequent ones)
+    await ch.assertExchange(EXCHANGE, 'topic', { durable: true });
+    await ch.assertExchange(DEAD_LETTER_EXCHANGE, 'topic', { durable: true });
+
     await ch.assertQueue(queue, {
       durable: true,
       arguments: {
@@ -40,6 +43,9 @@ export async function initConsumer(): Promise<void> {
 
     await ch.assertQueue(deadLetterQueue, { durable: true });
     await ch.bindQueue(deadLetterQueue, DEAD_LETTER_EXCHANGE, deadLetterQueue);
+
+    channels.set(queue, ch);
+    console.info(`[Consumer] Channel for ${queue} — prefetch ${prefetch}`);
   }
 
   conn.on('error', (err) => {
@@ -48,20 +54,20 @@ export async function initConsumer(): Promise<void> {
 
   conn.on('close', () => {
     console.warn('[Consumer] Connection closed');
-    channel = null;
+    channels.clear();
     connection = null;
   });
 
   connection = conn;
-  channel = ch;
 }
 
 export function registerConsumer(queueName: string, handler: MessageHandler): void {
-  if (!channel) {
-    throw new Error('Consumer not initialized. Call initConsumer() first.');
+  const ch = channels.get(queueName);
+  if (!ch) {
+    throw new Error(`No channel for queue "${queueName}". Call initConsumer() first.`);
   }
 
-  channel.consume(queueName, async (msg) => {
+  ch.consume(queueName, async (msg) => {
     if (!msg || isShuttingDown) return;
 
     activeMessages++;
@@ -69,7 +75,7 @@ export function registerConsumer(queueName: string, handler: MessageHandler): vo
     try {
       const content: TaskForgeMessage = JSON.parse(msg.content.toString());
       await handler(content);
-      channel?.ack(msg);
+      ch.ack(msg);
     } catch (err) {
       const retryCount = (msg.properties.headers?.['x-retry-count'] as number) ?? 0;
 
@@ -79,8 +85,9 @@ export function registerConsumer(queueName: string, handler: MessageHandler): vo
           RETRY_BACKOFF_MS[retryCount] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1];
 
         setTimeout(() => {
-          if (!channel) return;
-          channel.publish(EXCHANGE, msg.fields.routingKey, msg.content, {
+          const currentCh = channels.get(queueName);
+          if (!currentCh) return;
+          currentCh.publish(EXCHANGE, msg.fields.routingKey, msg.content, {
             ...msg.properties,
             headers: {
               ...msg.properties.headers,
@@ -88,7 +95,7 @@ export function registerConsumer(queueName: string, handler: MessageHandler): vo
               'x-last-error': err instanceof Error ? err.message : String(err),
             },
           });
-          channel.ack(msg);
+          currentCh.ack(msg);
         }, backoff);
       } else {
         // Max retries exceeded — dead-letter via reject
@@ -97,7 +104,7 @@ export function registerConsumer(queueName: string, handler: MessageHandler): vo
           msg.fields.routingKey,
           err instanceof Error ? err.message : err,
         );
-        channel?.reject(msg, false);
+        ch.reject(msg, false);
       }
     } finally {
       activeMessages--;
@@ -121,10 +128,10 @@ export async function shutdownConsumer(): Promise<void> {
   }
 
   try {
-    if (channel) {
-      await channel.close();
-      channel = null;
+    for (const ch of channels.values()) {
+      await ch.close();
     }
+    channels.clear();
     if (connection) {
       await connection.close();
       connection = null;
