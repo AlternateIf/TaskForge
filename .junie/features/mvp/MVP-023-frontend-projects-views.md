@@ -82,16 +82,20 @@ apps/web/src/
 - [ ] Project list shows all user's projects with search
 - [ ] Create project dialog works and redirects to new project
 - [ ] Kanban board renders columns from project workflow
+- [ ] Kanban column headers show task count (visual WIP indicator)
 - [ ] Tasks appear as cards in correct columns
+- [ ] Kanban card shows: priority dot, title, labels (max 3 + overflow), assignee avatar, due date with overdue indicator
 - [ ] Drag and drop moves tasks between columns (optimistic + API call)
 - [ ] Drag and drop reorders tasks within a column
+- [ ] Drop indicator: 2px brand-primary line at drop position
 - [ ] List view renders sortable table with all task fields
+- [ ] Bulk action bar appears above table when rows selected
 - [ ] Filter bar works on both views (status, priority, assignee, label, date)
 - [ ] View toggle persists between page loads
 - [ ] Quick task creation from column footer
 - [ ] Project settings page allows workflow, label, and member management
 - [ ] Loading states with skeleton components
-- [ ] Empty states with helpful messages
+- [ ] Empty states with designed illustrations (project list, board, list, filtered-no-results)
 - [ ] Responsive: board scrolls horizontally on mobile; list stacks vertically
-- [ ] Accessible drag-and-drop (keyboard support)
+- [ ] Accessible drag-and-drop (keyboard: Space to pick up, arrows to move, Space to drop)
 - [ ] Unit tests cover component logic, task filtering, and drag-and-drop state management

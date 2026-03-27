@@ -41,6 +41,7 @@ apps/web/src/
 
 ### Global search
 - Input in header, triggered by clicking or pressing `/` shortcut
+- Also available via Command Palette (Cmd+K / Ctrl+K) — see MVP-043
 - Debounced (300ms) search as you type
 - Results dropdown grouped by type: Tasks, Projects, Comments
 - Each result: title, project name, status badge

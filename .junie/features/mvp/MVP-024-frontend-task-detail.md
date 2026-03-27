@@ -79,14 +79,16 @@ apps/web/src/
 
 ### Inline editing
 - Title: click to edit, save on blur/Enter
-- Description: rich text editor (Tiptap or similar), save on blur
+- Description: Tiptap editor with full toolbar (expandable via "more" button), markdown shortcuts, save on blur
 - Status, priority, assignee, due date: dropdown/picker, saves immediately
 - All changes optimistic with error toast on failure
+- Image paste/drop in description editor: auto-upload to attachment API, insert inline
 
 ### Comment input
-- Rich text with bold, italic, lists, code blocks
-- @mention autocomplete: type `@` → dropdown of project members
-- File attachment button or paste image
+- Tiptap editor with minimal toolbar (bold, italic, strikethrough, lists, code, link, @mention)
+- @mention autocomplete: type `@` → Floating UI dropdown of project members (avatar + name + email, max 8 results, arrow key navigation)
+- Markdown shortcuts supported: `**bold**`, `*italic*`, `` `code` ``, `- list`, `> quote`
+- File attachment button or paste image (auto-upload inline)
 - Submit on Ctrl+Enter
 
 ### File upload

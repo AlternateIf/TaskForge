@@ -38,6 +38,11 @@ The minimum viable product: core task management with auth, projects, a function
 - Keyboard shortcuts (quick create, status change, navigation, search)
 - Keyboard shortcut reference overlay (`?`)
 
+### Frontend Foundation
+- Design system & theme (tokens, Tailwind config, shadcn/ui, dark mode, accessibility)
+- Rich text editor (Tiptap) with @mentions, markdown shortcuts, inline image upload
+- Command palette (Cmd+K) for quick navigation and actions
+
 ### Views
 - Kanban board (columns by status)
 - List view (sortable, filterable table)
@@ -197,6 +202,13 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 ### Notifications (Enhanced)
 - Notification digest (daily/weekly summary)
 - Granular per-event-type opt-in/opt-out
+- Notification grouping (multiple updates to same task grouped into single entry)
+
+### Internationalization (i18n)
+- Full string translation for all user-facing text
+- Locale-aware date/time and number formatting
+- RTL layout support
+- ICU message format for plurals and gender
 
 ### Customer Access
 - External customer role with restricted access to whitelisted projects
@@ -358,6 +370,26 @@ Portfolio management, advanced resource planning, compliance, ecosystem, and sca
 ### Contextual Help
 - In-app contextual tooltips per screen
 - Progressive feature discovery
+
+### PWA & Offline Mode
+- Service worker for offline caching of viewed data
+- Background sync for actions taken while offline
+- Install prompt and app-like experience
+
+### Theming & White-Label
+- Organization-level custom brand colors, logo, favicon
+- Tenant-specific login page branding
+- Custom email template branding
+
+### Component Playground
+- Internal Storybook (or equivalent) for design system documentation
+- Visual regression testing for all components
+- Interactive component API documentation
+
+### Server-Side Rendering for Public Pages
+- SSR/prerender for shared project links, login, and marketing pages
+- Proper Open Graph and Twitter Card rendering for social previews
+- Sitemap generation for public content
 
 ### Security Hardening
 - Content Security Policy (CSP) headers

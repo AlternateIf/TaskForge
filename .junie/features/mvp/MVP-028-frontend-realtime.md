@@ -104,9 +104,17 @@ Key behaviors:
 - Small indicator in header or footer
 - States:
   - Connected: green dot (hidden after 3s)
-  - Reconnecting: yellow dot with "Reconnecting..." text
+  - Reconnecting: yellow bar below header, slides down: "Reconnecting..."
   - Disconnected: red dot with "Offline — changes may not sync" text
+  - Restored: green flash on bar, slides up after 2s
 - Click to manually trigger reconnect
+
+### Real-time visual treatments
+- Task moved by another user: card briefly glows brand-primary (1.5s fade), animates to new column
+- New comment on open task: comment slides in with subtle animation
+- New notification: bell icon bumps (scale 1.2 → 1.0, 200ms), badge count updates
+- User comes online: green presence dot fades in on avatar (300ms)
+- Task updated while viewing: changed fields highlighted in brand-primary bg (2s fade)
 
 ### SSE fallback behavior
 - Activates if WebSocket connection fails twice consecutively

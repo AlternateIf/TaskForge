@@ -134,15 +134,22 @@ When user opts in, the API creates:
 
 ### Progressive disclosure tooltips
 - Tooltip tour triggered on first dashboard visit (or from "Take a quick tour")
-- Highlights key UI elements in sequence:
-  1. Sidebar navigation
-  2. Search bar
-  3. Notification bell
-  4. Create task button (on project view)
-  5. Keyboard shortcuts hint (`?` to see all)
-- Each tooltip: highlight element, show description, Next/Skip buttons
+- **Tour is role-based** — the wizard collects user role in step 1, and the tour adapts:
+  - **Project Manager**: Dashboard → Create Project → Kanban board → Search → Notifications → Shortcuts
+  - **Developer**: Dashboard → My Tasks → Task detail → List view → Keyboard shortcuts → Notifications
+  - **Designer**: Dashboard → Attachments → @mentions → Kanban board
+  - **Executive**: Dashboard → Project progress → Filters
+  - **Customer**: Projects → Task detail → Notifications
+  - **Default/Other**: Dashboard → Projects → Search → Notifications → Shortcuts
+- **Tooltip design:**
+  - Target element gets pulsing brand-primary ring (4px, 50% opacity pulse)
+  - Backdrop dims everything outside to 50% black
+  - Tooltip attached via Floating UI with arrow pointing to target
+  - Step counter ("2 of 6"), body text (2-3 sentences max), Skip (ghost) + Next (primary) buttons
+  - Transitions: tooltip slides in (200ms), highlight ring fades in (150ms)
+- Dismissible via clicking outside, Escape, or "Skip tour"
 - Tour state persisted in localStorage
-- Dismissible and re-triggerable from user settings
+- Re-triggerable from user settings
 
 ### Onboarding state
 - `use-onboarding.ts` tracks:

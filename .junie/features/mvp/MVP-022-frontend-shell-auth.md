@@ -91,16 +91,23 @@ Button, Input, Label, Card, Dialog, DropdownMenu, Toast/Sonner, Avatar, Badge, S
 - [ ] Vite dev server starts and serves the React app
 - [ ] Tailwind CSS classes work with shadcn/ui components
 - [ ] Login page renders with email/password form and OAuth buttons
+- [ ] Login page uses split layout (brand panel left, form right, form-only on mobile)
 - [ ] Registration page with validation (email format, password requirements)
+- [ ] Password strength indicator on registration (colored bar: red → amber → green)
+- [ ] Password requirements checklist visible before user types (grey unchecked, green checked)
 - [ ] MFA page accepts 6-digit TOTP code
 - [ ] Forgot/reset password flow works
 - [ ] Successful login stores token and redirects to dashboard
 - [ ] Protected routes redirect to login when unauthenticated
 - [ ] App shell renders sidebar + header + content area
+- [ ] Dark mode toggle in user menu (persisted, respects system preference)
 - [ ] Sidebar navigation works (Dashboard, Projects, Settings)
 - [ ] API client handles token refresh on 401
 - [ ] Responsive: sidebar collapses on mobile
 - [ ] Loading states show skeleton components
 - [ ] Toast notifications for success/error feedback
+- [ ] Skip-to-content link for accessibility
+- [ ] manifest.json with app metadata (name, icons, theme-color)
+- [ ] Route-level `<title>` tags (e.g., "Dashboard | TaskForge")
 - [ ] WCAG 2.1 AA: keyboard navigable, proper ARIA labels, contrast ratios
 - [ ] Unit tests cover component logic, auth state management, and API client utilities
