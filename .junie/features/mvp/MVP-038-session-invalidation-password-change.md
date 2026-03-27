@@ -23,8 +23,8 @@ When a user changes their password, all other active sessions are immediately in
 - MFA-protected password change should still invalidate other sessions after MFA verification
 
 ## Acceptance Criteria
-- [ ] Password change invalidates all other active sessions
-- [ ] The current session remains active after password change
-- [ ] Forgot-password flow invalidates all sessions
-- [ ] Refresh tokens for other sessions are revoked
-- [ ] Tests cover session cleanup on password change
+- [x] Password change invalidates all other active sessions
+- [x] The current session remains active after password change
+- [x] Forgot-password flow invalidates all sessions
+- [x] Refresh tokens for other sessions are revoked
+- [x] Tests cover session cleanup on password change

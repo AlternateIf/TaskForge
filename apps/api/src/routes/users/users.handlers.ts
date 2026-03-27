@@ -32,17 +32,12 @@ export async function changePasswordHandler(
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
   }
 
-  // Get session ID from refresh cookie for session preservation
-  const refreshToken = request.cookies.taskforge_refresh;
-  // We pass a placeholder session ID — the service will preserve it
-  await changePassword(
+  const result = await changePassword(
     request.authUser.userId,
-    refreshToken ?? '',
+    request.authUser.sessionId ?? '',
     request.body.currentPassword,
     request.body.newPassword,
   );
 
-  return reply
-    .status(200)
-    .send(success({ message: 'Password changed. Other sessions invalidated.' }));
+  return reply.status(200).send(success(result));
 }

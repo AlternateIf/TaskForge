@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { db, sessions, users, verificationTokens } from '@taskforge/db';
 import type { RegisterInput } from '@taskforge/shared';
 import bcrypt from 'bcrypt';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 const BCRYPT_ROUNDS = 12;
@@ -20,6 +20,7 @@ export interface TokenPair {
 export interface JwtPayload {
   sub: string;
   email: string;
+  sid?: string;
 }
 
 function hashToken(token: string): string {
@@ -166,7 +167,7 @@ export async function createSession(
   const sessionId = crypto.randomUUID();
 
   const accessToken = jwtSign(
-    { sub: user.id, email: user.email },
+    { sub: user.id, email: user.email, sid: sessionId },
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 
@@ -203,7 +204,7 @@ export async function refreshSession(
   }
 
   const accessToken = jwtSign(
-    { sub: user.id, email: user.email },
+    { sub: user.id, email: user.email, sid: session.id },
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
   return { accessToken };
@@ -219,7 +220,7 @@ export async function changePassword(
   currentSessionId: string,
   currentPassword: string,
   newPassword: string,
-): Promise<void> {
+): Promise<{ message: string }> {
   const user = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!user || !user.passwordHash) {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'User not found');
@@ -235,17 +236,12 @@ export async function changePassword(
 
   await db.update(users).set({ passwordHash: newHash, updatedAt: now }).where(eq(users.id, userId));
 
-  // Invalidate all sessions except current
-  const userSessions = await db
-    .select({ id: sessions.id })
-    .from(sessions)
-    .where(eq(sessions.userId, userId));
+  // Invalidate all sessions except current (revokes refresh tokens too)
+  await db
+    .delete(sessions)
+    .where(and(eq(sessions.userId, userId), ne(sessions.id, currentSessionId)));
 
-  for (const s of userSessions) {
-    if (s.id !== currentSessionId) {
-      await db.delete(sessions).where(eq(sessions.id, s.id));
-    }
-  }
+  return { message: 'Password changed. All other sessions have been signed out.' };
 }
 
 export async function forgotPassword(email: string): Promise<void> {

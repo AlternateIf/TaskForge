@@ -19,6 +19,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-in-productio
 interface JwtPayload {
   sub: string;
   email: string;
+  sid?: string;
   iat: number;
   exp: number;
 }
@@ -77,7 +78,7 @@ export default fp(
       const token = authHeader.slice(7);
       try {
         const payload = verify(token);
-        request.authUser = { userId: payload.sub, email: payload.email };
+        request.authUser = { userId: payload.sub, email: payload.email, sessionId: payload.sid };
       } catch {
         throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid or expired token');
       }
