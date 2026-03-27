@@ -85,7 +85,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Internal comments (team-only visibility, hidden from customers)~~ ✅
 - ~~Session invalidation on password change~~ ✅
 - ~~User profile management (display name, avatar, account deletion)~~ ✅
-- ETag & Cache-Control headers
+- ~~ETag & Cache-Control headers~~ ✅
 
 ### Infrastructure
 - ~~Monorepo setup (Turborepo + pnpm + Biome + TypeScript)~~ ✅

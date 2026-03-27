@@ -4,7 +4,7 @@ import { generateETag } from '../etag.js';
 describe('etag', () => {
   it('generates a quoted md5 hash', () => {
     const etag = generateETag({ id: 1, name: 'test' });
-    expect(etag).toMatch(/^"[a-f0-9]{32}"$/);
+    expect(etag).toMatch(/^W\/"[a-f0-9]{32}"$/);
   });
 
   it('returns the same etag for the same data', () => {

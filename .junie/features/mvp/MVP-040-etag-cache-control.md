@@ -35,8 +35,8 @@ Add ETag support on list endpoints and Cache-Control headers on infrequently cha
 - Compute ETag before sending, compare with request header
 
 ## Acceptance Criteria
-- [ ] List endpoints return ETag headers
-- [ ] Conditional GET returns 304 when content unchanged
-- [ ] Cache-Control headers are set appropriately per endpoint type
-- [ ] Polling clients see reduced bandwidth usage
-- [ ] Tests cover ETag generation, 304 responses, and Cache-Control values
+- [x] List endpoints return ETag headers
+- [x] Conditional GET returns 304 when content unchanged
+- [x] Cache-Control headers are set appropriately per endpoint type
+- [x] Polling clients see reduced bandwidth usage
+- [x] Tests cover ETag generation, 304 responses, and Cache-Control values

@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import cacheHook from './hooks/cache.hook.js';
 import { registerGracefulShutdown } from './hooks/on-close.hook.js';
 import { registerErrorHandler } from './hooks/on-error.hook.js';
 import onRequestHook from './hooks/on-request.hook.js';
@@ -53,6 +54,7 @@ export async function buildServer() {
 
   // Hooks
   await fastify.register(onRequestHook);
+  await fastify.register(cacheHook);
 
   // Error handling
   registerErrorHandler(fastify);
