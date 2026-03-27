@@ -84,7 +84,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Queue priority configuration (per-queue prefetch)~~ ✅
 - ~~Internal comments (team-only visibility, hidden from customers)~~ ✅
 - ~~Session invalidation on password change~~ ✅
-- User profile management (display name, avatar, account deletion)
+- ~~User profile management (display name, avatar, account deletion)~~ ✅
 - ETag & Cache-Control headers
 
 ### Infrastructure

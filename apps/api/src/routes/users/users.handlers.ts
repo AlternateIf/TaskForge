@@ -1,7 +1,7 @@
 import type { ChangePasswordInput, UpdateProfileInput } from '@taskforge/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { changePassword } from '../../services/auth.service.js';
-import { getUserById, updateProfile } from '../../services/user.service.js';
+import { deleteAccount, getUserById, updateProfile } from '../../services/user.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
 
@@ -22,6 +22,14 @@ export async function updateMeHandler(
   }
   const user = await updateProfile(request.authUser.userId, request.body);
   return reply.status(200).send(success(user));
+}
+
+export async function deleteMeHandler(request: FastifyRequest, reply: FastifyReply) {
+  if (!request.authUser) {
+    throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+  }
+  const result = await deleteAccount(request.authUser.userId);
+  return reply.status(200).send(success(result));
 }
 
 export async function changePasswordHandler(

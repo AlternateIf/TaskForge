@@ -32,8 +32,8 @@ Allow users to view and update their profile information (display name, avatar).
 - Immediate: invalidate all sessions, revoke tokens
 
 ## Acceptance Criteria
-- [ ] User can view their profile via GET /users/me
-- [ ] User can update display name
-- [ ] User can upload/change avatar
-- [ ] Account deletion soft-deletes and invalidates sessions
-- [ ] Tests cover profile read, update, and deletion
+- [x] User can view their profile via GET /users/me
+- [x] User can update display name
+- [x] User can upload/change avatar
+- [x] Account deletion soft-deletes and invalidates sessions
+- [x] Tests cover profile read, update, and deletion

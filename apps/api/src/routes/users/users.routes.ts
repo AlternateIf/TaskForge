@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
-import { changePasswordHandler, getMeHandler, updateMeHandler } from './users.handlers.js';
+import {
+  changePasswordHandler,
+  deleteMeHandler,
+  getMeHandler,
+  updateMeHandler,
+} from './users.handlers.js';
 import { changePasswordSchema, updateProfileSchema } from './users.schemas.js';
 
 export async function userRoutes(fastify: FastifyInstance) {
@@ -17,6 +22,8 @@ export async function userRoutes(fastify: FastifyInstance) {
     },
     updateMeHandler,
   );
+
+  fastify.delete('/api/v1/users/me', {}, deleteMeHandler);
 
   fastify.patch(
     '/api/v1/users/me/password',
