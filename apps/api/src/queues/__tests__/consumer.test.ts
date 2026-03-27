@@ -88,7 +88,7 @@ describe('consumer', () => {
       await initConsumer();
 
       // Default prefetch values: realtime=10, notification=5, email=3, search=1
-      const prefetchCalls = mockPrefetch.mock.calls.map((call: [number]) => call[0]);
+      const prefetchCalls = mockPrefetch.mock.calls.map((call: unknown[]) => call[0]);
       expect(prefetchCalls).toContain(10); // realtime.broadcast
       expect(prefetchCalls).toContain(5); // notification.create
       expect(prefetchCalls).toContain(3); // email.send

@@ -14,8 +14,8 @@ const mockUpdate = vi.fn();
 const mockSet = vi.fn();
 const mockDelete = vi.fn();
 
-function chainBuilder(overrides: Record<string, unknown> = {}) {
-  const chain: Record<string, unknown> = {
+function chainBuilder() {
+  const chain: Record<string, unknown> & { then: (resolve: (v: never[]) => void) => void } = {
     select: mockSelect,
     from: mockFrom,
     where: mockWhere,
@@ -27,7 +27,8 @@ function chainBuilder(overrides: Record<string, unknown> = {}) {
     update: mockUpdate,
     set: mockSet,
     delete: mockDelete,
-    ...overrides,
+    // biome-ignore lint/suspicious/noThenProperty: needed so drizzle chains are awaitable in tests
+    then: (resolve: (v: never[]) => void) => resolve([]),
   };
   for (const fn of Object.values(chain)) {
     if (typeof fn === 'function' && 'mockReturnValue' in fn) {
@@ -52,6 +53,7 @@ vi.mock('@taskforge/db', () => ({
     entityId: 'comments.entityId',
     authorId: 'comments.authorId',
     body: 'comments.body',
+    visibility: 'comments.visibility',
     parentCommentId: 'comments.parentCommentId',
     createdAt: 'comments.createdAt',
     updatedAt: 'comments.updatedAt',
@@ -69,6 +71,11 @@ vi.mock('@taskforge/db', () => ({
   organizationMembers: {
     userId: 'organizationMembers.userId',
     organizationId: 'organizationMembers.organizationId',
+    roleId: 'organizationMembers.roleId',
+  },
+  roles: {
+    id: 'roles.id',
+    name: 'roles.name',
   },
 }));
 
@@ -77,9 +84,14 @@ vi.mock('../activity.service.js', () => ({
 }));
 
 // Import after mocking
-const { createComment, updateComment, deleteComment, getTaskIdForComment } = await import(
-  '../comment.service.js'
-);
+const {
+  createComment,
+  listComments,
+  updateComment,
+  deleteComment,
+  getTaskIdForComment,
+  isRestrictedRole,
+} = await import('../comment.service.js');
 const activityService = await import('../activity.service.js');
 
 const uuid1 = '00000000-0000-0000-0000-000000000001';
@@ -336,6 +348,7 @@ describe('comment.service', () => {
           authorId: uuid2,
           entityType: 'task',
           entityId: uuid3,
+          visibility: 'public',
         },
       ]);
 
@@ -349,7 +362,15 @@ describe('comment.service', () => {
       mockLimit.mockImplementation(() => {
         limitCount++;
         if (limitCount === 1) {
-          return [{ id: uuid1, authorId: uuid2, entityType: 'task', entityId: uuid3 }];
+          return [
+            {
+              id: uuid1,
+              authorId: uuid2,
+              entityType: 'task',
+              entityId: uuid3,
+              visibility: 'public',
+            },
+          ];
         }
         if (limitCount === 2) {
           // getOrganizationIdForTask
@@ -370,7 +391,15 @@ describe('comment.service', () => {
       mockLimit.mockImplementation(() => {
         limitCount++;
         if (limitCount === 1) {
-          return [{ id: uuid1, authorId: uuid2, entityType: 'task', entityId: uuid3 }];
+          return [
+            {
+              id: uuid1,
+              authorId: uuid2,
+              entityType: 'task',
+              entityId: uuid3,
+              visibility: 'public',
+            },
+          ];
         }
         if (limitCount === 2) {
           return [{ orgId }];
@@ -395,7 +424,15 @@ describe('comment.service', () => {
       mockLimit.mockImplementation(() => {
         limitCount++;
         if (limitCount === 1) {
-          return [{ id: uuid1, authorId: uuid2, entityType: 'task', entityId: uuid3 }];
+          return [
+            {
+              id: uuid1,
+              authorId: uuid2,
+              entityType: 'task',
+              entityId: uuid3,
+              visibility: 'public',
+            },
+          ];
         }
         if (limitCount === 2) {
           return [{ orgId }];
@@ -413,6 +450,159 @@ describe('comment.service', () => {
           entityId: uuid3,
         }),
       );
+    });
+  });
+
+  describe('isRestrictedRole', () => {
+    it('should return true for Guest role', () => {
+      expect(isRestrictedRole('Guest')).toBe(true);
+    });
+
+    it('should return false for Team Member role', () => {
+      expect(isRestrictedRole('Team Member')).toBe(false);
+    });
+
+    it('should return false for Admin role', () => {
+      expect(isRestrictedRole('Admin')).toBe(false);
+    });
+
+    it('should return false for undefined role', () => {
+      expect(isRestrictedRole(undefined)).toBe(false);
+    });
+  });
+
+  describe('createComment with visibility', () => {
+    it('should create an internal comment for Team Member', async () => {
+      let callCount = 0;
+      mockLimit.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: uuid2 }]; // task exists
+        if (callCount === 2) return [{ orgId }]; // org ID
+        if (callCount === 3) return [{ displayName: 'Test User' }]; // author
+        return [];
+      });
+      mockValues.mockResolvedValue(undefined);
+
+      const result = await createComment(
+        uuid1,
+        uuid2,
+        { body: 'Internal note', visibility: 'internal' },
+        'Team Member',
+      );
+
+      expect(result.visibility).toBe('internal');
+      expect(result.body).toBe('Internal note');
+    });
+
+    it('should reject internal comment from Guest role', async () => {
+      mockLimit.mockImplementation(() => [{ id: uuid2 }]); // task exists
+
+      await expect(
+        createComment(uuid1, uuid2, { body: 'sneaky', visibility: 'internal' }, 'Guest'),
+      ).rejects.toThrow('Guests cannot create internal comments');
+    });
+
+    it('should default to public visibility', async () => {
+      let callCount = 0;
+      mockLimit.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: uuid2 }]; // task exists
+        if (callCount === 2) return [{ orgId }]; // org ID
+        if (callCount === 3) return [{ displayName: 'Test User' }]; // author
+        return [];
+      });
+      mockValues.mockResolvedValue(undefined);
+
+      const result = await createComment(uuid1, uuid2, { body: 'Public comment' });
+
+      expect(result.visibility).toBe('public');
+    });
+
+    it('should tag activity log with commentVisibility for internal comments', async () => {
+      let callCount = 0;
+      mockLimit.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: uuid2 }]; // task exists
+        if (callCount === 2) return [{ orgId }]; // org ID
+        if (callCount === 3) return [{ displayName: 'Test User' }]; // author
+        return [];
+      });
+      mockValues.mockResolvedValue(undefined);
+
+      await createComment(uuid1, uuid2, { body: 'Internal', visibility: 'internal' }, 'Admin');
+
+      expect(activityService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'comment_added',
+          changes: { commentVisibility: { before: null, after: 'internal' } },
+        }),
+      );
+    });
+  });
+
+  describe('listComments with visibility filtering', () => {
+    it('should filter out internal comments for Guest role', async () => {
+      const publicComment = {
+        comment: {
+          id: uuid1,
+          entityType: 'task',
+          entityId: uuid2,
+          authorId: uuid3,
+          body: 'Public',
+          visibility: 'public',
+          parentCommentId: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        },
+        authorDisplayName: 'User 1',
+      };
+      // For Guest: the SQL WHERE should include visibility='public', so only public returned
+      mockOrderBy.mockResolvedValue([publicComment]);
+
+      const result = await listComments(uuid2, 'Guest');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].visibility).toBe('public');
+    });
+
+    it('should include internal comments for Team Member role', async () => {
+      const publicComment = {
+        comment: {
+          id: uuid1,
+          entityType: 'task',
+          entityId: uuid2,
+          authorId: uuid3,
+          body: 'Public',
+          visibility: 'public',
+          parentCommentId: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        },
+        authorDisplayName: 'User 1',
+      };
+      const internalComment = {
+        comment: {
+          id: '00000000-0000-0000-0000-000000000004',
+          entityType: 'task',
+          entityId: uuid2,
+          authorId: uuid3,
+          body: 'Internal',
+          visibility: 'internal',
+          parentCommentId: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        },
+        authorDisplayName: 'User 1',
+      };
+
+      mockOrderBy.mockResolvedValue([publicComment, internalComment]);
+
+      const result = await listComments(uuid2, 'Team Member');
+
+      expect(result).toHaveLength(2);
     });
   });
 

@@ -12,6 +12,7 @@ export const comments = mysqlTable(
       .notNull()
       .references(() => users.id),
     body: text('body').notNull(),
+    visibility: varchar('visibility', { length: 10 }).notNull().default('public'),
     parentCommentId: varchar('parent_comment_id', { length: 36 }),
     createdAt: datetime('created_at').notNull().default(new Date()),
     updatedAt: datetime('updated_at').notNull().default(new Date()),

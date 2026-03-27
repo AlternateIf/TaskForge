@@ -69,6 +69,8 @@ interface ListActivityOptions {
   entityId: string;
   cursor?: string;
   limit?: number;
+  /** When set, activity entries for internal comments are excluded. */
+  excludeInternalComments?: boolean;
 }
 
 export async function listActivity(
@@ -94,8 +96,13 @@ export async function listActivity(
     .orderBy(desc(activityLog.createdAt))
     .limit(fetchCount);
 
-  const hasMore = rows.length > limit;
-  const items = rows.slice(0, limit).map(toOutput);
+  let filtered = rows;
+  if (options.excludeInternalComments) {
+    filtered = rows.filter((row) => !isInternalCommentActivity(row));
+  }
+
+  const hasMore = filtered.length > limit;
+  const items = filtered.slice(0, limit).map(toOutput);
 
   let cursor: string | null = null;
   if (hasMore && items.length > 0) {
@@ -104,6 +111,12 @@ export async function listActivity(
   }
 
   return { items, cursor, hasMore };
+}
+
+function isInternalCommentActivity(row: typeof activityLog.$inferSelect): boolean {
+  if (!row.action.startsWith('comment_')) return false;
+  const changes = row.changes as Record<string, { before: unknown; after: unknown }> | null;
+  return changes?.commentVisibility !== undefined;
 }
 
 interface ListOrgActivityOptions {

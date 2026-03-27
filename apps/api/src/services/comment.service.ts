@@ -5,6 +5,7 @@ import {
   db,
   organizationMembers,
   projects,
+  roles,
   tasks,
   users,
 } from '@taskforge/db';
@@ -42,6 +43,11 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedSchemes: ['http', 'https', 'mailto'],
 };
 
+export type CommentVisibility = 'public' | 'internal';
+
+/** Roles that cannot see or create internal comments. */
+const RESTRICTED_ROLES = new Set(['Guest']);
+
 export interface CommentOutput {
   id: string;
   entityType: string;
@@ -49,6 +55,7 @@ export interface CommentOutput {
   authorId: string;
   authorDisplayName: string;
   body: string;
+  visibility: CommentVisibility;
   parentCommentId: string | null;
   mentions: string[];
   createdAt: string;
@@ -69,12 +76,17 @@ function toOutput(row: CommentWithAuthor, mentionUserIds: string[] = []): Commen
     authorId: row.comment.authorId,
     authorDisplayName: row.authorDisplayName ?? 'Unknown User',
     body: row.comment.deletedAt ? '' : row.comment.body,
+    visibility: (row.comment.visibility as CommentVisibility) ?? 'public',
     parentCommentId: row.comment.parentCommentId,
     mentions: mentionUserIds,
     createdAt: row.comment.createdAt.toISOString(),
     updatedAt: row.comment.updatedAt.toISOString(),
     deletedAt: row.comment.deletedAt?.toISOString() ?? null,
   };
+}
+
+export function isRestrictedRole(roleName: string | undefined): boolean {
+  return RESTRICTED_ROLES.has(roleName ?? '');
 }
 
 function parseMentions(body: string): string[] {
@@ -108,6 +120,15 @@ async function resolveUsernames(
   return map;
 }
 
+async function getRestrictedUserIds(organizationId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ userId: organizationMembers.userId })
+    .from(organizationMembers)
+    .innerJoin(roles, eq(roles.id, organizationMembers.roleId))
+    .where(and(eq(organizationMembers.organizationId, organizationId), eq(roles.name, 'Guest')));
+  return new Set(rows.map((r) => r.userId));
+}
+
 async function getOrganizationIdForTask(taskId: string): Promise<string> {
   const result = await db
     .select({ orgId: projects.organizationId })
@@ -126,7 +147,14 @@ export async function createComment(
   userId: string,
   taskId: string,
   input: CreateCommentInput,
+  callerRole?: string,
 ): Promise<CommentOutput> {
+  const visibility: CommentVisibility = (input.visibility as CommentVisibility) ?? 'public';
+
+  // Only Team Member+ can create internal comments
+  if (visibility === 'internal' && isRestrictedRole(callerRole)) {
+    throw new AppError(403, ErrorCode.FORBIDDEN, 'Guests cannot create internal comments');
+  }
   // Validate task exists
   const taskResult = await db
     .select({ id: tasks.id })
@@ -178,19 +206,23 @@ export async function createComment(
     entityId: taskId,
     authorId: userId,
     body: sanitizedBody,
+    visibility,
     parentCommentId: input.parentCommentId ?? null,
     createdAt: now,
     updatedAt: now,
   });
 
-  // Create mention records
+  // Create mention records — for internal comments, exclude Guest users
+  const restrictedUsers =
+    visibility === 'internal' ? await getRestrictedUserIds(organizationId) : new Set<string>();
   const mentionUserIds: string[] = [];
-  for (const [, userId] of resolvedMentions) {
-    mentionUserIds.push(userId);
+  for (const [, mentionedUserId] of resolvedMentions) {
+    if (restrictedUsers.has(mentionedUserId)) continue;
+    mentionUserIds.push(mentionedUserId);
     await db.insert(commentMentions).values({
       id: crypto.randomUUID(),
       commentId: id,
-      userId,
+      userId: mentionedUserId,
       createdAt: now,
     });
   }
@@ -202,13 +234,17 @@ export async function createComment(
     .where(eq(users.id, userId))
     .limit(1);
 
-  // Log activity
+  // Log activity (tag with visibility so activity listing can filter for restricted roles)
   await activityService.log({
     organizationId,
     actorId: userId,
     entityType: 'task',
     entityId: taskId,
     action: 'comment_added',
+    changes:
+      visibility === 'internal'
+        ? { commentVisibility: { before: null, after: 'internal' } }
+        : undefined,
   });
 
   return {
@@ -218,6 +254,7 @@ export async function createComment(
     authorId: userId,
     authorDisplayName: authorResult[0]?.displayName ?? 'Unknown User',
     body: sanitizedBody,
+    visibility,
     parentCommentId: input.parentCommentId ?? null,
     mentions: mentionUserIds,
     createdAt: now.toISOString(),
@@ -226,7 +263,14 @@ export async function createComment(
   };
 }
 
-export async function listComments(taskId: string): Promise<CommentOutput[]> {
+export async function listComments(taskId: string, callerRole?: string): Promise<CommentOutput[]> {
+  const conditions = [eq(comments.entityType, 'task'), eq(comments.entityId, taskId)];
+
+  // Restricted roles only see public comments
+  if (isRestrictedRole(callerRole)) {
+    conditions.push(eq(comments.visibility, 'public'));
+  }
+
   const rows = await db
     .select({
       comment: comments,
@@ -234,7 +278,7 @@ export async function listComments(taskId: string): Promise<CommentOutput[]> {
     })
     .from(comments)
     .innerJoin(users, eq(users.id, comments.authorId))
-    .where(and(eq(comments.entityType, 'task'), eq(comments.entityId, taskId)))
+    .where(and(...conditions))
     .orderBy(desc(comments.createdAt));
 
   // Fetch mentions for all comments
@@ -333,12 +377,17 @@ export async function updateComment(
   }
 
   // Log activity
+  const editVisibility = (result[0].comment.visibility as CommentVisibility) ?? 'public';
   await activityService.log({
     organizationId,
     actorId: userId,
     entityType: 'task',
     entityId: result[0].comment.entityId,
     action: 'comment_edited',
+    changes:
+      editVisibility === 'internal'
+        ? { commentVisibility: { before: 'internal', after: 'internal' } }
+        : undefined,
   });
 
   return {
@@ -360,6 +409,7 @@ export async function deleteComment(
       authorId: comments.authorId,
       entityType: comments.entityType,
       entityId: comments.entityId,
+      visibility: comments.visibility,
     })
     .from(comments)
     .where(and(eq(comments.id, commentId), isNull(comments.deletedAt)))
@@ -381,6 +431,7 @@ export async function deleteComment(
   await db.update(comments).set({ deletedAt: now }).where(eq(comments.id, commentId));
 
   if (result[0].entityType === 'task') {
+    const deleteVisibility = (result[0].visibility as CommentVisibility) ?? 'public';
     const organizationId = await getOrganizationIdForTask(result[0].entityId);
     await activityService.log({
       organizationId,
@@ -388,6 +439,10 @@ export async function deleteComment(
       entityType: 'task',
       entityId: result[0].entityId,
       action: 'comment_deleted',
+      changes:
+        deleteVisibility === 'internal'
+          ? { commentVisibility: { before: 'internal', after: null } }
+          : undefined,
     });
   }
 }

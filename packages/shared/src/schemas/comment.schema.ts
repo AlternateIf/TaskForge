@@ -4,6 +4,7 @@ export const createCommentSchema = z.object({
   body: z.string().min(1, 'Comment body is required').max(50000),
   parentCommentId: z.string().uuid('Invalid comment ID').nullable().optional(),
   attachmentIds: z.array(z.string().uuid('Invalid attachment ID')).max(10).optional(),
+  visibility: z.enum(['public', 'internal']).default('public').optional(),
 });
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;

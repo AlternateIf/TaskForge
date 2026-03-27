@@ -34,10 +34,10 @@ Add comment visibility control so team members can leave internal-only comments 
 - Internal comment creation does NOT trigger activity log entries visible to Guest/Customer users
 
 ## Acceptance Criteria
-- [ ] Comments can be created with `visibility: 'internal'`
-- [ ] Guest/Customer users cannot see internal comments via API
-- [ ] Guest/Customer users cannot create internal comments
-- [ ] Activity log hides internal comment entries from Guest/Customer users
-- [ ] @mentions in internal comments don't notify Guest/Customer users
-- [ ] Audit trail still records internal comments
-- [ ] Tests cover visibility filtering for different roles
+- [x] Comments can be created with `visibility: 'internal'`
+- [x] Guest/Customer users cannot see internal comments via API
+- [x] Guest/Customer users cannot create internal comments
+- [x] Activity log hides internal comment entries from Guest/Customer users
+- [x] @mentions in internal comments don't notify Guest/Customer users
+- [x] Audit trail still records internal comments
+- [x] Tests cover visibility filtering for different roles

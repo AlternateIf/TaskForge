@@ -16,7 +16,13 @@ export async function createCommentHandler(
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const comment = await commentService.createComment(userId, request.params.taskId, request.body);
+  const roleName = request.permissionContext?.orgRoleName;
+  const comment = await commentService.createComment(
+    userId,
+    request.params.taskId,
+    request.body,
+    roleName,
+  );
   return reply.status(201).send(success(comment));
 }
 
@@ -25,7 +31,8 @@ export async function listCommentsHandler(
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const comments = await commentService.listComments(request.params.taskId);
+  const roleName = request.permissionContext?.orgRoleName;
+  const comments = await commentService.listComments(request.params.taskId, roleName);
   return reply.status(200).send(success(comments));
 }
 
