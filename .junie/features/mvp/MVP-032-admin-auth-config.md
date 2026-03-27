@@ -54,15 +54,15 @@ packages/shared/src/schemas/
 ```
 
 ## Acceptance Criteria
-- [ ] Admin can view current auth settings for their organization
-- [ ] Admin can enable/disable password authentication
-- [ ] Admin can enable/disable Google OAuth
-- [ ] Admin can enable/disable GitHub OAuth
-- [ ] Admin can enforce MFA for all organization members
-- [ ] Admin can restrict signup to specific email domains
-- [ ] Cannot disable all auth methods (at least one must remain enabled)
-- [ ] MFA enforcement grants a configurable grace period to existing members
-- [ ] Login/registration flows respect org auth settings
-- [ ] Non-admin users receive 403 when attempting to modify auth settings
-- [ ] Changes are audited in the activity log
-- [ ] Unit tests cover service-layer functions, validation schemas, and lockout prevention logic
+- [x] Admin can view current auth settings for their organization
+- [x] Admin can enable/disable password authentication
+- [x] Admin can enable/disable Google OAuth
+- [x] Admin can enable/disable GitHub OAuth
+- [x] Admin can enforce MFA for all organization members
+- [x] Admin can restrict signup to specific email domains
+- [x] Cannot disable all auth methods (at least one must remain enabled)
+- [x] MFA enforcement grants a configurable grace period to existing members
+- [x] Login/registration flows respect org auth settings
+- [x] Non-admin users receive 403 when attempting to modify auth settings
+- [x] Changes are audited in the activity log
+- [x] Unit tests cover service-layer functions, validation schemas, and lockout prevention logic

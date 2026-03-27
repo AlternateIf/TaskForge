@@ -6,3 +6,4 @@ export * from './constants/permissions.js';
 export * from './schemas/project.schema.js';
 export * from './schemas/task.schema.js';
 export * from './schemas/comment.schema.js';
+export * from './schemas/org-auth-settings.schema.js';

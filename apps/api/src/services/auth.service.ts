@@ -92,7 +92,21 @@ export async function loginUser(
   jwtSign: (payload: JwtPayload, options: { expiresIn: number }) => string,
   ip?: string,
   userAgent?: string,
+  organizationId?: string,
 ): Promise<LoginResult> {
+  // Check org-level auth settings when an organization context is provided
+  if (organizationId) {
+    const { isAuthMethodEnabled } = await import('./org-auth-settings.service.js');
+    const passwordEnabled = await isAuthMethodEnabled(organizationId, 'password');
+    if (!passwordEnabled) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Password authentication is disabled for this organization. Please use an enabled login method (e.g. Google or GitHub OAuth).',
+      );
+    }
+  }
+
   // Check account lockout before any expensive work
   const { checkLockout, recordFailedAttempt, resetLockout } = await import(
     './account-lockout.service.js'

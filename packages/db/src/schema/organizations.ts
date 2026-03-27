@@ -1,5 +1,14 @@
 import { relations } from 'drizzle-orm';
-import { boolean, datetime, index, json, mysqlTable, text, varchar } from 'drizzle-orm/mysql-core';
+import {
+  boolean,
+  datetime,
+  index,
+  int,
+  json,
+  mysqlTable,
+  text,
+  varchar,
+} from 'drizzle-orm/mysql-core';
 import { users } from './users.js';
 
 export const organizations = mysqlTable('organizations', {
@@ -65,9 +74,27 @@ export const permissions = mysqlTable(
   (table) => [index('permissions_role_idx').on(table.roleId)],
 );
 
-export const organizationsRelations = relations(organizations, ({ many }) => ({
+export const organizationAuthSettings = mysqlTable('organization_auth_settings', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  organizationId: varchar('organization_id', { length: 36 })
+    .notNull()
+    .unique()
+    .references(() => organizations.id),
+  passwordAuthEnabled: boolean('password_auth_enabled').notNull().default(true),
+  googleOauthEnabled: boolean('google_oauth_enabled').notNull().default(false),
+  githubOauthEnabled: boolean('github_oauth_enabled').notNull().default(false),
+  mfaEnforced: boolean('mfa_enforced').notNull().default(false),
+  mfaEnforcedAt: datetime('mfa_enforced_at'),
+  mfaGracePeriodDays: int('mfa_grace_period_days').notNull().default(7),
+  allowedEmailDomains: json('allowed_email_domains').$type<string[] | null>(),
+  createdAt: datetime('created_at').notNull().default(new Date()),
+  updatedAt: datetime('updated_at').notNull().default(new Date()),
+});
+
+export const organizationsRelations = relations(organizations, ({ many, one }) => ({
   members: many(organizationMembers),
   roles: many(roles),
+  authSettings: one(organizationAuthSettings),
 }));
 
 export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
@@ -95,4 +122,11 @@ export const rolesRelations = relations(roles, ({ one, many }) => ({
 
 export const permissionsRelations = relations(permissions, ({ one }) => ({
   role: one(roles, { fields: [permissions.roleId], references: [roles.id] }),
+}));
+
+export const organizationAuthSettingsRelations = relations(organizationAuthSettings, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationAuthSettings.organizationId],
+    references: [organizations.id],
+  }),
 }));

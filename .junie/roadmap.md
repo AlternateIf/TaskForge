@@ -12,7 +12,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~JWT-based registration and login~~ ✅
 - ~~OAuth 2.0 / OIDC login (Google, GitHub)~~ ✅
 - ~~MFA support (TOTP)~~ ✅
-- Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)
+- ~~Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)~~ ✅
 
 ### Organizations & Multi-Tenancy
 - ~~Organization creation and membership~~ ✅

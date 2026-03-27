@@ -5,6 +5,7 @@ import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import { isEmailDomainAllowed } from './org-auth-settings.service.js';
 
 const TRIAL_DAYS = 14;
 
@@ -305,6 +306,16 @@ export async function addMember(
 
   if (!role) {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found in this organization');
+  }
+
+  // Check email domain restriction
+  const domainAllowed = await isEmailDomainAllowed(orgId, email);
+  if (!domainAllowed) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Email domain is not allowed for this organization',
+    );
   }
 
   // Find user by email

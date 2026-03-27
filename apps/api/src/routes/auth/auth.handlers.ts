@@ -63,6 +63,7 @@ export async function loginHandler(
     jwtSign,
     request.ip,
     request.headers['user-agent'],
+    request.body.organizationId,
   );
 
   if (result.mfaRequired) {
