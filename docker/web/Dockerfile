@@ -14,6 +14,9 @@ COPY tsconfig.base.json ./
 COPY apps/web/ apps/web/
 COPY packages/shared/ packages/shared/
 
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 5173
 
 CMD ["pnpm", "--filter", "@taskforge/web", "dev"]

@@ -18,6 +18,9 @@ COPY packages/shared/ packages/shared/
 COPY packages/db/ packages/db/
 COPY packages/email-templates/ packages/email-templates/
 
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 3000
 
 CMD ["pnpm", "--filter", "@taskforge/api", "dev"]
