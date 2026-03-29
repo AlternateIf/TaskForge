@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { authorize } from '../../hooks/authorize.hook.js';
 import {
   createSavedFilterHandler,
   deleteSavedFilterHandler,
@@ -13,6 +14,15 @@ export async function savedFilterRoutes(fastify: FastifyInstance) {
   // POST /api/v1/saved-filters
   fastify.post<{ Params: { orgId: string } }>(
     '/api/v1/organizations/:orgId/saved-filters',
+    {
+      preHandler: [
+        authorize({
+          resource: 'organization',
+          action: 'read',
+          getOrgId: (req) => (req.params as { orgId: string }).orgId,
+        }),
+      ],
+    },
     async (request, reply) => {
       request.body = createSavedFilterSchema.parse(request.body);
       return createSavedFilterHandler(
@@ -25,6 +35,15 @@ export async function savedFilterRoutes(fastify: FastifyInstance) {
   // GET /api/v1/saved-filters
   fastify.get<{ Params: { orgId: string } }>(
     '/api/v1/organizations/:orgId/saved-filters',
+    {
+      preHandler: [
+        authorize({
+          resource: 'organization',
+          action: 'read',
+          getOrgId: (req) => (req.params as { orgId: string }).orgId,
+        }),
+      ],
+    },
     listSavedFiltersHandler,
   );
 

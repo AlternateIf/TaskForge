@@ -224,6 +224,14 @@ export async function globalSearch(options: SearchOptions): Promise<SearchResult
     return results;
   }
 
+  // Validate projectId is accessible and is a valid UUID (prevents filter injection)
+  if (projectId) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(projectId) || !projectIds.includes(projectId)) {
+      return results; // Return empty results for unauthorized or invalid project
+    }
+  }
+
   const projectFilter = projectId
     ? `projectId = "${projectId}"`
     : `projectId IN [${projectIds.map((id) => `"${id}"`).join(', ')}]`;
@@ -238,6 +246,7 @@ export async function globalSearch(options: SearchOptions): Promise<SearchResult
 
   if (searchTypes.includes('project')) {
     // For projects, filter by accessible project IDs directly
+    // projectId is already validated above against accessible list + UUID format
     const idFilter = projectId
       ? `id = "${projectId}"`
       : `id IN [${projectIds.map((id) => `"${id}"`).join(', ')}]`;

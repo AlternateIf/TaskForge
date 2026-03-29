@@ -1,5 +1,10 @@
 import fs from 'node:fs';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import {
+  checkPermission,
+  getProjectIdFromTask,
+  loadPermissionContext,
+} from '../../services/permission.service.js';
 import * as attachmentService from '../../services/attachment.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
@@ -24,6 +29,22 @@ export async function uploadAttachmentHandler(request: FastifyRequest, reply: Fa
 
   if (!entityType || !entityId) {
     throw new AppError(400, ErrorCode.BAD_REQUEST, 'entityType and entityId are required');
+  }
+
+  // Verify caller has access to the target task/entity
+  if (entityType === 'task') {
+    const resolved = await getProjectIdFromTask(entityId);
+    if (!resolved) {
+      throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
+    }
+    const ctx = await loadPermissionContext(userId, resolved.orgId);
+    if (!ctx) {
+      throw new AppError(403, ErrorCode.FORBIDDEN, 'You are not a member of this organization');
+    }
+    const allowed = await checkPermission(ctx, userId, 'attachment', 'create', resolved.projectId);
+    if (!allowed) {
+      throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions to upload to this task');
+    }
   }
 
   const fileBuffer = await data.toBuffer();

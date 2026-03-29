@@ -94,7 +94,13 @@ export async function refreshHandler(request: FastifyRequest, reply: FastifyRepl
   const jwtSign = (payload: authService.JwtPayload, opts: { expiresIn: number }) =>
     request.server.jwtSign({ ...payload }, opts.expiresIn);
 
-  const { accessToken } = await authService.refreshSession(refreshToken, jwtSign);
+  const { accessToken, refreshTokenRaw: newRefreshToken } = await authService.refreshSession(
+    refreshToken,
+    jwtSign,
+  );
+
+  // Set the rotated refresh token cookie
+  setRefreshCookie(reply, newRefreshToken);
 
   return reply.status(200).send(success({ accessToken }));
 }

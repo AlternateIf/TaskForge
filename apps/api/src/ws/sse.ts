@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { type RealtimeEvent, addSseClient, removeSseClient } from './channels.js';
+import { type RealtimeEvent, addSseClient, authorizeChannel, removeSseClient } from './channels.js';
 
 const SSE_RETRY_MS = 3000;
 
@@ -27,6 +27,15 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'No valid channels specified' });
       }
 
+      // Verify user has access to all requested channels
+      const authResults = await Promise.all(
+        channels.map((ch) => authorizeChannel(userId, ch)),
+      );
+      const authorizedChannels = channels.filter((_, i) => authResults[i]);
+      if (authorizedChannels.length === 0) {
+        return reply.status(403).send({ error: 'Not authorized for any of the requested channels' });
+      }
+
       // Set SSE headers
       reply.raw.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -48,7 +57,7 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
       addSseClient({
         id: clientId,
         userId,
-        channels: new Set(channels),
+        channels: new Set(authorizedChannels),
         write,
         close: () => {
           reply.raw.end();
@@ -57,7 +66,7 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Send initial connected event
       reply.raw.write('event: connected\n');
-      reply.raw.write(`data: ${JSON.stringify({ type: 'connected', userId, channels })}\n\n`);
+      reply.raw.write(`data: ${JSON.stringify({ type: 'connected', userId, channels: authorizedChannels })}\n\n`);
 
       // Clean up on disconnect
       request.raw.on('close', () => {

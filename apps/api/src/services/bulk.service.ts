@@ -1,6 +1,7 @@
 import {
   db,
   labels,
+  projectMembers,
   projects,
   taskLabels,
   tasks,
@@ -9,7 +10,7 @@ import {
 } from '@taskforge/db';
 import type { BulkActionInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { AppError } from '../utils/errors.js';
+import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 
 interface BulkFailure {
@@ -40,6 +41,41 @@ async function getInitialStatusForProject(projectId: string): Promise<string | n
     .where(and(eq(workflows.projectId, projectId), eq(workflowStatuses.isInitial, true)))
     .limit(1);
   return result[0]?.id ?? null;
+}
+
+/**
+ * Validates that the caller has project membership for all tasks in the bulk action.
+ * Throws 403 if any task belongs to a project the user is not a member of.
+ */
+export async function validateBulkTaskAccess(taskIds: string[], userId: string): Promise<void> {
+  if (taskIds.length === 0) return;
+
+  // Get all tasks and their project IDs
+  const taskRows = await db
+    .select({ id: tasks.id, projectId: tasks.projectId })
+    .from(tasks)
+    .where(and(inArray(tasks.id, taskIds), isNull(tasks.deletedAt)));
+
+  // Get unique project IDs
+  const projectIds = [...new Set(taskRows.map((t) => t.projectId))];
+  if (projectIds.length === 0) return; // tasks not found will fail later in executeBulkAction
+
+  // Check membership for all projects
+  const memberships = await db
+    .select({ projectId: projectMembers.projectId })
+    .from(projectMembers)
+    .where(and(inArray(projectMembers.projectId, projectIds), eq(projectMembers.userId, userId)));
+
+  const memberProjectIds = new Set(memberships.map((m) => m.projectId));
+  const unauthorized = projectIds.filter((pid) => !memberProjectIds.has(pid));
+
+  if (unauthorized.length > 0) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'You do not have access to one or more tasks in this bulk action',
+    );
+  }
 }
 
 export async function executeBulkAction(

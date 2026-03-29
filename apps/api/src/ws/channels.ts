@@ -1,3 +1,5 @@
+import { db, projectMembers } from '@taskforge/db';
+import { and, eq } from 'drizzle-orm';
 import type { WebSocket } from 'ws';
 
 export interface ClientConnection {
@@ -64,6 +66,34 @@ export function removeConnection(conn: ClientConnection): void {
     conns.delete(conn);
     if (conns.size === 0) userConnections.delete(conn.userId);
   }
+}
+
+// --- Channel authorization ---
+
+/**
+ * Verifies the user has access to the requested channel.
+ * - `user:<id>` channels: only the owner can subscribe
+ * - `project:<id>` channels: must be a project member
+ */
+export async function authorizeChannel(userId: string, channel: string): Promise<boolean> {
+  const [type, id] = channel.split(':');
+
+  if (type === 'user') {
+    // Users can only subscribe to their own channel
+    return id === userId;
+  }
+
+  if (type === 'project') {
+    // Verify project membership
+    const membership = await db
+      .select({ id: projectMembers.id })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, id), eq(projectMembers.userId, userId)))
+      .limit(1);
+    return membership.length > 0;
+  }
+
+  return false;
 }
 
 // --- Channel subscriptions ---

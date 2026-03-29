@@ -21,8 +21,11 @@ export async function oauthInitiateHandler(
   reply: FastifyReply,
 ) {
   const { provider } = request.params;
-  const protocol = IS_PROD ? 'https' : request.protocol;
-  const callbackUrl = `${protocol}://${request.hostname}/api/v1/auth/oauth/${provider}/callback`;
+  // Use configured API_BASE_URL to avoid host header injection
+  const apiBaseUrl = process.env.API_BASE_URL;
+  const callbackUrl = apiBaseUrl
+    ? `${apiBaseUrl}/api/v1/auth/oauth/${provider}/callback`
+    : `${IS_PROD ? 'https' : request.protocol}://${request.hostname}/api/v1/auth/oauth/${provider}/callback`;
 
   const { authorizationUrl } = await oauthService.initiateOAuth(provider, callbackUrl);
 
@@ -51,7 +54,7 @@ export async function oauthCallbackHandler(
   const jwtSign = (payload: JwtPayload, opts: { expiresIn: number }) =>
     request.server.jwtSign({ ...payload }, opts.expiresIn);
 
-  const { user, tokens, isNewUser } = await oauthService.handleOAuthCallback(
+  const { tokens, isNewUser } = await oauthService.handleOAuthCallback(
     code,
     state,
     jwtSign,

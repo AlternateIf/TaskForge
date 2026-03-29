@@ -14,6 +14,11 @@ declare module 'fastify' {
   }
 }
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+if (IS_PROD && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-in-production';
 
 interface JwtPayload {

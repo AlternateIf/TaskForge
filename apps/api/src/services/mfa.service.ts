@@ -10,6 +10,10 @@ const TOTP_WINDOW = 1; // ±30 second drift
 const APP_NAME = 'TaskForge';
 
 // Encryption key for storing TOTP secrets at rest
+const IS_PROD = process.env.NODE_ENV === 'production';
+if (IS_PROD && !process.env.MFA_ENCRYPTION_KEY) {
+  throw new Error('MFA_ENCRYPTION_KEY environment variable is required in production');
+}
 const ENCRYPTION_KEY = process.env.MFA_ENCRYPTION_KEY ?? 'dev-mfa-key-change-in-production-32ch';
 
 function getEncryptionKey(): Buffer {
@@ -129,7 +133,7 @@ export async function verifySetup(userId: string, code: string): Promise<void> {
     .set({ mfaEnabled: true, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
-  console.log(`[AUDIT] MFA enabled for user ${userId}`);
+  // Audit: MFA enabled (userId is already in the DB update for traceability)
 }
 
 export async function createMfaToken(userId: string): Promise<string> {
@@ -196,5 +200,5 @@ export async function disableMfa(userId: string, code: string): Promise<void> {
     .set({ mfaEnabled: false, mfaSecret: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
-  console.log(`[AUDIT] MFA disabled for user ${userId}`);
+  // Audit: MFA disabled (userId is already in the DB update for traceability)
 }

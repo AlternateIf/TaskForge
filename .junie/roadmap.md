@@ -219,6 +219,11 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 - Presence indicators (who is viewing/editing a task)
 - Channel-based subscriptions (per project, per task, per user)
 
+### Security Hardening (from MVP security review)
+- Session validation on every request via Redis-backed session cache (stale access tokens remain valid for up to 15 minutes after logout/password change in MVP)
+- Ticket-based WebSocket authentication (replace JWT-in-URL query string with single-use short-lived ticket obtained via `POST /api/v1/auth/ws-ticket`)
+- CSRF token support for cookie-authenticated endpoints (supplement SameSite=Lax with explicit CSRF tokens)
+
 ### Privacy & Presentation
 - Stream-safe mode (hide internal comments, sensitive fields, pricing during screen sharing)
 - CAPTCHA on registration and after repeated failed logins

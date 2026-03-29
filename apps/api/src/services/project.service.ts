@@ -367,6 +367,7 @@ export async function addProjectMember(
   projectId: string,
   userId: string,
   roleId: string | null | undefined,
+  actorId?: string,
 ): Promise<ProjectMemberOutput> {
   // Check if already a member
   const existing = await db
@@ -394,11 +395,20 @@ export async function addProjectMember(
 
   let roleName: string | null = null;
   if (roleId) {
+    // Verify role exists and belongs to the same organization as the project
+    const orgId = await getOrgIdForProject(projectId);
     const role = (
-      await db.select({ name: roles.name }).from(roles).where(eq(roles.id, roleId)).limit(1)
+      await db
+        .select({ name: roles.name, organizationId: roles.organizationId })
+        .from(roles)
+        .where(eq(roles.id, roleId))
+        .limit(1)
     )[0];
     if (!role) {
       throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found');
+    }
+    if (role.organizationId !== orgId) {
+      throw new AppError(400, ErrorCode.BAD_REQUEST, 'Role does not belong to this organization');
     }
     roleName = role.name;
   }
@@ -418,7 +428,7 @@ export async function addProjectMember(
   if (orgId) {
     await activityService.log({
       organizationId: orgId,
-      actorId: userId,
+      actorId: actorId ?? userId,
       entityType: 'project',
       entityId: projectId,
       action: 'member_added',
@@ -441,6 +451,7 @@ export async function updateProjectMember(
   projectId: string,
   memberId: string,
   roleId: string | null,
+  actorId?: string,
 ): Promise<ProjectMemberOutput> {
   const member = (
     await db
@@ -467,10 +478,22 @@ export async function updateProjectMember(
 
   let roleName: string | null = null;
   if (roleId) {
+    // Verify role exists and belongs to the same organization as the project
+    const orgId = await getOrgIdForProject(projectId);
     const role = (
-      await db.select({ name: roles.name }).from(roles).where(eq(roles.id, roleId)).limit(1)
+      await db
+        .select({ name: roles.name, organizationId: roles.organizationId })
+        .from(roles)
+        .where(eq(roles.id, roleId))
+        .limit(1)
     )[0];
-    roleName = role?.name ?? null;
+    if (!role) {
+      throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found');
+    }
+    if (role.organizationId !== orgId) {
+      throw new AppError(400, ErrorCode.BAD_REQUEST, 'Role does not belong to this organization');
+    }
+    roleName = role.name;
   }
 
   if (member.roleId !== roleId) {
@@ -478,7 +501,7 @@ export async function updateProjectMember(
     if (orgId) {
       await activityService.log({
         organizationId: orgId,
-        actorId: member.userId,
+        actorId: actorId ?? member.userId,
         entityType: 'project',
         entityId: projectId,
         action: 'member_role_changed',

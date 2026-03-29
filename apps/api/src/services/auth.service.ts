@@ -75,7 +75,7 @@ export async function registerUser(
   });
 
   // TODO: Send verification email (MVP-018 adds RabbitMQ email queue)
-  console.log(`[EMAIL] Verification token for ${input.email}: ${verifyToken}`);
+  console.log(`[EMAIL] Verification email would be sent to ${input.email}`);
 
   // Auto-login after registration
   const tokens = await createSession(user, jwtSign, ip, userAgent);
@@ -187,7 +187,7 @@ export async function createSession(
 export async function refreshSession(
   refreshTokenRaw: string,
   jwtSign: (payload: JwtPayload, options: { expiresIn: number }) => string,
-): Promise<{ accessToken: string }> {
+): Promise<{ accessToken: string; refreshTokenRaw: string }> {
   const tokenHash = hashToken(refreshTokenRaw);
 
   const session = (
@@ -207,7 +207,18 @@ export async function refreshSession(
     { sub: user.id, email: user.email, sid: session.id },
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
-  return { accessToken };
+
+  // Rotate refresh token: generate new token and update session
+  const newRefreshTokenRaw = generateToken();
+  await db
+    .update(sessions)
+    .set({
+      tokenHash: hashToken(newRefreshTokenRaw),
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    })
+    .where(eq(sessions.id, session.id));
+
+  return { accessToken, refreshTokenRaw: newRefreshTokenRaw };
 }
 
 export async function logoutSession(refreshTokenRaw: string): Promise<void> {
@@ -267,7 +278,7 @@ export async function forgotPassword(email: string): Promise<void> {
   });
 
   // TODO: Send password reset email (MVP-018)
-  console.log(`[EMAIL] Password reset token for ${email}: ${token}`);
+  console.log(`[EMAIL] Password reset email would be sent to ${email}`);
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {

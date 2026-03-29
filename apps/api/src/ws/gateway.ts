@@ -4,6 +4,7 @@ import type { WebSocket } from 'ws';
 import {
   type ClientConnection,
   addConnection,
+  authorizeChannel,
   canConnect,
   getAllConnections,
   removeConnection,
@@ -97,7 +98,7 @@ export async function realtimeGateway(fastify: FastifyInstance): Promise<void> {
         }
       }, IDLE_TIMEOUT_MS);
 
-      socket.on('message', (raw: Buffer | string) => {
+      socket.on('message', async (raw: Buffer | string) => {
         try {
           const msg: ClientMessage = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
 
@@ -111,6 +112,12 @@ export async function realtimeGateway(fastify: FastifyInstance): Promise<void> {
           const channel = msg.channel === 'user:me' ? `user:${userId}` : msg.channel;
 
           if (msg.action === 'subscribe') {
+            // Verify user has access to this channel
+            const authorized = await authorizeChannel(userId, channel);
+            if (!authorized) {
+              socket.send(JSON.stringify({ error: 'Not authorized for channel', channel }));
+              return;
+            }
             subscribe(conn, channel);
             socket.send(JSON.stringify({ ack: 'subscribed', channel }));
 

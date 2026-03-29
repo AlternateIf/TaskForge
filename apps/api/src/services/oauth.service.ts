@@ -232,7 +232,6 @@ async function fetchGitHubPrimaryEmail(accessToken: string): Promise<string | nu
 async function findOrCreateUser(
   provider: string,
   userInfo: OAuthUserInfo,
-  providerAccessToken: string,
 ): Promise<typeof users.$inferSelect> {
   // Check if OAuth account already linked
   const existingOAuth = await db
@@ -247,10 +246,10 @@ async function findOrCreateUser(
     .limit(1);
 
   if (existingOAuth.length > 0) {
-    // Update tokens
+    // Update timestamp (provider access token is NOT stored — only used transiently for user info fetch)
     await db
       .update(oauthAccounts)
-      .set({ accessToken: providerAccessToken, updatedAt: new Date() })
+      .set({ accessToken: null, updatedAt: new Date() })
       .where(eq(oauthAccounts.id, existingOAuth[0].id));
 
     const user = (
@@ -274,13 +273,13 @@ async function findOrCreateUser(
   const now = new Date();
 
   if (existingUser) {
-    // Link OAuth account to existing user
+    // Link OAuth account to existing user (provider access token NOT stored)
     await db.insert(oauthAccounts).values({
       id: crypto.randomUUID(),
       userId: existingUser.id,
       provider,
       providerUserId: userInfo.providerUserId,
-      accessToken: providerAccessToken,
+      accessToken: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -319,13 +318,12 @@ async function findOrCreateUser(
     userId,
     provider,
     providerUserId: userInfo.providerUserId,
-    accessToken: providerAccessToken,
+    accessToken: null, // Provider access token NOT stored — only used transiently
     createdAt: now,
     updatedAt: now,
   });
 
-  const user = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
-  return user;
+  return (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
 }
 
 export async function handleOAuthCallback(
@@ -378,7 +376,7 @@ export async function handleOAuthCallback(
   const isNewUser = existingBefore.length === 0 && existingOAuthBefore.length === 0;
 
   // Find or create user, link OAuth account
-  const user = await findOrCreateUser(provider, userInfo, providerAccessToken);
+  const user = await findOrCreateUser(provider, userInfo);
 
   // Create session (same as regular login)
   const tokens = await createSession(user, jwtSign, ip, userAgent);

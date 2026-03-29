@@ -98,11 +98,12 @@ export async function addProjectMemberHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AddProjectMemberInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const actorUserId = requireAuth(request);
   const member = await projectService.addProjectMember(
     request.params.id,
     request.body.userId,
     request.body.roleId,
+    actorUserId,
   );
   return reply.status(201).send(success(member));
 }
@@ -114,11 +115,12 @@ export async function updateProjectMemberHandler(
   }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const actorUserId = requireAuth(request);
   const member = await projectService.updateProjectMember(
     request.params.id,
     request.params.memberId,
     request.body.roleId,
+    actorUserId,
   );
   return reply.status(200).send(success(member));
 }

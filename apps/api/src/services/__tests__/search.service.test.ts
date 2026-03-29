@@ -154,20 +154,36 @@ describe('search.service', () => {
     });
 
     it('should filter by projectId when provided', async () => {
-      mockWhere.mockResolvedValueOnce([{ projectId: 'p1' }]);
+      const validProjectId = '00000000-0000-0000-0000-000000000001';
+      mockWhere.mockResolvedValueOnce([{ projectId: validProjectId }]);
       mockSearch.mockResolvedValue({ hits: [], estimatedTotalHits: 0 });
 
       await globalSearch({
         query: 'test',
         types: ['task'],
-        projectId: 'p1',
+        projectId: validProjectId,
         userId: 'user1',
       });
 
       expect(mockSearch).toHaveBeenCalledWith('test', {
-        filter: 'projectId = "p1"',
+        filter: `projectId = "${validProjectId}"`,
         limit: 20,
       });
+    });
+
+    it('should return empty results for non-accessible projectId', async () => {
+      mockWhere.mockResolvedValueOnce([{ projectId: 'p1' }]);
+
+      const result = await globalSearch({
+        query: 'test',
+        types: ['task'],
+        projectId: '00000000-0000-0000-0000-000000000999',
+        userId: 'user1',
+      });
+
+      // projectId not in accessible list → empty results
+      expect(result.tasks.hits).toEqual([]);
+      expect(mockSearch).not.toHaveBeenCalled();
     });
   });
 

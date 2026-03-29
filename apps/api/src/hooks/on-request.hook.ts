@@ -8,10 +8,24 @@ export default fp(
 
     fastify.addHook('onResponse', async (request, reply) => {
       const duration = Number(process.hrtime.bigint() - request.startTime) / 1_000_000;
+
+      // Sanitize URL to prevent token leakage in logs
+      let logUrl = request.url;
+      if (logUrl.includes('token=')) {
+        try {
+          const parsed = new URL(logUrl, 'http://localhost');
+          parsed.searchParams.delete('token');
+          logUrl = parsed.pathname + (parsed.search || '');
+        } catch {
+          // If URL parsing fails, redact the token portion
+          logUrl = logUrl.replace(/token=[^&]+/g, 'token=[REDACTED]');
+        }
+      }
+
       request.log.info(
         {
           method: request.method,
-          url: request.url,
+          url: logUrl,
           statusCode: reply.statusCode,
           durationMs: Math.round(duration * 100) / 100,
         },
