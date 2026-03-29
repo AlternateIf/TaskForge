@@ -28,12 +28,12 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       // Verify user has access to all requested channels
-      const authResults = await Promise.all(
-        channels.map((ch) => authorizeChannel(userId, ch)),
-      );
+      const authResults = await Promise.all(channels.map((ch) => authorizeChannel(userId, ch)));
       const authorizedChannels = channels.filter((_, i) => authResults[i]);
       if (authorizedChannels.length === 0) {
-        return reply.status(403).send({ error: 'Not authorized for any of the requested channels' });
+        return reply
+          .status(403)
+          .send({ error: 'Not authorized for any of the requested channels' });
       }
 
       // Set SSE headers
@@ -66,7 +66,9 @@ export async function sseRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Send initial connected event
       reply.raw.write('event: connected\n');
-      reply.raw.write(`data: ${JSON.stringify({ type: 'connected', userId, channels: authorizedChannels })}\n\n`);
+      reply.raw.write(
+        `data: ${JSON.stringify({ type: 'connected', userId, channels: authorizedChannels })}\n\n`,
+      );
 
       // Clean up on disconnect
       request.raw.on('close', () => {

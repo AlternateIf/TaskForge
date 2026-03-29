@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import * as attachmentService from '../../services/attachment.service.js';
 import {
   checkPermission,
   getProjectIdFromTask,
   loadPermissionContext,
 } from '../../services/permission.service.js';
-import * as attachmentService from '../../services/attachment.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
 
@@ -43,7 +43,11 @@ export async function uploadAttachmentHandler(request: FastifyRequest, reply: Fa
     }
     const allowed = await checkPermission(ctx, userId, 'attachment', 'create', resolved.projectId);
     if (!allowed) {
-      throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions to upload to this task');
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to upload to this task',
+      );
     }
   }
 
