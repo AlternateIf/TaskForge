@@ -75,6 +75,10 @@ packages/shared/src/constants/
 - All shortcut-triggered actions are also accessible via click/tap
 - Overlay is screen-reader friendly
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+- No dedicated shortcut overlay HTML draft exists. Design the overlay per styleguide: centered modal, `surface-container-lowest` background, shadow level 4, grouped shortcut list with `MetadataLabel` for section headers, key caps styled with `surface-container-high` background + `outline-variant` border + monospace font.
+
 ## Acceptance Criteria
 - [ ] `?` opens shortcut reference overlay
 - [ ] `/` focuses search bar
@@ -86,5 +90,6 @@ packages/shared/src/constants/
 - [ ] Shortcuts disabled in input fields (except Escape)
 - [ ] Chord shortcuts work (`g` + `d` within 500ms)
 - [ ] Overlay shows all shortcuts grouped by scope
+- [ ] Overlay uses design tokens, no hardcoded hex colors
 - [ ] Shortcuts don't conflict with browser/screen reader hotkeys
 - [ ] Unit tests cover shortcut registration, chord detection, and scope-based activation logic

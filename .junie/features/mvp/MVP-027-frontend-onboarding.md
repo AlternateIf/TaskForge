@@ -185,6 +185,12 @@ When user opts in, the API creates:
 }
 ```
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+- No dedicated onboarding wizard HTML draft exists. Use the auth page visual language as the starting point: brand gradient panel (left) + form panel (right) on desktop, full-width on mobile.
+- Welcome banner reference from `dashboard-desktop-light.html`: positioned at top of dashboard content area, dismissible.
+- Wizard should use design system tokens and the gradient CTA button pattern for "Continue" actions.
+
 ## Acceptance Criteria
 - [ ] New users are redirected to onboarding wizard after first login
 - [ ] Wizard has 5 steps with back/forward navigation
@@ -199,5 +205,6 @@ When user opts in, the API creates:
 - [ ] Welcome banner shows on dashboard for new users (dismissible)
 - [ ] Returning users skip onboarding
 - [ ] Responsive layout for wizard on mobile
+- [ ] All components use design tokens, no hardcoded hex colors
 - [ ] Accessible: keyboard navigable, screen reader friendly
 - [ ] Unit tests cover wizard step navigation logic, onboarding state management, and sample project creation service

@@ -128,21 +128,31 @@ Key behaviors:
 - **Task detail** (`task-detail-panel.tsx`): Send presence "viewing task" event, listen for comment events
 - **Notification bell** (`notification-bell.tsx`): Listen for `notification.new` events, update badge count
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+- Real-time visual treatments reference the Kanban drafts: card glow effect on update (brand-primary, 1.5s fade), card animation to new column on move
+- Notification bell bump animation (scale 1.2 → 1.0, 200ms) per styleguide real-time indicators section
+- Connection status indicator: use `surface-container-high` background for reconnecting bar, green/yellow/red dot for status
+- Presence dots on avatars: green dot with 300ms fade-in, positioned bottom-right of avatar (seen on dashboard and task detail drafts)
+- All animations respect `prefers-reduced-motion` (disable when active)
+
 ## Acceptance Criteria
 - [ ] WebSocket connects on app load with JWT auth
 - [ ] SSE fallback activates if WebSocket fails
 - [ ] Reconnection with exponential backoff works
 - [ ] Subscribes to user channel automatically
 - [ ] Subscribes/unsubscribes to project channels on navigation
-- [ ] Task changes from other users appear on Kanban board in real-time
+- [ ] Task changes from other users appear on Kanban board in real-time (card glow + animate to new column)
 - [ ] Task changes from other users appear in list view in real-time
-- [ ] New comments appear in task detail without refresh
-- [ ] Notifications arrive in real-time and update unread badge
+- [ ] New comments appear in task detail without refresh (slide-in animation)
+- [ ] Notifications arrive in real-time and update unread badge (bell bump animation)
 - [ ] Optimistic updates from current user are not duplicated
-- [ ] Presence indicators show online users
+- [ ] Presence indicators show online users (green dot on avatar)
 - [ ] "Viewing this task" indicator works on task detail
-- [ ] Connection status indicator shows current state
+- [ ] Connection status indicator shows current state (green/yellow/red)
 - [ ] Tab visibility change triggers reconnection if needed
 - [ ] Network online event triggers reconnection
 - [ ] Events are batched to prevent render storms
+- [ ] All real-time animations respect `prefers-reduced-motion`
+- [ ] All components use design tokens, no hardcoded hex colors
 - [ ] Unit tests cover connection manager logic, channel subscription handling, and TanStack Query cache sync

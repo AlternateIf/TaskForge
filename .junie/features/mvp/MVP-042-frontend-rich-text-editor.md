@@ -48,14 +48,23 @@ Configure Tiptap as the headless WYSIWYG editor for task descriptions and commen
 - Content styles: headings, lists, blockquotes, code blocks all follow design tokens
 - Focus: editor border transitions to `--brand-primary`
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+- **Description toolbar** (from task-detail-overlay-desktop-light.html): bold, italic, lists, code, link, image — with divider separators between groups
+- **Comment toolbar** (from task-detail-overlay-desktop-dark.html): attach file, @mention, emoji buttons below textarea; "Comment" CTA uses gradient button pattern
+- **Code blocks** (from task-detail-page-desktop-dark.html): syntax-highlighted with amber for keys, emerald for values, on `inverse-surface` background with `border-l-4 border-primary`
+- Editor area uses `surface-container-low/50` background with `outline-variant/10` border, focus state transitions border to `primary/50`
+
 ## Acceptance Criteria
 - [ ] Tiptap editor renders with minimal toolbar for comments
 - [ ] Tiptap editor renders with full toolbar (expandable) for descriptions
+- [ ] Toolbar uses ghost icon buttons with divider separators between groups
 - [ ] @mention autocomplete triggers on `@` and shows matching members
 - [ ] @mention selection inserts styled mention chip into editor
 - [ ] Image paste from clipboard uploads and inserts inline
 - [ ] Image drag-and-drop uploads and inserts inline
 - [ ] All markdown shortcuts work (bold, italic, lists, headings, code, blockquote)
+- [ ] Code blocks render with syntax highlighting on inverse-surface background
 - [ ] Editor content is serializable to HTML for API storage
 - [ ] Editor is keyboard accessible (Tab behavior, toolbar navigation)
 - [ ] Editor respects prefers-reduced-motion

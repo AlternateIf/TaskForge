@@ -13,6 +13,7 @@ The following documents are available in this `.junie/` directory. **Do not load
 6. **[Project Structure](project-structure.md)** — monorepo layout, folder conventions, and service communication.
 7. **[Design Principles](design-principles.md)** — guiding principles for design, architecture, and implementation decisions.
 8. **[Setup](setup.md)** — environment setup, common commands, and troubleshooting.
+9. **[Style Guide](styleguide.md)** — visual design system, colors, typography, icons, logo, components, accessibility, and branding.
 
 ### Personas (in `personas/` subdirectory)
 Only load personas listed in the feature file or directly relevant to the discussion:

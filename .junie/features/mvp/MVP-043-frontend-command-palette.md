@@ -44,6 +44,13 @@ A power-user command palette triggered by Cmd+K (Mac) / Ctrl+K (Windows/Linux) f
 - Smooth fade-in on open (200ms)
 - Uses shadcn/ui Command component (cmdk-based)
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+- No dedicated command palette HTML draft exists, but the search bar pattern from `dashboard-desktop-light.html` and `task-detail-page-desktop-light.html` provides the search input styling reference
+- Search input uses `surface-container-low` background, `rounded-full`, with search icon prefix
+- Palette overlay should use shadow level 4, `surface-container-lowest` background, `outline-variant/15` border
+- Selected item highlight uses `primary` bg at 10% opacity per styleguide
+
 ## Acceptance Criteria
 - [ ] Cmd+K / Ctrl+K opens command palette from anywhere
 - [ ] Default view shows recent pages and quick actions
@@ -54,4 +61,5 @@ A power-user command palette triggered by Cmd+K (Mac) / Ctrl+K (Windows/Linux) f
 - [ ] Escape closes palette
 - [ ] Palette is accessible (ARIA roles, screen reader announcements)
 - [ ] Search is debounced (200ms) to avoid excessive API calls
+- [ ] Palette uses design system tokens (no hardcoded colors)
 - [ ] Unit tests cover keyboard navigation, search debounce, and action execution

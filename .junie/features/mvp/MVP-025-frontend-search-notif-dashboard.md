@@ -76,6 +76,20 @@ Sections (top to bottom):
 - Search results dropdown becomes full-screen on mobile
 - Notification dropdown becomes full-screen on mobile
 
+### HTML Mockup Reference
+Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
+
+**Dashboard** (canonical: `dashboard-desktop-light.html`):
+- Section-based layout (not bento grid — bento grid from dark draft deferred to Phase 2)
+- Welcome banner at top (dismissible)
+- "My Tasks" section: tasks grouped by project, each task row shows priority dot, title, due date
+- "Overdue Tasks" section: red left-border indicator on overdue cards
+- "Upcoming This Week" section: 7-day grid layout
+- "Project Progress" section: cards with gradient progress bars
+- Sidebar navigation from app shell
+
+**Note**: `dashboard-mobile-dark.html` contains auth page content (duplicate file error). Mobile dashboard layout should be derived from desktop light + mobile patterns (stacked sections, full-width cards).
+
 ## Acceptance Criteria
 - [ ] Global search input in header, accessible via `/` shortcut
 - [ ] Search results appear as you type (debounced)
@@ -84,12 +98,14 @@ Sections (top to bottom):
 - [ ] Notification dropdown lists recent notifications
 - [ ] Clicking notification navigates and marks as read
 - [ ] "Mark all as read" works
+- [ ] Dashboard uses section-based layout (My Tasks, Overdue, Upcoming, Project Progress)
 - [ ] Dashboard shows my tasks grouped by project
-- [ ] Dashboard shows overdue tasks highlighted
-- [ ] Dashboard shows upcoming deadlines
-- [ ] Dashboard shows project progress cards
+- [ ] Dashboard shows overdue tasks with red left-border indicator
+- [ ] Dashboard shows upcoming deadlines in 7-day grid
+- [ ] Dashboard shows project progress cards with gradient progress bars
 - [ ] Welcome banner shows on first visit (dismissible)
 - [ ] Loading states with skeletons
 - [ ] Empty states with helpful messages
-- [ ] Responsive on mobile
+- [ ] Responsive on mobile (sections stack vertically, full-width cards)
+- [ ] All components use design tokens, no hardcoded hex colors
 - [ ] Unit tests cover component logic, search debounce behavior, and notification state management
