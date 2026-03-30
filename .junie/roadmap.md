@@ -225,6 +225,7 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 - Session validation on every request via Redis-backed session cache (stale access tokens remain valid for up to 15 minutes after logout/password change in MVP)
 - Ticket-based WebSocket authentication (replace JWT-in-URL query string with single-use short-lived ticket obtained via `POST /api/v1/auth/ws-ticket`)
 - CSRF token support for cookie-authenticated endpoints (supplement SameSite=Lax with explicit CSRF tokens)
+- Migrate frontend access token storage from `localStorage` to `HttpOnly` cookies (eliminates XSS token theft vector; MVP uses `localStorage` as a known, accepted risk — refresh token is already `HttpOnly` on the backend)
 
 ### Privacy & Presentation
 - Stream-safe mode (hide internal comments, sensitive fields, pricing during screen sharing)

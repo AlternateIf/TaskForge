@@ -353,10 +353,10 @@ export function CommandPalette({
         role="dialog"
         aria-label="Command palette"
         aria-modal="true"
-        className="fixed left-1/2 top-[20%] z-50 w-full max-w-[560px] -translate-x-1/2 overflow-hidden rounded-radius-xl border border-outline-variant/15 bg-surface-container-lowest shadow-4 animate-in fade-in-0 duration-[200ms]"
+        className="fixed left-1/2 top-[20%] z-50 w-full max-w-[560px] -translate-x-1/2 overflow-hidden rounded-radius-xl border border-border/15 bg-surface-container-lowest shadow-4 animate-in fade-in-0 duration-[200ms]"
       >
         {/* Search input */}
-        <div className="flex items-center gap-sm border-b border-outline-variant/15 px-md" role="search">
+        <div className="flex items-center gap-sm border-b border-border/15 px-md" role="search">
           <Search className="size-4 shrink-0 text-muted" aria-hidden="true" />
           <input
             ref={inputRef}
