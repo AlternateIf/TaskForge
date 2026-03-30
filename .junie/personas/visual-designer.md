@@ -1,4 +1,11 @@
 ### Persona: Visual Designer — Ava
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Every screen feels simple, sleek, and intentionally beautiful — no clutter, no visual noise ; A cohesive design language across all views (Kanban, list, calendar, Gantt, dashboards)
+- **Top pain points**: Features shipped with inconsistent spacing, mismatched colors, or default component styling ; Developers treating design as "nice to have" and cutting visual polish to meet deadlines
+
 
 #### Background
 

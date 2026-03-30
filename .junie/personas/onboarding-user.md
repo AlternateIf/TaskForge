@@ -1,4 +1,11 @@
 ### Persona: Onboarding User — Finn
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Understand what he needs to do today without reading documentation ; Complete basic actions (view assigned tasks, update status, add comments) within minutes of first login
+- **Top pain points**: Enterprise PM tools have steep learning curves with dozens of menus, views, and settings visible from day one ; No guided onboarding — dropped into a complex dashboard with no context
+
 
 #### Background
 

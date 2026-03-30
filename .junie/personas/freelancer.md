@@ -1,4 +1,11 @@
 ### Persona: Freelancer — Yuki
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Manage work across multiple clients in a single tool with clear separation between them ; Track time spent per task for accurate client billing
+- **Top pain points**: Enterprise tools charge per seat and assume team use — overkill and expensive for solo work ; No clean way to separate client workspaces while maintaining a single personal view across all of them
+
 
 #### Background
 

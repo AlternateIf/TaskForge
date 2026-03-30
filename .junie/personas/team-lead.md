@@ -1,4 +1,11 @@
 ### Persona: Team Lead / Admin — Jordan
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Configure projects, workflows, and permissions so the team can self-serve ; Monitor workload distribution to prevent burnout and missed deadlines
+- **Top pain points**: Onboarding new team members onto complex tools takes too long ; Limited ability to customize workflows per project without admin overhead
+
 
 #### Background
 

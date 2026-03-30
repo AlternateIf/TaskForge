@@ -1,4 +1,11 @@
 ### Persona: Project Manager — Sarah
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Get a real-time overview of project progress and team workload ; Quickly reassign tasks and adjust priorities when plans change
+- **Top pain points**: Existing tools are either too simple (spreadsheets) or too complex (enterprise PM suites) ; Lack of visibility into blocked tasks and bottlenecks
+
 
 #### Background
 

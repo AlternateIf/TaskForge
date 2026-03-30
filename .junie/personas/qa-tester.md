@@ -1,4 +1,11 @@
 ### Persona: QA / Tester — Anil
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Log, triage, and track bugs with clear links to the tasks or features they affect ; Manage test cases and test runs within the same tool as task management — no context switching
+- **Top pain points**: Bug trackers that are separate from task management create duplicate work and broken links ; No structured way to link a bug to a specific task, user story, or release
+
 
 #### Background
 

@@ -1,4 +1,11 @@
 ### Persona: UX Expert — Lena
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Attach design artifacts (wireframes, prototypes, user-flow diagrams) directly to tasks ; Track usability issues and design debt alongside feature work
+- **Top pain points**: Feedback from stakeholders scattered across email, Slack, and meetings instead of on the task ; No structured way to log usability-test findings and link them to actionable tasks
+
 
 #### Background
 

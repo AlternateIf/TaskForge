@@ -1,4 +1,11 @@
 ### Persona: Evaluation Expert — Tomás
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Build **custom reports** within TaskForge — selecting data sources, columns, filters, groupings, and chart types without needing external BI tools ; Save, share, and schedule reports for automatic delivery to stakeholders
+- **Top pain points**: APIs that return inconsistent or poorly documented response formats make report building painful ; Lack of aggregation endpoints forces excessive client-side data processing
+
 
 #### Background
 

@@ -1,4 +1,11 @@
 ### Persona: Customer — Elena
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Create and track tasks under whitelisted projects she has been granted access to ; Get clear visibility into the status and progress of her submitted tasks
+- **Top pain points**: Often lacks visibility into what's happening with her requests after submission ; Too many tools require a steep learning curve just to file a task
+
 
 #### Background
 

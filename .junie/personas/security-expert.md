@@ -1,4 +1,11 @@
 ### Persona: Security Expert — Nadia
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Ensure the application is protected against OWASP Top 10 vulnerabilities (SQL injection, XSS, CSRF, etc.) ; Enforce secure defaults across authentication, authorization, and data handling
+- **Top pain points**: Developers often treat security as an afterthought, leading to costly late-stage fixes ; Lack of centralized visibility into security-related issues and remediation status
+
 
 #### Background
 

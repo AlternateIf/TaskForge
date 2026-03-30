@@ -1,4 +1,11 @@
 ### Persona: Integration Developer — Omar
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Build reliable third-party integrations on top of TaskForge's API and webhook system ; Register OAuth apps for clients so their users can authorize securely without sharing credentials
+- **Top pain points**: APIs with inconsistent naming, pagination, or error formats waste days of development time ; Webhook systems that don't support retries, signatures, or delivery logs are unusable in production
+
 
 #### Background
 

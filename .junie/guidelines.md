@@ -1,67 +1,53 @@
 # TaskForge — Junie Guidelines
 
-## Project Context
+This file is the entry router. Keep it small and load additional context intentionally.
 
-The following documents are available in this `.junie/` directory. **Do not load all of them upfront.** Only read the documents and personas that are directly relevant to the current task or feature being worked on. Each feature file (in `features/`) lists its dependencies and relevant personas — use those as your guide for what to load.
+## 1) Start Here (Always)
+1. Read the target feature file first (`.junie/features/...`) or the active meeting note (`.junie/meetings/...`).
+2. Choose mode:
+- **Planning Mode**: persona meetings, sprint planning, feature discovery/spec updates.
+- **Implementation Mode**: coding, bug fixes, tests, refactors.
+3. Load only the docs/personas needed by that mode.
 
-### Documents
-1. **[Requirements](requirements.md)** — project purpose, core features, and non-functional requirements.
-2. **[Stack](stack.md)** — technology choices, libraries, and Docker Compose services.
-3. **[Roadmap](roadmap.md)** — feature phasing (MVP, Phase 2, Phase 3).
-4. **[Data Model](data-model.md)** — core entities, attributes, and relationships.
-5. **[API Conventions](api-conventions.md)** — REST API standards, response format, error handling, and authentication.
-6. **[Project Structure](project-structure.md)** — monorepo layout, folder conventions, and service communication.
-7. **[Design Principles](design-principles.md)** — guiding principles for design, architecture, and implementation decisions.
-8. **[Setup](setup.md)** — environment setup, common commands, and troubleshooting.
-9. **[Style Guide](styleguide.md)** — visual design system, colors, typography, icons, logo, components, accessibility, and branding.
+## 2) Context Loading Rules
 
-### Personas (in `personas/` subdirectory)
-Only load personas listed in the feature file or directly relevant to the discussion:
-- [Project Manager — Sarah](personas/project-manager.md)
-- [Team Lead / Admin — Jordan](personas/team-lead.md)
-- [Frontend Developer — Priya](personas/frontend-developer.md)
-- [Backend Developer — Marcus](personas/backend-developer.md)
-- [UX Expert — Lena](personas/ux-expert.md)
-- [DevOps Engineer — Sam](personas/devops-engineer.md)
-- [Systems Engineer — Dana](personas/systems-engineer.md)
-- [SEO Expert — Raj](personas/seo-expert.md)
-- [Security Expert — Nadia](personas/security-expert.md)
-- [Performance Specialist — Kai](personas/performance-specialist.md)
-- [Customer — Elena](personas/customer.md)
-- [Evaluation Expert — Tomás](personas/evaluation-expert.md)
-- [Sales — Victor](personas/sales.md)
-- [Workfront Migrator — Derek](personas/workfront-migrator.md)
-- [Dashboard Analyst — Mira](personas/dashboard-analyst.md)
-- [Executive — Claire](personas/executive.md)
-- [QA / Tester — Anil](personas/qa-tester.md)
-- [Onboarding User — Finn](personas/onboarding-user.md)
-- [Freelancer — Yuki](personas/freelancer.md)
-- [Integration Developer — Omar](personas/integration-developer.md)
-- [Compliance Auditor — Hana](personas/compliance-auditor.md)
-- [People Manager — Rosa](personas/people-manager.md)
-- [SCM Integrator — Niko](personas/scm-integrator.md)
-- [Unit Test Engineer — Tara](personas/unit-test-engineer.md)
-- [Visual Designer — Ava](personas/visual-designer.md)
+### Planning Mode
+- Load all personas listed by the feature/meeting.
+- Load broad docs only when required for planning decisions:
+  - scope/priorities: `requirements-mvp.md`, `requirements-future.md`, `roadmap.md`
+  - architecture: `project-structure.md`, `stack.md`, `design-principles.md`
+  - contracts/data: `api-conventions.md`, `data-model-mvp.md`, `data-model-future.md`
+  - frontend/design: `styleguide-core.md`, then `styleguide-extended.md` only if needed
 
-### Token Usage Rule
-**Load only what you need.** When working on a feature or task:
-1. Read the feature file first (e.g., `features/mvp/MVP-012-tasks-crud.md`)
-2. Load only the documents referenced in its Dependencies section
-3. Load only the personas listed in its Personas section
-4. Load additional documents only if you hit a question that requires them
+### Implementation Mode
+- Read **persona Quick Card** sections first (inline in each persona file).
+- Expand full persona sections only when the change directly affects that role.
+- Load docs by task type:
+  - API/Backend: `api-conventions.md`, `project-structure.md`, `data-model-mvp.md`
+  - Frontend/UI: `styleguide-core.md`, `project-structure.md`
+  - Design-heavy frontend: add `styleguide-extended.md`
+  - Infra/runtime/setup: `stack.md`, `setup.md`
+- Do not load roadmap/requirements unless resolving scope or acceptance ambiguity.
 
-## Working Principles
+## 3) Persona Files
+- Persona index: [personas/index.md](personas/index.md)
+- Persona files are intentionally rich for meetings.
+- For implementation, use summary-first reading:
+  1. `Quick Card (Load First)`
+  2. Full persona only if needed
 
-- **Persona-driven decisions**: When making UX, API, or architecture choices, consider how each relevant persona would be affected.
-- **Requirements-first**: All features and changes must trace back to a requirement in `requirements.md`.
-- **Roadmap-aware**: Check which phase a feature belongs to before implementing. MVP features take priority.
-- **API conventions**: All endpoints must follow the standards in `api-conventions.md`.
-- **Project structure**: Place files according to `project-structure.md`. Do not introduce new top-level directories without discussion.
-- **Consistency**: Follow existing code style, naming conventions, and project structure.
-- **Minimal changes**: Make the smallest change that correctly solves the issue.
-- **Test coverage**: Write or update tests for any logic changes.
-- **Lint after every change**: Run `npx biome check` (and `npx biome format --write` if needed) after each code change. All code must pass linting and formatting before moving on to the next task.
-- **Meetings update docs**: All persona meetings and planning discussions must result in updates to the relevant `.junie/` markdown files (requirements, roadmap, data model, etc.). Meeting notes are optional artifacts — the source-of-truth documents must always reflect the latest decisions.
-- **Keep guidelines current**: After any change that affects project structure, personas, documents, or working principles, update this `guidelines.md` file immediately. This file is the entry point — it must always reflect the current state of the project.
-- **Model selection**: Use Opus 4.6 for all planning, architecture, and design tasks. For coding/implementation, use whichever model is best suited for the task.
-- **Feature completion checklist**: After implementing a feature, always: (1) verify every acceptance criterion in the feature markdown and check them off (`- [x]`), (2) mark the corresponding step as done in `roadmap.md`.
+## 4) Feature Workflow (Required)
+When implementing any MVP/Phase feature:
+1. **Pre-implementation persona meeting first** (capture decisions in `.junie/meetings/...`).
+   - For new feature specs, start from `features/FEATURE_TEMPLATE.md`.
+2. **Update the target feature markdown before/during implementation** with agreed scope/acceptance details.
+3. Implement and test.
+4. **Post-implementation docs update**:
+- check off acceptance criteria in the feature markdown (`- [x]`)
+- update corresponding status in `roadmap.md`
+
+## 5) Split-Doc Entry Points
+Use these smaller docs first:
+- Requirements: `requirements-mvp.md`, `requirements-future.md`
+- Data model: `data-model-mvp.md`, `data-model-future.md`
+- Design system: `styleguide-core.md`, `styleguide-extended.md`

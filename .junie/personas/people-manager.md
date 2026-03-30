@@ -1,4 +1,11 @@
 ### Persona: People Manager — Rosa
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Understand each team member's workload to prevent burnout and ensure fair distribution ; Plan capacity for upcoming sprints and quarters accounting for vacations, on-call rotations, and skill sets
+- **Top pain points**: PM tools show task status but not people status — no view of who is overloaded vs. idle ; Capacity planning is done in spreadsheets because the PM tool doesn't account for availability (PTO, holidays, part-time)
+
 
 #### Background
 

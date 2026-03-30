@@ -1,4 +1,11 @@
 ### Persona: Dashboard Analyst — Mira
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Build **custom dashboards** that cluster, group, and visualize tasks across projects based on any combination of parameters ; Create purpose-built views for different audiences — executive summary, team workload, client delivery status
+- **Top pain points**: Most tools offer a single rigid dashboard with no customization — she needs different views for different meetings and audiences ; Kanban boards are fine for one project but useless for cross-project visibility with custom grouping logic
+
 
 #### Background
 

@@ -8,7 +8,7 @@ How to clone, install, run, and test TaskForge locally.
 
 | Tool | Minimum Version | Purpose |
 |---|---|---|
-| Node.js | 20 LTS | Runtime |
+| Node.js | >=22 (LTS) | Runtime |
 | pnpm | 9.x | Package manager |
 | Docker | 24.x | Container runtime |
 | Docker Compose | 2.x | Service orchestration |

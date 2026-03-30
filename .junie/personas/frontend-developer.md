@@ -1,4 +1,11 @@
 ### Persona: Frontend Developer — Priya
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Quickly find UI-related tasks with clear mockups or design references attached ; Track component-level progress and flag visual regressions
+- **Top pain points**: Tasks that lack design specs, breakpoints, or accessibility requirements ; Disconnected feedback loops between design tools (Figma) and the task board
+
 
 #### Background
 

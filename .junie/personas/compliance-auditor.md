@@ -1,4 +1,11 @@
 ### Persona: Compliance Auditor — Hana
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Verify that all project activities are logged with immutable, timestamped audit trails ; Ensure data retention policies are enforced — nothing deleted prematurely, nothing kept beyond policy
+- **Top pain points**: Tools that lack a complete audit trail — she can't prove who changed what and when ; No bulk export of audit data in a format external auditors accept (CSV, PDF with timestamps)
+
 
 #### Background
 

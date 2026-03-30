@@ -1,4 +1,11 @@
 ### Persona: SCM Integrator — Niko
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Bidirectional traceability between TaskForge tasks and GitHub/GitLab PRs, issues, branches, and commits ; Import existing GitHub/GitLab issues into TaskForge without losing context (labels, assignees, comments, linked PRs)
+- **Top pain points**: Teams split between GitHub Issues and the PM tool — no single view of all work ; Manual copy-paste of issue references between tools wastes time and creates stale links
+
 
 #### Background
 

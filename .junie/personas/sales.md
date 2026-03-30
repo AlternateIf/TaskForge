@@ -1,4 +1,11 @@
 ### Persona: Sales — Victor
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Access forecast reports that predict project timelines, resource needs, and revenue recognition ; Review effectiveness reports comparing budgeted cost vs. actual time and money spent per project
+- **Top pain points**: Financial and time-tracking data is scattered across multiple tools, making ROI analysis manual and error-prone ; No single view that ties project delivery metrics to revenue and cost data
+
 
 #### Background
 

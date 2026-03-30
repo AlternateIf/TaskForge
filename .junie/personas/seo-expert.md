@@ -1,4 +1,11 @@
 ### Persona: SEO Expert — Raj
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Create and prioritize SEO-related tasks (meta tags, structured data, page speed, crawlability) alongside feature work ; Attach audit reports and keyword data to tasks so developers have full context
+- **Top pain points**: SEO tasks deprioritized because they lack visibility in the main product backlog ; No standard way to attach Lighthouse or Core Web Vitals reports to a task
+
 
 #### Background
 

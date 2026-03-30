@@ -1,4 +1,11 @@
 ### Persona: Workfront Migrator — Derek
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Replicate the Workfront workflows his teams depend on daily without disruption ; Maintain the depth of project planning and reporting he's accustomed to
+- **Top pain points**: Previous migrations to simpler tools failed because they lacked features like approval chains, Gantt views, and resource planning — teams reverted to Workfront ; Losing historical data and custom field configurations during migration is a dealbreaker
+
 
 #### Background
 

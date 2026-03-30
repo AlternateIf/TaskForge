@@ -1,4 +1,11 @@
 ### Persona: Executive — Claire
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Get a single-screen portfolio view of all active programs, their health, and budget status ; Identify at-risk projects and resource conflicts without digging into task details
+- **Top pain points**: PM tools are built for practitioners — too much detail, too many clicks to get a summary ; Has to ask project managers to compile status updates manually every week
+
 
 #### Background
 

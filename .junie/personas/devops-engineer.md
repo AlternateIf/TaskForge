@@ -1,4 +1,11 @@
 ### Persona: DevOps Engineer — Sam
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Link deployment and pipeline events directly to tasks for full traceability ; Track infrastructure changes (Terraform plans, cluster upgrades) as first-class tasks
+- **Top pain points**: Manual status updates for deployment-related tasks that could be automated via webhooks ; No visibility into which tasks are blocked by infrastructure or environment issues
+
 
 #### Background
 

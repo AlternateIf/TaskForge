@@ -1,4 +1,11 @@
 ### Persona: Systems Engineer — Dana
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Track hardware and infrastructure tasks (server provisioning, network changes, capacity upgrades) with clear audit trails ; Correlate system alerts and incidents with task history for post-mortems
+- **Top pain points**: PM tools designed for software features that don't accommodate infrastructure work well ; Lack of structured fields for environment, region, or affected systems on tasks
+
 
 #### Background
 

@@ -1,4 +1,11 @@
 ### Persona: Unit Test Engineer — Tara
+#### Quick Card (Load First)
+
+- **Implementation read depth**: Read this section first. Open the full persona only when this role is directly impacted by the change.
+- **Planning read depth**: Use the full persona during persona meetings and sprint planning.
+- **Top goals**: Every service function and utility has unit tests covering happy path, edge cases, and error paths ; Tests are fast, deterministic, and independent — no shared state, no DB dependency for unit tests
+- **Top pain points**: Developers write features without tests and say "I'll add them later" — later never comes ; Tests that depend on database or external services are slow and flaky
+
 
 #### Background
 

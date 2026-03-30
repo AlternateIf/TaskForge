@@ -2,6 +2,8 @@
 
 This document defines the phasing of features from [requirements.md](requirements.md). Each phase builds on the previous one. A phase is complete when all its features pass acceptance criteria and have ≥ 80% test coverage.
 
+Process rule: after implementing a feature, update its feature markdown acceptance checklist and then update the corresponding roadmap status in this file.
+
 ---
 
 ## MVP — Foundation
