@@ -1,110 +1,136 @@
 # TaskForge
 
-A collaborative task and project management application designed for teams of all sizes — from solo freelancers to enterprise organizations migrating from tools like Workfront.
+TaskForge is a collaborative work management platform for teams that need speed, structure, and enterprise-grade controls. It supports day-to-day execution (tasks, projects, comments, realtime updates) while providing a roadmap toward advanced planning, reporting, compliance, and migration scenarios (including Workfront transition use cases).
 
-## Features
+## Project Status
 
-- **Projects & Tasks** — customizable workflows, subtasks, checklists, dependencies, drag-and-drop Kanban board, list view
-- **Real-Time Collaboration** — WebSocket/SSE push updates, presence indicators, threaded comments with @mentions
-- **Search & Filtering** — full-text search (Meilisearch), saved filter presets, global search bar
-- **Notifications** — in-app + email notifications with per-event preferences
-- **Roles & Permissions** — organization and project-level RBAC with 5 built-in roles
-- **Auth** — JWT, OAuth 2.0/OIDC (Google, GitHub), MFA (TOTP)
-- **Dashboard** — personalized view with assigned tasks, deadlines, overdue items, project progress
-- **Keyboard Shortcuts** — full shortcut system with chord support and reference overlay
-- **File Uploads** — drag-and-drop with MIME validation and thumbnails
-- **API** — RESTful API with OpenAPI docs, cursor-based pagination, rate limiting, ETag caching
+TaskForge is in active MVP delivery.
 
-### Planned
+Implemented MVP foundations include:
+- Monorepo/tooling baseline (Turborepo, pnpm, Biome, TypeScript)
+- Auth stack (JWT, OAuth, MFA), profile/session hardening
+- Organizations, role-based access, projects, task CRUD, dependencies, checklists, comments/activity
+- Realtime updates, notifications, full-text search, rich text editor, command palette
+- API foundations (Fastify, Swagger/OpenAPI, health/readiness, rate limiting, ETag/Cache-Control)
 
-- Gantt chart, calendar view, custom fields, custom dashboards & reports
-- Time tracking, approval workflows, automations
-- GitHub & GitLab integration (PR/MR linking, CI status, issue import/export)
-- Workfront import/export with bidirectional sync
-- Portfolios, resource management, billing rates, test case management
-- Official TypeScript SDK, webhooks, personal access tokens
+Upcoming phases add custom roles matrix, dashboards/reports, time tracking, automations, integrations, portfolio/resource management, compliance, and SDK/sandbox capabilities.
+
+## Monorepo Structure
+
+```text
+TaskForge/
+├── apps/
+│   ├── api/                 # Fastify API + worker entry
+│   └── web/                 # React + Vite frontend
+├── packages/
+│   ├── db/                  # Drizzle schema/migrations/seed
+│   ├── shared/              # Shared schemas/types/constants
+│   └── email-templates/     # react-email templates
+├── docker/                  # Local infrastructure + observability
+└── .junie/                  # Product/process docs, roadmap, feature specs, personas
+```
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query |
-| Backend | Fastify, Drizzle ORM, Zod |
-| Database | MariaDB |
-| Cache | Redis |
-| Queue | RabbitMQ (amqplib) |
-| Search | Meilisearch |
-| Email | Nodemailer, react-email |
-| Monitoring | Prometheus, Grafana, Loki |
+| Backend | Fastify, Zod, Drizzle ORM |
+| Data & Infra | MariaDB, Redis, RabbitMQ, Meilisearch |
+| Realtime | WebSocket + SSE |
+| Email | Nodemailer + react-email |
+| Observability | Prometheus, Grafana, Loki, Promtail |
 | Testing | Vitest, Testing Library, Playwright |
 | Tooling | Turborepo, pnpm, Biome, GitHub Actions |
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- Node.js `>=22`
+- `pnpm@9` (via Corepack or manual install)
+- Docker + Docker Compose
 
-- Node.js 22+
-- pnpm (`corepack enable`)
-- Docker & Docker Compose
+## Quick Start (Local)
 
-### Setup
+1. Clone and install dependencies
 
 ```bash
-git clone <repo-url> && cd TaskForge
+git clone <repo-url>
+cd TaskForge
 pnpm install
+```
+
+2. Create env files
+
+```bash
 cp docker/.env.example docker/.env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+3. Start infrastructure
+
+```bash
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-### Development
+4. Run DB migrations and seed data
 
 ```bash
-pnpm dev          # Start all apps in dev mode
-pnpm build        # Build all packages
-pnpm test         # Run tests
-pnpm lint         # Lint & format check (Biome)
-pnpm lint:fix     # Auto-fix lint issues
+pnpm --filter @taskforge/db migrate
+pnpm --filter @taskforge/db seed
 ```
 
-### Services
+5. Start app development servers
 
-| Service | URL |
+```bash
+pnpm dev
+```
+
+6. (Optional) Run worker in local non-Docker dev flow
+
+```bash
+pnpm --filter @taskforge/api dev:worker
+```
+
+## Common Commands
+
+| Command | Purpose |
 |---|---|
-| API | http://localhost:3000 |
-| Web | http://localhost:5173 |
-| Grafana | http://localhost:3002 |
-| RabbitMQ Management | http://localhost:15672 |
-| Mailpit | http://localhost:8025 |
-| Meilisearch | http://localhost:7700 |
-| Prometheus | http://localhost:9090 |
+| `pnpm dev` | Start workspace dev tasks |
+| `pnpm build` | Build all apps/packages |
+| `pnpm test` | Run tests across workspace |
+| `pnpm test:coverage` | Run tests with coverage |
+| `pnpm lint` | Biome checks |
+| `pnpm lint:fix` | Biome auto-fix |
+| `pnpm --filter @taskforge/api dev` | Run API only |
+| `pnpm --filter @taskforge/web dev` | Run web only |
+| `pnpm --filter @taskforge/db seed` | Seed database |
 
-## Project Structure
+## Local Service URLs
 
-```
-TaskForge/
-├── apps/
-│   ├── api/          # Fastify backend API + WebSocket server
-│   └── web/          # React SPA
-├── packages/
-│   ├── shared/       # Shared types, constants, Zod schemas
-│   ├── db/           # Drizzle ORM schemas and migrations
-│   └── email-templates/  # react-email templates
-├── docker/           # Docker Compose, Dockerfiles, monitoring configs
-└── .github/          # CI/CD workflows
-```
+| Service | URL | Notes |
+|---|---|---|
+| Web | http://localhost:5173 | Frontend app |
+| API | http://localhost:3000 | REST + realtime |
+| Swagger UI | http://localhost:3000/docs | OpenAPI docs |
+| RabbitMQ Mgmt | http://localhost:15672 | `taskforge / taskforge` by default |
+| Meilisearch | http://localhost:7700 | Key from env |
+| Mailpit | http://localhost:8025 | Local email inbox |
+| Prometheus | http://localhost:9090 | Metrics |
+| Grafana | http://localhost:3002 | `admin / admin` by default |
 
 ## Documentation
 
-Full project documentation lives in [`.junie/`](.junie/guidelines.md):
+Primary documentation lives in [`.junie/`](.junie/guidelines.md).
 
-- [Requirements](.junie/requirements.md) — features and non-functional requirements
-- [Stack](.junie/stack.md) — technology choices
-- [Roadmap](.junie/roadmap.md) — MVP, Phase 2, Phase 3 feature phasing
-- [Data Model](.junie/data-model.md) — entities and relationships
-- [API Conventions](.junie/api-conventions.md) — REST standards, errors, auth
-- [Project Structure](.junie/project-structure.md) — monorepo layout
-- [Design Principles](.junie/design-principles.md) — architecture guidelines
-- [Setup](.junie/setup.md) — environment setup and troubleshooting
+Start points:
+- [Guidelines](.junie/guidelines.md) — context loading rules + feature workflow
+- [Requirements (router)](.junie/requirements.md) — entry to MVP/future requirement docs
+- [Roadmap](.junie/roadmap.md) — MVP, Phase 2, Phase 3 planning
+- [Data Model (router)](.junie/data-model.md) — entry to MVP/future schema docs
+- [API Conventions](.junie/api-conventions.md) — endpoint standards and contracts
+- [Project Structure](.junie/project-structure.md) — codebase layout conventions
+- [Setup](.junie/setup.md) — setup, commands, troubleshooting
 
 ## License
 
