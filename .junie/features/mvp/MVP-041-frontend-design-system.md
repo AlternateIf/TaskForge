@@ -73,20 +73,20 @@ The HTML drafts use varying Tailwind configs. The canonical token values are def
 - **Icons**: Lucide React (NOT Material Symbols Outlined used in drafts)
 
 ## Acceptance Criteria
-- [ ] Tailwind config contains all design tokens (colors, typography, spacing, elevation, radius)
-- [ ] Dark mode toggle works (class-based, persisted to localStorage, respects system preference)
-- [ ] Dark mode uses CSS custom properties that swap under `.dark` class
-- [ ] All shadcn/ui components installed and themed to match design tokens
-- [ ] Button variants (primary, secondary, ghost, destructive, link) styled consistently
-- [ ] Primary CTA uses gradient pattern (`from-primary to-primary-container`)
-- [ ] Inter font loads with swap strategy, no FOIT
-- [ ] Skip-to-content link present and functional
-- [ ] prefers-reduced-motion disables all animations (including glassmorphism backdrop-filter)
-- [ ] manifest.json present with correct metadata
-- [ ] Focus indicators visible on all interactive elements
-- [ ] CSS bundle < 30KB gzipped
-- [ ] All color combinations meet WCAG 2.1 AA contrast ratios
-- [ ] Lucide React configured as icon library (tree-shakeable, 2px stroke weight)
-- [ ] No hardcoded hex color values in component markup — all references use semantic token names
-- [ ] GlassPanel, CommentBubble, MetadataLabel, FileDropzone, PriorityBadge reusable components created
-- [ ] Unit tests verify theme token application and dark mode toggle logic
+- [x] Tailwind config contains all design tokens (colors, typography, spacing, elevation, radius)
+- [x] Dark mode toggle works (class-based, persisted to localStorage, respects system preference)
+- [x] Dark mode uses CSS custom properties that swap under `.dark` class
+- [x] All shadcn/ui components installed and themed to match design tokens
+- [x] Button variants (primary, secondary, ghost, destructive, link) styled consistently
+- [x] Primary CTA uses gradient pattern (`from-primary to-primary-container`)
+- [x] Inter font loads with swap strategy, no FOIT
+- [x] Skip-to-content link present and functional
+- [x] prefers-reduced-motion disables all animations (including glassmorphism backdrop-filter)
+- [x] manifest.json present with correct metadata
+- [x] Focus indicators visible on all interactive elements
+- [x] CSS bundle < 30KB gzipped
+- [x] All color combinations meet WCAG 2.1 AA contrast ratios
+- [x] Lucide React configured as icon library (tree-shakeable, 2px stroke weight)
+- [x] No hardcoded hex color values in component markup — all references use semantic token names
+- [x] GlassPanel, CommentBubble, MetadataLabel, FileDropzone, PriorityBadge reusable components created
+- [x] Unit tests verify theme token application and dark mode toggle logic

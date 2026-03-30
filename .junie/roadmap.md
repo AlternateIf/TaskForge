@@ -39,7 +39,7 @@ The minimum viable product: core task management with auth, projects, a function
 - Keyboard shortcut reference overlay (`?`)
 
 ### Frontend Foundation
-- Design system & theme (tokens, Tailwind config, shadcn/ui, dark mode, accessibility)
+- ~~Design system & theme (tokens, Tailwind config, shadcn/ui, dark mode, accessibility)~~ ✅
 - Rich text editor (Tiptap) with @mentions, markdown shortcuts, inline image upload
 - Command palette (Cmd+K) for quick navigation and actions
 

@@ -1,0 +1,292 @@
+@import "tailwindcss";
+
+/*
+ * TaskForge Design Tokens
+ * Source of truth: .junie/styleguide.md
+ * All color references in components use semantic token names, never hardcoded hex.
+ * Dark mode swaps via .dark class on <html>.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable.woff2") format("woff2");
+  unicode-range: U+0000-024F, U+0300-036F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF, U+2100-214F,
+    U+FB00-FB4F;
+}
+
+/* ─── Light Mode Tokens (default) ─── */
+
+:root {
+  /* Brand */
+  --brand-primary: #2563eb;
+  --brand-primary-hover: #1d4ed8;
+  --brand-primary-container: #004ac6;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+
+  /* Semantic status */
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+
+  /* Surfaces — tonal layering */
+  --background: #f8f9ff;
+  --surface: #f8f9ff;
+  --surface-container-low: #eff4ff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-high: #e1e8f0;
+  --surface-container-highest: #d3e4fe;
+
+  /* Text */
+  --foreground: #0b1c30;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+
+  /* Borders */
+  --border: #e2e8f0;
+  --border-ghost: rgba(195, 198, 215, 0.15);
+  --ring: #2563eb;
+
+  /* Shadows — tinted with on-surface color */
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-4: 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Priority badge backgrounds */
+  --priority-critical-bg: #fef2f2;
+  --priority-high-bg: #fff7ed;
+  --priority-medium-bg: #fffbeb;
+  --priority-low-bg: #eff6ff;
+  --priority-none-bg: #f1f5f9;
+}
+
+/* ─── Dark Mode Tokens ─── */
+
+.dark {
+  --brand-primary: #3b82f6;
+  --brand-primary-hover: #60a5fa;
+  --brand-primary-container: #2563eb;
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --background: #0f172a;
+  --surface: #0f172a;
+  --surface-container-low: #1e293b;
+  --surface-container-lowest: #1e293b;
+  --surface-container-high: #334155;
+  --surface-container-highest: #475569;
+
+  --foreground: #f1f5f9;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border: #334155;
+  --border-ghost: rgba(195, 198, 215, 0.1);
+  --ring: #3b82f6;
+
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-4: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --priority-critical-bg: rgba(127, 29, 29, 0.5);
+  --priority-high-bg: rgba(124, 45, 18, 0.5);
+  --priority-medium-bg: rgba(120, 53, 15, 0.5);
+  --priority-low-bg: rgba(30, 58, 138, 0.5);
+  --priority-none-bg: #1e293b;
+}
+
+/* ─── Tailwind v4 Theme ─── */
+
+@theme {
+  /* Colors from CSS custom properties */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-primary-container: var(--brand-primary-container);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+
+  --color-foreground: var(--foreground);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+
+  --color-border: var(--border);
+  --color-border-ghost: var(--border-ghost);
+  --color-ring: var(--ring);
+
+  --color-priority-critical-bg: var(--priority-critical-bg);
+  --color-priority-high-bg: var(--priority-high-bg);
+  --color-priority-medium-bg: var(--priority-medium-bg);
+  --color-priority-low-bg: var(--priority-low-bg);
+  --color-priority-none-bg: var(--priority-none-bg);
+
+  /* Priority dot colors (static, same in both modes) */
+  --color-priority-critical: #dc2626;
+  --color-priority-high: #f97316;
+  --color-priority-medium: #f59e0b;
+  --color-priority-low: #60a5fa;
+  --color-priority-none: #94a3b8;
+
+  /* Font family */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+
+  /* Font size — editorial scale from styleguide */
+  --font-size-heading-1: 1.5rem;
+  --font-size-heading-1--line-height: 1.3;
+  --font-size-heading-2: 1.25rem;
+  --font-size-heading-2--line-height: 1.35;
+  --font-size-heading-3: 1rem;
+  --font-size-heading-3--line-height: 1.4;
+  --font-size-body: 0.875rem;
+  --font-size-body--line-height: 1.5;
+  --font-size-small: 0.75rem;
+  --font-size-small--line-height: 1.5;
+  --font-size-code: 0.8125rem;
+  --font-size-code--line-height: 1.6;
+  --font-size-button: 0.875rem;
+  --font-size-button--line-height: 1;
+  --font-size-label: 0.6875rem;
+  --font-size-label--line-height: 1.5;
+
+  /* Spacing — 4px base grid */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 48px;
+
+  /* Border radius */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  /* Shadows */
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+
+  /* Transitions — purposeful, fast motion */
+  --transition-timing-function-in: ease-in;
+  --transition-timing-function-out: ease-out;
+  --transition-duration-fast: 100ms;
+  --transition-duration-normal: 150ms;
+  --transition-duration-slow: 200ms;
+  --transition-duration-panel: 300ms;
+
+  /* App shell dimensions */
+  --container-max: 1280px;
+  --width-sidebar: 240px;
+  --width-sidebar-collapsed: 64px;
+  --height-header: 56px;
+
+  /* Breakpoints */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  /* Animation */
+  --animate-skeleton: skeleton 1.5s ease-in-out infinite;
+  --animate-spin-slow: spin 1s linear infinite;
+}
+
+@keyframes skeleton {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ─── Base Styles ─── */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-body);
+    line-height: var(--font-size-body--line-height);
+    color: var(--foreground);
+    background-color: var(--background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus ring — 2px brand-primary with 2px offset */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--surface-container-low);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
+}
+
+/* ─── Reduced Motion ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
