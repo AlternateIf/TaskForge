@@ -3,20 +3,19 @@ FROM node:22-alpine
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
+RUN chown node:node /app
+USER node
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json apps/web/
-COPY packages/shared/package.json packages/shared/
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=node:node apps/web/package.json apps/web/
+COPY --chown=node:node packages/shared/package.json packages/shared/
 
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.base.json ./
-COPY apps/web/ apps/web/
-COPY packages/shared/ packages/shared/
-
-RUN chown -R node:node /app
-USER node
+COPY --chown=node:node tsconfig.base.json ./
+COPY --chown=node:node apps/web/ apps/web/
+COPY --chown=node:node packages/shared/ packages/shared/
 
 EXPOSE 5173
 
-CMD ["pnpm", "--filter", "@taskforge/web", "dev"]
+CMD ["pnpm", "--filter", "@taskforge/web", "exec", "vite", "--host", "0.0.0.0"]
