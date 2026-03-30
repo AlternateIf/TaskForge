@@ -62,9 +62,17 @@ pnpm install
 2. Create env files
 
 ```bash
-cp docker/.env.example docker/.env
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
+
+cp docker/env/common.env.example docker/env/common.env
+cp docker/env/api.env.example docker/env/api.env
+cp docker/env/worker.env.example docker/env/worker.env
+cp docker/env/web.env.example docker/env/web.env
+cp docker/env/mariadb.env.example docker/env/mariadb.env
+cp docker/env/rabbitmq.env.example docker/env/rabbitmq.env
+cp docker/env/meilisearch.env.example docker/env/meilisearch.env
+cp docker/env/grafana.env.example docker/env/grafana.env
 ```
 
 3. Start infrastructure

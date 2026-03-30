@@ -9,7 +9,8 @@ services:
     ports:
       - '3000:3000'
     env_file:
-      - .env
+      - ./env/common.env
+      - ./env/api.env
     environment:
       - NODE_ENV=development
     volumes:
@@ -38,7 +39,8 @@ services:
       context: ..
       dockerfile: docker/worker/Dockerfile
     env_file:
-      - .env
+      - ./env/common.env
+      - ./env/worker.env
     environment:
       - NODE_ENV=development
     volumes:
@@ -61,6 +63,8 @@ services:
       dockerfile: docker/web/Dockerfile
     ports:
       - '5173:5173'
+    env_file:
+      - ./env/web.env
     environment:
       - NODE_ENV=development
     volumes:
@@ -74,11 +78,8 @@ services:
     image: mariadb:11
     ports:
       - '3306:3306'
-    environment:
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-taskforge}
-      MARIADB_DATABASE: ${DB_NAME:-taskforge}
-      MARIADB_USER: ${DB_USER:-taskforge}
-      MARIADB_PASSWORD: ${DB_PASSWORD:-taskforge}
+    env_file:
+      - ./env/mariadb.env
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
@@ -108,9 +109,8 @@ services:
     ports:
       - '5672:5672'
       - '15672:15672'
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-taskforge}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-taskforge}
+    env_file:
+      - ./env/rabbitmq.env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -125,9 +125,8 @@ services:
     image: getmeili/meilisearch:v1
     ports:
       - '7700:7700'
-    environment:
-      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-taskforge_dev_key}
-      MEILI_ENV: development
+    env_file:
+      - ./env/meilisearch.env
     volumes:
       - meilisearch_data:/meili_data
     healthcheck:
@@ -167,10 +166,8 @@ services:
     image: grafana/grafana
     ports:
       - '3002:3000'
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: 'false'
+    env_file:
+      - ./env/grafana.env
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

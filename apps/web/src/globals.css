@@ -242,6 +242,14 @@
     border-color: var(--border);
   }
 
+  /* Ensure the React root fills the viewport */
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
   body {
     font-family: var(--font-sans);
     font-size: var(--font-size-body);
@@ -250,6 +258,15 @@
     background-color: var(--background);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Pointer cursor on all interactive elements */
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  a[href] {
+    cursor: pointer;
   }
 
   /* Focus ring — 2px brand-primary with 2px offset */

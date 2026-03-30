@@ -74,19 +74,6 @@ export async function oauthCallbackHandler(
 }
 
 export async function oauthProvidersHandler(_request: FastifyRequest, reply: FastifyReply) {
-  // Return which providers are configured (without exposing secrets)
-  const providers: Array<{ id: string; name: string; enabled: boolean }> = [
-    {
-      id: 'google',
-      name: 'Google',
-      enabled: !!process.env.OAUTH_GOOGLE_CLIENT_ID,
-    },
-    {
-      id: 'github',
-      name: 'GitHub',
-      enabled: !!process.env.OAUTH_GITHUB_CLIENT_ID,
-    },
-  ];
-
+  const providers = oauthService.getAvailableProviders();
   return reply.status(200).send(success({ providers }));
 }

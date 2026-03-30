@@ -9,6 +9,16 @@ import type { JwtPayload, TokenPair } from './auth.service.js';
 const OAUTH_STATE_TTL = 600; // 10 minutes
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
+// ─── Provider metadata (returned to the frontend) ────────────────────────────
+
+export interface ProviderMeta {
+  id: string;
+  name: string;
+  logoUrl?: string;
+}
+
+// ─── Internal provider config ─────────────────────────────────────────────────
+
 interface OAuthProviderConfig {
   clientId: string;
   clientSecret: string;
@@ -24,6 +34,74 @@ interface OAuthUserInfo {
   displayName: string;
   avatarUrl: string | null;
 }
+
+// ─── Custom providers (from env) ──────────────────────────────────────────────
+
+interface CustomProviderEnv extends OAuthProviderConfig {
+  id: string;
+  name: string;
+  logoUrl?: string;
+}
+
+function getCustomProviders(): CustomProviderEnv[] {
+  const providers: CustomProviderEnv[] = [];
+
+  for (let i = 1; i <= 9; i++) {
+    const id = process.env[`OAUTH_CUSTOM_${i}_ID`];
+    const name = process.env[`OAUTH_CUSTOM_${i}_NAME`];
+    const clientId = process.env[`OAUTH_CUSTOM_${i}_CLIENT_ID`];
+    const clientSecret = process.env[`OAUTH_CUSTOM_${i}_CLIENT_SECRET`];
+    const authorizeUrl = process.env[`OAUTH_CUSTOM_${i}_AUTHORIZE_URL`];
+    const tokenUrl = process.env[`OAUTH_CUSTOM_${i}_TOKEN_URL`];
+    const userInfoUrl = process.env[`OAUTH_CUSTOM_${i}_USERINFO_URL`];
+    const scopesRaw = process.env[`OAUTH_CUSTOM_${i}_SCOPES`] ?? 'openid email profile';
+    const logoUrl = process.env[`OAUTH_CUSTOM_${i}_LOGO_URL`];
+
+    if (!id || !name || !clientId || !clientSecret || !authorizeUrl || !tokenUrl || !userInfoUrl) {
+      continue;
+    }
+
+    providers.push({
+      id,
+      name,
+      clientId,
+      clientSecret,
+      authorizeUrl,
+      tokenUrl,
+      userInfoUrl,
+      scopes: scopesRaw.split(/\s+/).filter(Boolean),
+      ...(logoUrl ? { logoUrl } : {}),
+    });
+  }
+
+  return providers;
+}
+
+// ─── Available providers (public metadata) ────────────────────────────────────
+
+export function getAvailableProviders(): ProviderMeta[] {
+  const providers: ProviderMeta[] = [];
+
+  if (process.env.OAUTH_GOOGLE_CLIENT_ID) {
+    providers.push({ id: 'google', name: 'Google' });
+  }
+
+  if (process.env.OAUTH_GITHUB_CLIENT_ID) {
+    providers.push({ id: 'github', name: 'GitHub' });
+  }
+
+  for (const custom of getCustomProviders()) {
+    providers.push({
+      id: custom.id,
+      name: custom.name,
+      ...(custom.logoUrl ? { logoUrl: custom.logoUrl } : {}),
+    });
+  }
+
+  return providers;
+}
+
+// ─── Provider config lookup ───────────────────────────────────────────────────
 
 function getProviderConfig(provider: string): OAuthProviderConfig {
   if (provider === 'google') {
@@ -58,8 +136,22 @@ function getProviderConfig(provider: string): OAuthProviderConfig {
     };
   }
 
+  const custom = getCustomProviders().find((p) => p.id === provider);
+  if (custom) {
+    return {
+      clientId: custom.clientId,
+      clientSecret: custom.clientSecret,
+      authorizeUrl: custom.authorizeUrl,
+      tokenUrl: custom.tokenUrl,
+      userInfoUrl: custom.userInfoUrl,
+      scopes: custom.scopes,
+    };
+  }
+
   throw new AppError(400, ErrorCode.BAD_REQUEST, `Unsupported OAuth provider: ${provider}`);
 }
+
+// ─── PKCE helpers ─────────────────────────────────────────────────────────────
 
 function generateCodeVerifier(): string {
   return crypto.randomBytes(32).toString('base64url');
@@ -85,7 +177,7 @@ export function buildAuthorizationUrl(
     state,
   });
 
-  // PKCE is supported by Google; GitHub ignores unknown params
+  // PKCE: Google supports it; GitHub and most OIDC providers ignore unknown params
   params.set('code_challenge', codeChallenge);
   params.set('code_challenge_method', 'S256');
 
@@ -96,14 +188,13 @@ export async function initiateOAuth(
   provider: string,
   callbackUrl: string,
 ): Promise<{ authorizationUrl: string; state: string }> {
-  // Validate provider config exists
+  // Validate provider config exists (throws if not configured)
   getProviderConfig(provider);
 
   const state = crypto.randomBytes(16).toString('hex');
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
 
-  // Store state + code verifier in Redis
   const redis = getRedis();
   await redis.set(
     `oauth:state:${state}`,
@@ -116,6 +207,8 @@ export async function initiateOAuth(
 
   return { authorizationUrl, state };
 }
+
+// ─── Token exchange ───────────────────────────────────────────────────────────
 
 async function exchangeCodeForToken(
   provider: string,
@@ -138,8 +231,8 @@ async function exchangeCodeForToken(
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 
-  // GitHub requires Accept: application/json
-  if (provider === 'github') {
+  // GitHub requires Accept: application/json; most OIDC providers don't mind
+  if (provider === 'github' || getCustomProviders().some((p) => p.id === provider)) {
     headers.Accept = 'application/json';
   }
 
@@ -161,6 +254,8 @@ async function exchangeCodeForToken(
 
   return accessToken;
 }
+
+// ─── User info fetch ──────────────────────────────────────────────────────────
 
 async function fetchUserInfo(provider: string, accessToken: string): Promise<OAuthUserInfo> {
   const config = getProviderConfig(provider);
@@ -189,7 +284,6 @@ async function fetchUserInfo(provider: string, accessToken: string): Promise<OAu
   }
 
   if (provider === 'github') {
-    // GitHub may not include email in profile — fetch from /user/emails
     let email = data.email as string | null;
     if (!email) {
       email = await fetchGitHubPrimaryEmail(accessToken);
@@ -207,6 +301,29 @@ async function fetchUserInfo(provider: string, accessToken: string): Promise<OAu
       email,
       displayName: String(data.name ?? data.login ?? email),
       avatarUrl: (data.avatar_url as string) ?? null,
+    };
+  }
+
+  // Generic OIDC (custom providers) — expects sub, email, name, picture claims
+  const isCustom = getCustomProviders().some((p) => p.id === provider);
+  if (isCustom) {
+    const sub = data.sub ?? data.id;
+    if (!sub) {
+      throw new AppError(
+        401,
+        ErrorCode.UNAUTHORIZED,
+        'Provider did not return a subject identifier',
+      );
+    }
+    const email = data.email as string | undefined;
+    if (!email) {
+      throw new AppError(400, ErrorCode.BAD_REQUEST, 'Provider did not return an email address');
+    }
+    return {
+      providerUserId: String(sub),
+      email,
+      displayName: String(data.name ?? data.preferred_username ?? email),
+      avatarUrl: (data.picture as string) ?? null,
     };
   }
 
@@ -229,11 +346,12 @@ async function fetchGitHubPrimaryEmail(accessToken: string): Promise<string | nu
   return primary?.email ?? null;
 }
 
+// ─── User provisioning ────────────────────────────────────────────────────────
+
 async function findOrCreateUser(
   provider: string,
   userInfo: OAuthUserInfo,
 ): Promise<typeof users.$inferSelect> {
-  // Check if OAuth account already linked
   const existingOAuth = await db
     .select()
     .from(oauthAccounts)
@@ -246,7 +364,6 @@ async function findOrCreateUser(
     .limit(1);
 
   if (existingOAuth.length > 0) {
-    // Update timestamp (provider access token is NOT stored — only used transiently for user info fetch)
     await db
       .update(oauthAccounts)
       .set({ accessToken: null, updatedAt: new Date() })
@@ -261,7 +378,6 @@ async function findOrCreateUser(
     return user;
   }
 
-  // Check if user with same email exists
   const existingUser = (
     await db
       .select()
@@ -273,7 +389,6 @@ async function findOrCreateUser(
   const now = new Date();
 
   if (existingUser) {
-    // Link OAuth account to existing user (provider access token NOT stored)
     await db.insert(oauthAccounts).values({
       id: crypto.randomUUID(),
       userId: existingUser.id,
@@ -284,7 +399,6 @@ async function findOrCreateUser(
       updatedAt: now,
     });
 
-    // Auto-verify email if not already verified
     if (!existingUser.emailVerifiedAt) {
       await db
         .update(users)
@@ -293,13 +407,11 @@ async function findOrCreateUser(
       existingUser.emailVerifiedAt = now;
     }
 
-    // Update last login
     await db.update(users).set({ lastLoginAt: now }).where(eq(users.id, existingUser.id));
 
     return existingUser;
   }
 
-  // Create new user + OAuth account
   const userId = crypto.randomUUID();
   await db.insert(users).values({
     id: userId,
@@ -307,7 +419,7 @@ async function findOrCreateUser(
     passwordHash: null,
     displayName: userInfo.displayName,
     avatarUrl: userInfo.avatarUrl,
-    emailVerifiedAt: now, // Provider verified the email
+    emailVerifiedAt: now,
     lastLoginAt: now,
     createdAt: now,
     updatedAt: now,
@@ -318,13 +430,15 @@ async function findOrCreateUser(
     userId,
     provider,
     providerUserId: userInfo.providerUserId,
-    accessToken: null, // Provider access token NOT stored — only used transiently
+    accessToken: null,
     createdAt: now,
     updatedAt: now,
   });
 
   return (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
 }
+
+// ─── OAuth callback handler ───────────────────────────────────────────────────
 
 export async function handleOAuthCallback(
   code: string,
@@ -340,7 +454,6 @@ export async function handleOAuthCallback(
     throw new AppError(400, ErrorCode.BAD_REQUEST, 'Invalid or expired OAuth state');
   }
 
-  // Delete state immediately to prevent replay
   await redis.del(`oauth:state:${state}`);
 
   const { provider, codeVerifier, callbackUrl } = JSON.parse(stateData) as {
@@ -349,13 +462,9 @@ export async function handleOAuthCallback(
     callbackUrl: string;
   };
 
-  // Exchange code for provider access token
   const providerAccessToken = await exchangeCodeForToken(provider, code, codeVerifier, callbackUrl);
-
-  // Fetch user info from provider
   const userInfo = await fetchUserInfo(provider, providerAccessToken);
 
-  // Check if this is a new user before findOrCreate
   const existingBefore = await db
     .select({ id: users.id })
     .from(users)
@@ -375,10 +484,7 @@ export async function handleOAuthCallback(
 
   const isNewUser = existingBefore.length === 0 && existingOAuthBefore.length === 0;
 
-  // Find or create user, link OAuth account
   const user = await findOrCreateUser(provider, userInfo);
-
-  // Create session (same as regular login)
   const tokens = await createSession(user, jwtSign, ip, userAgent);
 
   return { user, tokens, isNewUser };

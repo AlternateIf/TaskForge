@@ -99,7 +99,7 @@ const DialogContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>
             else if (ref) ref.current = node;
           }}
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-radius-xl bg-surface-container-lowest p-lg shadow-3',
+            'fixed left-1/2 top-1/2 z-50 w-full max-w-[512px] -translate-x-1/2 -translate-y-1/2 rounded-radius-xl bg-surface-container-lowest p-lg shadow-3',
             'duration-slow animate-in fade-in-0 zoom-in-95',
             className,
           )}

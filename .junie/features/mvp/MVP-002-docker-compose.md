@@ -58,7 +58,7 @@ docker/
 
 ### Environment variables
 Create `.env.example` files:
-- `docker/.env.example` — MariaDB root password, Redis URL, RabbitMQ URL, Meilisearch master key
+- `docker/env/*.env.example` — split per service (`common`, `api`, `worker`, `web`, `mariadb`, `rabbitmq`, `meilisearch`, `grafana`)
 - `apps/api/.env.example` — DATABASE_URL, REDIS_URL, RABBITMQ_URL, MEILISEARCH_URL, JWT_SECRET, etc.
 - `apps/web/.env.example` — VITE_API_URL
 

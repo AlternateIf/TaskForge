@@ -192,13 +192,9 @@ function CommandItem({ item, active, onSelect }: CommandItemProps) {
       <Icon className="size-4 shrink-0 text-muted" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-body">{item.label}</div>
-        {item.subtitle && (
-          <div className="truncate text-label text-secondary">{item.subtitle}</div>
-        )}
+        {item.subtitle && <div className="truncate text-label text-secondary">{item.subtitle}</div>}
       </div>
-      {item.hint && (
-        <span className="shrink-0 font-mono text-label text-muted">{item.hint}</span>
-      )}
+      {item.hint && <span className="shrink-0 font-mono text-label text-muted">{item.hint}</span>}
     </button>
   );
 }
@@ -283,6 +279,7 @@ export function CommandPalette({
   }, [flatItems.length, debouncedQuery]);
 
   // Scroll active item into view
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeIndex triggers the DOM query via [data-active] attribute
   useEffect(() => {
     const active = listRef.current?.querySelector('[data-active]');
     active?.scrollIntoView({ block: 'nearest' });
@@ -333,15 +330,17 @@ export function CommandPalette({
     itemsByGroup.set(item.group, list);
   }
 
-  const hasResults = (itemsByGroup.get('tasks')?.length ?? 0) > 0
-    || (itemsByGroup.get('projects')?.length ?? 0) > 0
-    || (itemsByGroup.get('people')?.length ?? 0) > 0;
+  const hasResults =
+    (itemsByGroup.get('tasks')?.length ?? 0) > 0 ||
+    (itemsByGroup.get('projects')?.length ?? 0) > 0 ||
+    (itemsByGroup.get('people')?.length ?? 0) > 0;
 
   const activeItemId = flatItems[activeIndex] ? `cmd-item-${activeIndex}` : undefined;
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — aria-hidden, keyboard users interact via the dialog */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: element is aria-hidden and not keyboard reachable */}
       <div
         className="fixed inset-0 z-50 bg-black/50"
         aria-hidden="true"
@@ -349,11 +348,11 @@ export function CommandPalette({
       />
 
       {/* Palette */}
-      <div
-        role="dialog"
+      <dialog
+        open
         aria-label="Command palette"
         aria-modal="true"
-        className="fixed left-1/2 top-[20%] z-50 w-full max-w-[560px] -translate-x-1/2 overflow-hidden rounded-radius-xl border border-border/15 bg-surface-container-lowest shadow-4 animate-in fade-in-0 duration-[200ms]"
+        className="fixed left-1/2 top-[20%] z-50 m-0 w-full max-w-[560px] -translate-x-1/2 overflow-hidden rounded-radius-xl border border-border/15 bg-surface-container-lowest p-0 shadow-4 animate-in fade-in-0 duration-[200ms]"
       >
         {/* Search input */}
         <div className="flex items-center gap-sm border-b border-border/15 px-md" role="search">
@@ -371,7 +370,7 @@ export function CommandPalette({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search tasks, projects, people..."
-            className="flex-1 bg-transparent py-md text-body text-foreground placeholder:text-muted outline-none"
+            className="flex-1 bg-transparent py-md text-body text-foreground outline-none placeholder:text-muted"
           />
         </div>
 
@@ -381,13 +380,18 @@ export function CommandPalette({
           id="command-palette-results"
           role="listbox"
           aria-label="Command results"
+          tabIndex={-1}
           className="max-h-[340px] overflow-y-auto p-xs"
         >
           {groups.map((group) => {
             const items = itemsByGroup.get(group);
             if (!items || items.length === 0) return null;
             return (
-              <div key={group} role="group" aria-labelledby={`cmd-group-${group}`}>
+              <fieldset
+                key={group}
+                aria-labelledby={`cmd-group-${group}`}
+                className="m-0 border-0 p-0"
+              >
                 <div
                   id={`cmd-group-${group}`}
                   className="px-sm py-xs text-label font-medium text-muted"
@@ -403,7 +407,7 @@ export function CommandPalette({
                     onSelect={selectItem}
                   />
                 ))}
-              </div>
+              </fieldset>
             );
           })}
 
@@ -423,7 +427,7 @@ export function CommandPalette({
               ? 'No results'
               : ''}
         </div>
-      </div>
+      </dialog>
     </>
   );
 }

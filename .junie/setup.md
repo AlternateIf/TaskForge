@@ -36,6 +36,15 @@ pnpm install
 ```bash
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
+
+cp docker/env/common.env.example docker/env/common.env
+cp docker/env/api.env.example docker/env/api.env
+cp docker/env/worker.env.example docker/env/worker.env
+cp docker/env/web.env.example docker/env/web.env
+cp docker/env/mariadb.env.example docker/env/mariadb.env
+cp docker/env/rabbitmq.env.example docker/env/rabbitmq.env
+cp docker/env/meilisearch.env.example docker/env/meilisearch.env
+cp docker/env/grafana.env.example docker/env/grafana.env
 ```
 
 Edit `.env` files as needed. Defaults work for local Docker development.
@@ -152,7 +161,7 @@ In Docker, the worker runs as a separate container using the same API image with
 ## Troubleshooting
 
 ### Port conflicts
-If default ports are in use, override them in `docker/docker-compose.yml` or via `.env`.
+If default ports are in use, override them in `docker/docker-compose.yml` or the relevant file under `docker/env/*.env`.
 
 ### Database connection refused
 Ensure MariaDB container is healthy before running migrations:

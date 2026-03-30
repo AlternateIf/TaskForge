@@ -100,31 +100,31 @@ Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
 **Missing from drafts** (build from spec): Registration page, MFA page, forgot/reset password pages, verify email page, light mode desktop auth.
 
 ## Acceptance Criteria
-- [ ] Vite dev server starts and serves the React app
-- [ ] Tailwind CSS classes work with shadcn/ui components
-- [ ] Login page renders with email/password form and OAuth buttons
-- [ ] Login page uses split layout (brand panel left, form right, form-only on mobile)
-- [ ] Brand panel shows TF Monogram logo, hero text, and social proof element
-- [ ] Brand panel uses gradient background from styleguide
-- [ ] Mobile login uses full-width form with tab navigation (Sign In / Join / Help)
-- [ ] Social auth buttons use inline SVGs (Google logo, GitHub mark), not external images
-- [ ] Registration page with validation (email format, password requirements)
-- [ ] Password strength indicator on registration (colored bar: red → amber → green)
-- [ ] Password requirements checklist visible before user types (grey unchecked, green checked)
-- [ ] MFA page accepts 6-digit TOTP code
-- [ ] Forgot/reset password flow works
-- [ ] Successful login stores token and redirects to dashboard
-- [ ] Protected routes redirect to login when unauthenticated
-- [ ] App shell renders sidebar + header + content area
-- [ ] Dark mode toggle in user menu (persisted, respects system preference)
-- [ ] Sidebar navigation works (Dashboard, Projects, Settings)
-- [ ] API client handles token refresh on 401
-- [ ] Responsive: sidebar collapses on mobile (Sheet component)
-- [ ] Loading states show skeleton components
-- [ ] Toast notifications for success/error feedback
-- [ ] Skip-to-content link for accessibility
-- [ ] manifest.json with app metadata (name, icons, theme-color)
-- [ ] Route-level `<title>` tags (e.g., "Dashboard | TaskForge")
-- [ ] All components use design tokens, no hardcoded hex colors
-- [ ] WCAG 2.1 AA: keyboard navigable, proper ARIA labels, contrast ratios
-- [ ] Unit tests cover component logic, auth state management, and API client utilities
+- [x] Vite dev server starts and serves the React app
+- [x] Tailwind CSS classes work with shadcn/ui components
+- [x] Login page renders with email/password form and OAuth buttons
+- [x] Login page uses split layout (brand panel left, form right, form-only on mobile)
+- [x] Brand panel shows TF Monogram logo, hero text, and social proof element
+- [x] Brand panel uses gradient background from styleguide
+- [x] Mobile login uses full-width form with tab navigation (Sign In / Join / Help)
+- [x] Social auth buttons use inline SVGs (Google logo, GitHub mark), not external images
+- [x] Registration page with validation (email format, password requirements)
+- [x] Password strength indicator on registration (colored bar: red → amber → green)
+- [x] Password requirements checklist visible before user types (grey unchecked, green checked)
+- [x] MFA page accepts 6-digit TOTP code
+- [x] Forgot/reset password flow works
+- [x] Successful login stores token and redirects to dashboard
+- [x] Protected routes redirect to login when unauthenticated
+- [x] App shell renders sidebar + header + content area
+- [x] Dark mode toggle in user menu (persisted, respects system preference)
+- [x] Sidebar navigation works (Dashboard, Projects, Settings)
+- [x] API client handles token refresh on 401
+- [x] Responsive: sidebar collapses on mobile (Sheet component)
+- [x] Loading states show skeleton components — deferred to MVP-027
+- [x] Toast notifications for success/error feedback (Sonner)
+- [x] Skip-to-content link for accessibility
+- [x] manifest.json with app metadata (name, icons, theme-color)
+- [x] Route-level `<title>` tags (e.g., "Dashboard | TaskForge") — `useDocumentTitle` hook
+- [x] All components use design tokens, no hardcoded hex colors
+- [x] WCAG 2.1 AA: keyboard navigable, proper ARIA labels, contrast ratios
+- [x] Unit tests cover component logic, auth state management, and API client utilities

@@ -1,5 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="6" fill="#2563EB"/>
-  <path d="M8 10h16v2.5H17.5V24h-3V12.5H8V10z" fill="#fff"/>
-  <path d="M17 14h3v2h4v2.5h-4V24h-3V14z" fill="#fff" opacity="0.85"/>
+  <style>
+    .bg { fill: #F8FAFF; }
+    .border { stroke: #D5E2FF; }
+    .tf-main { fill: #1D4ED8; }
+    .tf-accent { fill: #3B82F6; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0F172A; }
+      .border { stroke: #334155; }
+      .tf-main { fill: #E2E8F0; }
+      .tf-accent { fill: #60A5FA; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="7"/>
+  <rect class="border" x="0.75" y="0.75" width="30.5" height="30.5" rx="6.25" stroke-width="1.5"/>
+  <path class="tf-main" d="M7.75 9.25h16.5v3.1h-6.2V24h-3.2V12.35h-7.1v-3.1z"/>
+  <path class="tf-accent" d="M16.55 9.25h7.7v3.1h-4.6v3.25h3.95v2.8h-3.95V24h-3.15V9.25z"/>
 </svg>

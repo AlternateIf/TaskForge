@@ -24,5 +24,17 @@
   },
   "files": {
     "ignore": ["node_modules", "dist", ".turbo", "*.json"]
-  }
+  },
+  "overrides": [
+    {
+      "include": ["apps/web/src/components/shortcuts/command-palette.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -1,19 +1,46 @@
+import { queryClient } from '@/api/client';
 import { ThemeProvider } from '@/components/theme-provider';
+import { router } from '@/router';
+import { useAuthStore } from '@/stores/auth.store';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { Toaster } from 'sonner';
+
+function AuthExpiredListener() {
+  const { clearAuth } = useAuthStore();
+
+  useEffect(() => {
+    function handleExpired() {
+      clearAuth();
+      void router.navigate({ to: '/auth/login', search: { redirect: undefined } });
+    }
+    window.addEventListener('tf:auth:expired', handleExpired);
+    return () => window.removeEventListener('tf:auth:expired', handleExpired);
+  }, [clearAuth]);
+
+  return null;
+}
 
 export function App() {
   return (
     <ThemeProvider>
-      <a
-        href="#main-content"
-        className="fixed left-2 top-2 z-50 -translate-y-full rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2"
-      >
-        Skip to main content
-      </a>
-      <main id="main-content" className="min-h-screen bg-background text-foreground">
-        <div className="flex items-center justify-center min-h-screen">
-          <p className="text-secondary">TaskForge is loading...</p>
-        </div>
-      </main>
+      <QueryClientProvider client={queryClient}>
+        <AuthExpiredListener />
+        <RouterProvider router={router} />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            classNames: {
+              toast: 'bg-surface-container-lowest border border-border text-foreground shadow-2',
+              title: 'text-foreground text-body',
+              description: 'text-muted text-small',
+              actionButton: 'bg-brand-primary text-white',
+              cancelButton: 'bg-surface-container-low text-foreground',
+            },
+          }}
+        />
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

@@ -19,13 +19,25 @@ const RECENT_PAGES = [
 const MOCK_SEARCH_RESULTS: SearchResults = {
   tasks: [
     { id: 't1', title: 'Update API docs', subtitle: 'Backend', path: '/tasks/t1', type: 'task' },
-    { id: 't2', title: 'Fix navbar overflow', subtitle: 'Frontend', path: '/tasks/t2', type: 'task' },
+    {
+      id: 't2',
+      title: 'Fix navbar overflow',
+      subtitle: 'Frontend',
+      path: '/tasks/t2',
+      type: 'task',
+    },
   ],
   projects: [
     { id: 'p1', title: 'TaskForge Web', subtitle: 'Active', path: '/projects/p1', type: 'project' },
   ],
   people: [
-    { id: 'u1', title: 'Marcus Dev', subtitle: 'marcus@example.com', path: '/people/u1', type: 'person' },
+    {
+      id: 'u1',
+      title: 'Marcus Dev',
+      subtitle: 'marcus@example.com',
+      path: '/people/u1',
+      type: 'person',
+    },
   ],
 };
 
@@ -33,12 +45,7 @@ function renderPalette(props: Partial<React.ComponentProps<typeof CommandPalette
   const onOpenChange = vi.fn();
   const onNavigate = vi.fn();
   render(
-    <CommandPalette
-      open={true}
-      onOpenChange={onOpenChange}
-      onNavigate={onNavigate}
-      {...props}
-    />,
+    <CommandPalette open={true} onOpenChange={onOpenChange} onNavigate={onNavigate} {...props} />,
   );
   return { onOpenChange, onNavigate };
 }
@@ -402,7 +409,7 @@ describe('CommandPalette accessibility', () => {
     const input = screen.getByRole('combobox');
     const listboxId = input.getAttribute('aria-controls');
     expect(listboxId).toBeTruthy();
-    expect(document.getElementById(listboxId!)).toHaveAttribute('role', 'listbox');
+    expect(document.getElementById(listboxId ?? '')).toHaveAttribute('role', 'listbox');
   });
 
   it('all options have role="option"', () => {
@@ -426,7 +433,7 @@ describe('CommandPalette accessibility', () => {
     for (const group of groups) {
       const labelledBy = group.getAttribute('aria-labelledby');
       expect(labelledBy).toBeTruthy();
-      expect(document.getElementById(labelledBy!)).toBeInTheDocument();
+      expect(document.getElementById(labelledBy ?? '')).toBeInTheDocument();
     }
   });
 });
@@ -439,20 +446,16 @@ describe('useCommandPalette global keyboard shortcut', () => {
 
     function TestComponent() {
       const { open, onOpenChange, recentPages } = useCommandPalette();
-      return (
-        <CommandPalette
-          open={open}
-          onOpenChange={onOpenChange}
-          recentPages={recentPages}
-        />
-      );
+      return <CommandPalette open={open} onOpenChange={onOpenChange} recentPages={recentPages} />;
     }
 
     render(<TestComponent />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+      );
     });
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -463,24 +466,22 @@ describe('useCommandPalette global keyboard shortcut', () => {
 
     function TestComponent() {
       const { open, onOpenChange, recentPages } = useCommandPalette();
-      return (
-        <CommandPalette
-          open={open}
-          onOpenChange={onOpenChange}
-          recentPages={recentPages}
-        />
-      );
+      return <CommandPalette open={open} onOpenChange={onOpenChange} recentPages={recentPages} />;
     }
 
     render(<TestComponent />);
 
     act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+      );
     });
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+      );
     });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
