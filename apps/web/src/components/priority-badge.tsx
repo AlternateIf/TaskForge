@@ -44,12 +44,17 @@ interface PriorityBadgeProps extends HTMLAttributes<HTMLSpanElement> {
   priority: Priority;
   showLabel?: boolean;
   showDot?: boolean;
+  appearance?: 'filled' | 'plain';
 }
 
 const PriorityBadge = forwardRef<HTMLSpanElement, PriorityBadgeProps>(
-  ({ priority, showLabel = true, showDot = false, className, ...props }, ref) => {
+  (
+    { priority, showLabel = true, showDot = false, appearance = 'filled', className, ...props },
+    ref,
+  ) => {
     const config = priorityConfig[priority];
     const dotOnly = showDot && !showLabel;
+    const isPlain = appearance === 'plain';
 
     return (
       <span
@@ -57,7 +62,18 @@ const PriorityBadge = forwardRef<HTMLSpanElement, PriorityBadgeProps>(
         className={cn(
           'inline-flex items-center gap-1 text-label font-medium',
           !dotOnly && 'rounded-radius-sm px-sm py-0.5',
-          !dotOnly && config.bgClass,
+          !dotOnly && !isPlain && config.bgClass,
+          isPlain && 'px-0 py-0',
+          isPlain &&
+            (priority === 'critical'
+              ? 'text-priority-critical'
+              : priority === 'high'
+                ? 'text-priority-high'
+                : priority === 'medium'
+                  ? 'text-priority-medium'
+                  : priority === 'low'
+                    ? 'text-priority-low'
+                    : 'text-priority-none'),
           className,
         )}
         {...props}

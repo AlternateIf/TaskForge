@@ -50,11 +50,12 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Project list page (grid, search, create dialog)~~ ✅
 - ~~Kanban board (columns by status, drag-and-drop, quick-add)~~ ✅
 - ~~List view (sortable, filterable table, cursor pagination, bulk actions)~~ ✅
+- ~~Task detail panel/page (overlay + dedicated route + deep-linking)~~ ✅
 - ~~Project settings (workflow, labels, members)~~ ✅
 
 ### Comments & Activity
 - ~~Threaded comments with @mentions~~ ✅
-- Rich text and file attachments
+- ~~Rich text and file attachments~~ ✅
 - ~~Activity log per task and project~~ ✅
 - ~~File upload validation (MIME type whitelist, extension check, max size)~~ ✅
 
@@ -62,6 +63,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Full-text search (Meilisearch)~~ ✅
 - ~~Filtering by status, priority, assignee, label, date range~~ ✅
 - ~~Saved filter presets~~ ✅
+- Comment search deferred to Phase 2 (task + project search shipped in MVP)
 
 ### Notifications
 - ~~In-app notification center~~ ✅
@@ -208,6 +210,9 @@ Richer collaboration, reporting, time tracking, enterprise features, and integra
 - Notification digest (daily/weekly summary)
 - Granular per-event-type opt-in/opt-out
 - Notification grouping (multiple updates to same task grouped into single entry)
+
+### Search (Enhanced)
+- Comment content search in global search/command palette (body + author + task context)
 
 ### Internationalization (i18n)
 - Full string translation for all user-facing text

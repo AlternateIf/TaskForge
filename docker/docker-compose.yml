@@ -17,6 +17,7 @@ services:
       - ../apps/api/src:/app/apps/api/src
       - ../packages/shared/src:/app/packages/shared/src
       - ../packages/db/src:/app/packages/db/src
+      - ../local/uploads:/app/uploads
     depends_on:
       mariadb:
         condition: service_healthy
@@ -27,7 +28,7 @@ services:
       meilisearch:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/health']
       interval: 10s
       timeout: 5s
       retries: 5

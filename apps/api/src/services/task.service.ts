@@ -17,9 +17,26 @@ import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@task
 import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
-import { computeBlockedStatus } from './dependency.service.js';
+import { computeBlockedStatus, createDependency } from './dependency.service.js';
+import * as searchService from './search.service.js';
 
 const POSITION_GAP = 1000;
+
+async function syncTaskSearch(taskId: string): Promise<void> {
+  try {
+    await searchService.indexTask(taskId);
+  } catch {
+    // Search indexing is best-effort and should not block task writes.
+  }
+}
+
+async function removeTaskSearch(taskId: string): Promise<void> {
+  try {
+    await searchService.removeTask(taskId);
+  } catch {
+    // Search indexing is best-effort and should not block task writes.
+  }
+}
 
 export interface TaskProgress {
   subtaskCount: number;
@@ -307,6 +324,8 @@ export async function createTask(
     });
   }
 
+  await syncTaskSearch(taskId);
+
   return toTaskOutput(created[0], statusRow[0]?.name);
 }
 
@@ -438,9 +457,12 @@ export async function getTask(taskId: string): Promise<TaskOutput> {
     .select({
       task: tasks,
       statusName: workflowStatuses.name,
+      assigneeDisplayName: users.displayName,
+      assigneeAvatarUrl: users.avatarUrl,
     })
     .from(tasks)
     .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
     .limit(1);
 
@@ -448,9 +470,32 @@ export async function getTask(taskId: string): Promise<TaskOutput> {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
   }
 
+  const labelRows = await db
+    .select({
+      id: labels.id,
+      name: labels.name,
+      color: labels.color,
+    })
+    .from(taskLabels)
+    .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+    .where(eq(taskLabels.taskId, taskId));
+
   const progress = await loadTaskProgress(taskId);
   const blocked = await computeBlockedStatus(taskId);
-  return toTaskOutput(result[0].task, result[0].statusName, progress, blocked);
+  return toTaskOutput(
+    result[0].task,
+    result[0].statusName,
+    progress,
+    blocked,
+    result[0].task.assigneeId
+      ? {
+          id: result[0].task.assigneeId,
+          displayName: result[0].assigneeDisplayName ?? '',
+          avatarUrl: result[0].assigneeAvatarUrl ?? null,
+        }
+      : null,
+    labelRows.map((row) => ({ id: row.id, name: row.name, color: row.color ?? null })),
+  );
 }
 
 export async function updateTask(
@@ -543,6 +588,8 @@ export async function updateTask(
     }
   }
 
+  await syncTaskSearch(taskId);
+
   return getTask(taskId);
 }
 
@@ -569,6 +616,8 @@ export async function deleteTask(taskId: string, actorId?: string): Promise<void
       action: 'deleted',
     });
   }
+
+  await removeTaskSearch(taskId);
 }
 
 // --- Assignment ---
@@ -604,6 +653,8 @@ export async function assignTask(
   }
 
   await db.update(tasks).set({ assigneeId, updatedAt: new Date() }).where(eq(tasks.id, taskId));
+
+  await syncTaskSearch(taskId);
 
   return getTask(taskId);
 }
@@ -714,6 +765,8 @@ export async function addTaskLabel(
       });
     }
   }
+
+  await syncTaskSearch(taskId);
 }
 
 export async function removeTaskLabel(
@@ -737,6 +790,8 @@ export async function removeTaskLabel(
       changes: { labelId: { before: labelId, after: null } },
     });
   }
+
+  await syncTaskSearch(taskId);
 }
 
 // --- Position / Reordering ---
@@ -788,6 +843,8 @@ export async function updateTaskPosition(
       ),
     );
 
+  await syncTaskSearch(taskId);
+
   return getTask(taskId);
 }
 
@@ -816,10 +873,22 @@ export async function createSubtask(
     );
   }
 
-  return createTask(parent[0].projectId, userId, {
+  const subtask = await createTask(parent[0].projectId, userId, {
     ...input,
     parentTaskId,
   });
+
+  // A parent task is blocked by its newly created subtask until it is completed.
+  await createDependency(
+    parentTaskId,
+    {
+      dependsOnTaskId: subtask.id,
+      type: 'blocked_by',
+    },
+    userId,
+  );
+
+  return subtask;
 }
 
 export async function listSubtasks(parentTaskId: string): Promise<TaskOutput[]> {

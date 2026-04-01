@@ -27,8 +27,10 @@ apps/web/src/
 │   ├── dependencies.ts        # useDependencies, useAddDependency
 │   └── attachments.ts         # useAttachments, useUploadFile
 ├── routes/
-│   └── tasks/
-│       └── [taskId].tsx        # Full task detail page
+│   └── projects/
+│       └── [projectId]/
+│           └── tasks/
+│               └── [taskId].tsx        # Full task detail page
 ├── components/
 │   ├── data/
 │   │   ├── task-detail-panel.tsx    # Slide-over panel (from board/list click)
@@ -131,34 +133,47 @@ Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
 - Activity timeline with vertical line and dot indicators
 
 ## Acceptance Criteria
-- [ ] Task detail opens as slide-over overlay panel (640px) from board/list click
-- [ ] Overlay has backdrop blur (`backdrop-blur-[2px]`) behind panel
-- [ ] Overlay updates URL with `?task=:taskId` query parameter
-- [ ] "Open in full page" button (`Maximize2` icon) in overlay header navigates to dedicated page
-- [ ] Overlay header shows task ID, inline-editable title, status pill with dropdown, breadcrumb row
-- [ ] Dedicated task detail page at `/projects/:projectId/tasks/:taskId` works via direct URL
-- [ ] Page shows breadcrumb trail, editorial title (4xl), status + priority badges
-- [ ] Cold navigation to `?task=:taskId` URL redirects to dedicated task page
-- [ ] Shared `TaskDetailContent` component renders in both overlay (`panel` variant) and page (`page` variant)
-- [ ] Notification links and search results navigate to dedicated task page
-- [ ] All task fields are displayed and editable inline (no explicit Save/Cancel — all changes optimistic)
-- [ ] Description uses Tiptap editor with toolbar (MVP-042)
-- [ ] Subtask list shows with progress bar (gradient fill from primary to secondary)
-- [ ] Checklists render with checkable items
-- [ ] Checking/unchecking items updates immediately (optimistic)
-- [ ] Dependencies are displayed (blocked by / blocks)
-- [ ] Comments render with timeline connector (vertical line + dot indicators)
-- [ ] Comment bubbles use CommentBubble component (rounded-2xl, rounded-tl-none chat tail)
-- [ ] Comment input supports rich text and @mentions (MVP-042)
-- [ ] @mention autocomplete shows project members
-- [ ] Activity feed shows chronological changes interleaved with comments
-- [ ] Sidebar shows metadata with MetadataLabel components (assignee, priority, due date, project, labels, watchers)
-- [ ] File attachments can be uploaded via FileDropzone component (drag-and-drop or file picker)
-- [ ] Uploaded files display with correct icons/thumbnails and download/delete actions
-- [ ] Upload progress indicator shown during file upload
-- [ ] All edits are optimistic with error toast on failure
-- [ ] Mobile overlay opens full-screen with metadata accordion and sticky bottom comment input
-- [ ] Mobile page uses stacked layout with 2-column metadata grid and bottom nav
-- [ ] All components use design tokens, no hardcoded hex colors
-- [ ] Accessible: keyboard navigable, screen reader friendly
-- [ ] Unit tests cover component logic, inline editing behavior, and optimistic update handling
+- [x] Task detail opens as slide-over overlay panel (640px) from board/list click
+- [x] Overlay has backdrop blur (`backdrop-blur-[2px]`) behind panel
+- [x] Overlay updates URL with `?task=:taskId` query parameter
+- [x] "Open in full page" button (`Maximize2` icon) in overlay header navigates to dedicated page
+- [x] Overlay header shows task ID, inline-editable title, status pill with dropdown, breadcrumb row
+- [x] Dedicated task detail page at `/projects/:projectId/tasks/:taskId` works via direct URL
+- [x] Page shows breadcrumb trail, editorial title (4xl), status + priority badges
+- [x] Cold navigation to `?task=:taskId` URL redirects to dedicated task page
+- [x] Shared `TaskDetailContent` component renders in both overlay (`panel` variant) and page (`page` variant)
+- [x] Notification links and search results navigate to dedicated task page
+- [x] All task fields are displayed and editable inline (no explicit Save/Cancel — all changes optimistic)
+- [x] Description uses Tiptap editor with toolbar (MVP-042)
+- [x] Subtask list shows with progress bar (gradient fill from primary to secondary)
+- [x] Checklists render with checkable items
+- [x] Checking/unchecking items updates immediately (optimistic)
+- [x] Dependencies are displayed (blocked by / blocks)
+- [x] Comments render with timeline connector (vertical line + dot indicators)
+- [x] Comment bubbles use CommentBubble component (rounded-2xl, rounded-tl-none chat tail)
+- [x] Comment input supports rich text and @mentions (MVP-042)
+- [x] @mention autocomplete shows project members
+- [x] Activity feed shows chronological changes interleaved with comments
+- [x] Sidebar shows metadata with MetadataLabel components (assignee, priority, due date, project, labels, watchers)
+- [x] File attachments can be uploaded via FileDropzone component (drag-and-drop or file picker)
+- [x] Uploaded files display with correct icons/thumbnails and download/delete actions
+- [x] Upload progress indicator shown during file upload
+- [x] All edits are optimistic with error toast on failure
+- [x] Mobile overlay opens full-screen with metadata accordion and sticky bottom comment input
+- [x] Mobile page uses stacked layout with 2-column metadata grid and bottom nav
+- [x] All components use design tokens, no hardcoded hex colors
+- [x] Accessible: keyboard navigable, screen reader friendly
+- [x] Unit tests cover component logic, inline editing behavior, and optimistic update handling
+
+## Post-Implementation Refinements (2026-04-01)
+- [x] Header polish: fixed status-dot overlap, replaced round status control with aligned project style, made top-right priority editable and border-based (no filled chip background)
+- [x] Sticky header visual treatment improved for scroll contexts (stronger border/shadow + blur in light/dark themes)
+- [x] Full-page content spacing aligned (`px-xl py-lg`) and section spacing increased for readability
+- [x] Section architecture refined: reorder to `checklists → dependencies → comments → subtasks → activity`, add collapsible behavior (including activity default collapsed), and add Lucide collapse affordance icons
+- [x] Activity timeline enriched with structured before/after field change details when available
+- [x] Comment flow hardened: improved API error parsing, eliminated unhandled promise path on submit, and preserved toast-based failure feedback
+- [x] Attachments hardened: full-width dropzone, authenticated image previews/downloads, image filename click-to-open lightbox, and working delete/download interactions
+- [x] Dependency links upgraded: anchor styling, hover/focus tooltip with full task title, and deep-link navigation to referenced tasks
+- [x] Subtask creation now uses the same create-task modal system as project board/list create flows
+- [x] Rich-text UX aligned: ProseMirror min-height alignment and click-to-focus behavior when clicking editor container chrome
+- [x] Assignee rendering now updates reliably in the frontend after edits (API hydration + optimistic local fallback)

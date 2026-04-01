@@ -131,7 +131,11 @@ export function ProjectsPage() {
   }
 
   function handleCreateSuccess(projectId: string) {
-    void navigate({ to: '/projects/$projectId/board', params: { projectId } });
+    void navigate({
+      to: '/projects/$projectId/board',
+      params: { projectId },
+      search: { task: undefined },
+    });
   }
 
   return (

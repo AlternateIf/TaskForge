@@ -122,7 +122,7 @@ describe('RichTextEditor', () => {
   it('applies correct min-height for comment mode', () => {
     render(<ActualEditor mode="comment" />);
     const editorContent = screen.getByTestId('editor-content');
-    expect(editorContent.className).toContain('min-h-[80px]');
+    expect(editorContent.className).toContain('min-h-[120px]');
   });
 
   it('applies correct min-height for description mode', () => {

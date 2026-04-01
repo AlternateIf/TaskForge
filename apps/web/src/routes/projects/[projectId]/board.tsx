@@ -1,5 +1,6 @@
 import { useProject } from '@/api/projects';
 import type { TaskFilters } from '@/api/tasks';
+import { TaskDetailPanel } from '@/components/data/task-detail-panel';
 import { TaskFiltersBar } from '@/components/data/task-filters';
 import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
@@ -7,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { cn } from '@/lib/utils';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Kanban, LayoutList, Plus, Settings } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ProjectBoardPageProps {
   projectId: string;
@@ -18,19 +19,68 @@ interface ProjectBoardPageProps {
 export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
   const { data: project, isLoading } = useProject(projectId);
   const navigate = useNavigate();
+  const search = useSearch({ from: '/_authenticated/projects/$projectId/board' });
   const [filters, setFilters] = useState<TaskFilters>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatusId, setCreateStatusId] = useState<string | undefined>();
+  const [panelTaskId, setPanelTaskId] = useState<string | null>(null);
+  const hasHandledInitialSearch = useRef(false);
 
   useDocumentTitle(project?.name ? `${project.name} — Board` : 'Board');
 
+  useEffect(() => {
+    if (!hasHandledInitialSearch.current) {
+      hasHandledInitialSearch.current = true;
+      if (search.task) {
+        void navigate({
+          to: '/projects/$projectId/tasks/$taskId',
+          params: { projectId, taskId: search.task },
+          replace: true,
+        });
+        return;
+      }
+    }
+
+    setPanelTaskId(search.task ?? null);
+  }, [navigate, projectId, search.task]);
+
   function switchToList() {
     localStorage.setItem(`tf:project:${projectId}:view`, 'list');
-    void navigate({ to: '/projects/$projectId/list', params: { projectId } });
+    void navigate({
+      to: '/projects/$projectId/list',
+      params: { projectId },
+      search: { task: undefined },
+    });
   }
 
   function navigateToSettings() {
     void navigate({ to: '/projects/$projectId/settings', params: { projectId } });
+  }
+
+  function openTaskPanel(taskId: string) {
+    setPanelTaskId(taskId);
+    void navigate({
+      to: '/projects/$projectId/board',
+      params: { projectId },
+      search: (prev) => ({ ...prev, task: taskId }),
+    });
+  }
+
+  function closeTaskPanel() {
+    setPanelTaskId(null);
+    void navigate({
+      to: '/projects/$projectId/board',
+      params: { projectId },
+      search: (prev) => ({ ...prev, task: undefined }),
+    });
+  }
+
+  function openTaskFullPage() {
+    if (!panelTaskId) return;
+    void navigate({
+      to: '/projects/$projectId/tasks/$taskId',
+      params: { projectId, taskId: panelTaskId },
+    });
   }
 
   return (
@@ -116,10 +166,7 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
           members={project?.members ?? []}
           allLabels={project?.labels ?? []}
           filters={filters}
-          onTaskClick={(taskId) =>
-            // MVP-024: task detail route added in next feature
-            void navigate({ to: `/tasks/${taskId}` as '/dashboard' })
-          }
+          onTaskClick={openTaskPanel}
           onAddTask={(statusId) => {
             setCreateStatusId(statusId);
             setCreateOpen(true);
@@ -160,6 +207,15 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
           labels={project.labels ?? []}
         />
       )}
+
+      {panelTaskId ? (
+        <TaskDetailPanel
+          projectId={projectId}
+          taskId={panelTaskId}
+          onClose={closeTaskPanel}
+          onOpenFullPage={openTaskFullPage}
+        />
+      ) : null}
     </div>
   );
 }

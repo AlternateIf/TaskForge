@@ -148,7 +148,7 @@ export function RichTextEditor({
 
   if (!editor) return null;
 
-  const minHeight = mode === 'comment' ? 'min-h-[80px]' : 'min-h-[120px]';
+  const minHeightClass = mode === 'comment' ? 'min-h-[120px]' : 'min-h-[120px]';
 
   return (
     <div
@@ -157,6 +157,13 @@ export function RichTextEditor({
         'focus-within:border-brand-primary/50',
         className,
       )}
+      onMouseDown={(event) => {
+        if (!editable) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('.ProseMirror')) return;
+        event.preventDefault();
+        editor.chain().focus().run();
+      }}
     >
       {editable ? (
         <Toolbar
@@ -167,7 +174,10 @@ export function RichTextEditor({
       ) : null}
       <EditorContent
         editor={editor}
-        className={cn('px-md py-sm text-body text-foreground', minHeight)}
+        className={cn(
+          'px-md py-sm text-body text-foreground [&_.ProseMirror]:min-h-[120px]',
+          minHeightClass,
+        )}
       />
       {onImageUpload ? (
         <input

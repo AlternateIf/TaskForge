@@ -410,7 +410,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
         onOpenChange={setCreateProjectOpen}
         onSuccess={(projectId) => {
           setCreateProjectOpen(false);
-          void router.navigate({ to: '/projects/$projectId/board', params: { projectId } });
+          void router.navigate({
+            to: '/projects/$projectId/board',
+            params: { projectId },
+            search: { task: undefined },
+          });
         }}
       />
     </>

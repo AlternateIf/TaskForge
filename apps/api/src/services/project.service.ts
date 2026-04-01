@@ -14,6 +14,23 @@ import type { CreateProjectInput, UpdateProjectInput } from '@taskforge/shared';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import * as searchService from './search.service.js';
+
+async function syncProjectSearch(projectId: string): Promise<void> {
+  try {
+    await searchService.indexProject(projectId);
+  } catch {
+    // Search indexing is best-effort and should not block project writes.
+  }
+}
+
+async function removeProjectSearch(projectId: string): Promise<void> {
+  try {
+    await searchService.removeProject(projectId);
+  } catch {
+    // Search indexing is best-effort and should not block project writes.
+  }
+}
 
 async function getOrgIdForProject(projectId: string): Promise<string | null> {
   const result = await db
@@ -164,6 +181,8 @@ export async function createProject(
     action: 'created',
   });
 
+  await syncProjectSearch(projectId);
+
   return toProjectOutput(project);
 }
 
@@ -299,6 +318,8 @@ export async function updateProject(
     }
   }
 
+  await syncProjectSearch(projectId);
+
   return getProject(projectId);
 }
 
@@ -331,6 +352,8 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
     });
   }
 
+  await syncProjectSearch(projectId);
+
   return getProject(projectId);
 }
 
@@ -361,6 +384,8 @@ export async function deleteProject(projectId: string, actorId?: string): Promis
       action: 'deleted',
     });
   }
+
+  await removeProjectSearch(projectId);
 }
 
 // --- Members ---

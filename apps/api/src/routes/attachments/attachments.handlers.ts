@@ -87,11 +87,21 @@ export async function downloadAttachmentHandler(
     request.params.id,
   );
 
-  const stream = fs.createReadStream(storagePath);
+  let fileBuffer: Buffer;
+  try {
+    fileBuffer = await fs.promises.readFile(storagePath);
+  } catch (error) {
+    const fsError = error as NodeJS.ErrnoException;
+    if (fsError.code === 'ENOENT') {
+      throw new AppError(404, ErrorCode.NOT_FOUND, 'Attachment file not found');
+    }
+    throw error;
+  }
+
   return reply
     .header('Content-Type', mimeType)
     .header('Content-Disposition', `attachment; filename="${filename}"`)
-    .send(stream);
+    .send(fileBuffer);
 }
 
 export async function deleteAttachmentHandler(

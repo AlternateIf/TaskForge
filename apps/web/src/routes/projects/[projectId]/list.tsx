@@ -1,13 +1,14 @@
 import { useProject } from '@/api/projects';
+import { TaskDetailPanel } from '@/components/data/task-detail-panel';
 import { TaskTable } from '@/components/data/task-table';
 import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { cn } from '@/lib/utils';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Kanban, LayoutList, Plus, Settings } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ProjectListPageProps {
   projectId: string;
@@ -16,17 +17,66 @@ interface ProjectListPageProps {
 export function ProjectListPage({ projectId }: ProjectListPageProps) {
   const { data: project, isLoading } = useProject(projectId);
   const navigate = useNavigate();
+  const search = useSearch({ from: '/_authenticated/projects/$projectId/list' });
   const [createOpen, setCreateOpen] = useState(false);
+  const [panelTaskId, setPanelTaskId] = useState<string | null>(null);
+  const hasHandledInitialSearch = useRef(false);
 
   useDocumentTitle(project?.name ? `${project.name} — List` : 'List');
 
+  useEffect(() => {
+    if (!hasHandledInitialSearch.current) {
+      hasHandledInitialSearch.current = true;
+      if (search.task) {
+        void navigate({
+          to: '/projects/$projectId/tasks/$taskId',
+          params: { projectId, taskId: search.task },
+          replace: true,
+        });
+        return;
+      }
+    }
+
+    setPanelTaskId(search.task ?? null);
+  }, [navigate, projectId, search.task]);
+
   function switchToBoard() {
     localStorage.setItem(`tf:project:${projectId}:view`, 'board');
-    void navigate({ to: '/projects/$projectId/board', params: { projectId } });
+    void navigate({
+      to: '/projects/$projectId/board',
+      params: { projectId },
+      search: { task: undefined },
+    });
   }
 
   function navigateToSettings() {
     void navigate({ to: '/projects/$projectId/settings', params: { projectId } });
+  }
+
+  function openTaskPanel(taskId: string) {
+    setPanelTaskId(taskId);
+    void navigate({
+      to: '/projects/$projectId/list',
+      params: { projectId },
+      search: (prev) => ({ ...prev, task: taskId }),
+    });
+  }
+
+  function closeTaskPanel() {
+    setPanelTaskId(null);
+    void navigate({
+      to: '/projects/$projectId/list',
+      params: { projectId },
+      search: (prev) => ({ ...prev, task: undefined }),
+    });
+  }
+
+  function openTaskFullPage() {
+    if (!panelTaskId) return;
+    void navigate({
+      to: '/projects/$projectId/tasks/$taskId',
+      params: { projectId, taskId: panelTaskId },
+    });
   }
 
   return (
@@ -108,10 +158,7 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
         statuses={project?.statuses ?? []}
         members={project?.members ?? []}
         labels={project?.labels ?? []}
-        onTaskClick={(taskId) =>
-          // MVP-024: task detail route added in next feature
-          void navigate({ to: `/tasks/${taskId}` as '/dashboard' })
-        }
+        onTaskClick={openTaskPanel}
       />
 
       {project && (
@@ -125,6 +172,15 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
           labels={project.labels ?? []}
         />
       )}
+
+      {panelTaskId ? (
+        <TaskDetailPanel
+          projectId={projectId}
+          taskId={panelTaskId}
+          onClose={closeTaskPanel}
+          onOpenFullPage={openTaskFullPage}
+        />
+      ) : null}
     </div>
   );
 }

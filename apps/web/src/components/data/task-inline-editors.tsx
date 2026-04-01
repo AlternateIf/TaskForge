@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { X } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 
 // ─── Shared popover shell ─────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export function PriorityPicker({
     <PickerPopover
       open={open}
       onClose={close}
-      className="min-w-[9rem] p-xs"
+      className="min-w-36 p-xs"
       trigger={
         <button
           type="button"
@@ -124,7 +125,14 @@ export function PriorityPicker({
             p === priority && 'bg-surface-container-low',
           )}
           onClick={() => {
-            update.mutate({ priority: p });
+            update.mutate(
+              { priority: p },
+              {
+                onError: (error) => {
+                  toast.error(error.message || 'Failed to update priority');
+                },
+              },
+            );
             close();
           }}
         >
@@ -158,7 +166,14 @@ export function LabelPicker({
     const next = selectedIds.has(labelId)
       ? [...selectedIds].filter((id) => id !== labelId)
       : [...selectedIds, labelId];
-    update.mutate({ labelIds: next });
+    update.mutate(
+      { labelIds: next },
+      {
+        onError: (error) => {
+          toast.error(error.message || 'Failed to update labels');
+        },
+      },
+    );
   }
 
   if (allLabels.length === 0) return <>{children}</>;
@@ -167,7 +182,7 @@ export function LabelPicker({
     <PickerPopover
       open={open}
       onClose={close}
-      className="min-w-[10rem] p-xs"
+      className="min-w-40 p-xs"
       trigger={
         <button
           type="button"
@@ -195,7 +210,7 @@ export function LabelPicker({
         >
           <span
             className="size-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: l.color ?? '#6B7280' }}
+            style={{ backgroundColor: l.color ?? undefined }}
           />
           <span className="line-clamp-1 flex-1 text-left">{l.name}</span>
           {selectedIds.has(l.id) && <X className="size-3 shrink-0 text-muted" />}
@@ -224,7 +239,15 @@ export function DueDatePicker({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
-    update.mutate({ dueDate: value ? new Date(value).toISOString() : null }, { onSettled: close });
+    update.mutate(
+      { dueDate: value ? new Date(value).toISOString() : null },
+      {
+        onSettled: close,
+        onError: (error) => {
+          toast.error(error.message || 'Failed to update due date');
+        },
+      },
+    );
   }
 
   return (
@@ -257,7 +280,17 @@ export function DueDatePicker({
           <button
             type="button"
             className="text-left text-label text-muted hover:text-danger"
-            onClick={() => update.mutate({ dueDate: null }, { onSettled: close })}
+            onClick={() =>
+              update.mutate(
+                { dueDate: null },
+                {
+                  onSettled: close,
+                  onError: (error) => {
+                    toast.error(error.message || 'Failed to update due date');
+                  },
+                },
+              )
+            }
           >
             Clear due date
           </button>
@@ -303,7 +336,15 @@ export function AssigneePicker({
     .slice(0, 5);
 
   function assign(userId: string | null) {
-    update.mutate({ assigneeId: userId }, { onSettled: close });
+    update.mutate(
+      { assigneeId: userId },
+      {
+        onSettled: close,
+        onError: (error) => {
+          toast.error(error.message || 'Failed to update assignee');
+        },
+      },
+    );
   }
 
   return (

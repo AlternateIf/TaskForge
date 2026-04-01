@@ -14,6 +14,7 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import sanitizeHtml from 'sanitize-html';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import * as searchService from './search.service.js';
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -47,6 +48,22 @@ export type CommentVisibility = 'public' | 'internal';
 
 /** Roles that cannot see or create internal comments. */
 const RESTRICTED_ROLES = new Set(['Guest']);
+
+async function syncCommentSearch(commentId: string): Promise<void> {
+  try {
+    await searchService.indexComment(commentId);
+  } catch {
+    // Search indexing is best-effort and should not block comment writes.
+  }
+}
+
+async function removeCommentSearch(commentId: string): Promise<void> {
+  try {
+    await searchService.removeComment(commentId);
+  } catch {
+    // Search indexing is best-effort and should not block comment writes.
+  }
+}
 
 export interface CommentOutput {
   id: string;
@@ -190,11 +207,7 @@ export async function createComment(
 
   // Sanitize HTML body
   const sanitizedBody = sanitizeHtml(input.body, SANITIZE_OPTIONS);
-
-  // Parse @mentions
-  const mentionedUsernames = parseMentions(sanitizedBody);
   const organizationId = await getOrganizationIdForTask(taskId);
-  const resolvedMentions = await resolveUsernames(mentionedUsernames, organizationId);
 
   // Create comment
   const id = crypto.randomUUID();
@@ -212,19 +225,26 @@ export async function createComment(
     updatedAt: now,
   });
 
-  // Create mention records — for internal comments, exclude Guest users
-  const restrictedUsers =
-    visibility === 'internal' ? await getRestrictedUserIds(organizationId) : new Set<string>();
+  // Best-effort mention records — comment creation should not fail if mention side effects fail.
   const mentionUserIds: string[] = [];
-  for (const [, mentionedUserId] of resolvedMentions) {
-    if (restrictedUsers.has(mentionedUserId)) continue;
-    mentionUserIds.push(mentionedUserId);
-    await db.insert(commentMentions).values({
-      id: crypto.randomUUID(),
-      commentId: id,
-      userId: mentionedUserId,
-      createdAt: now,
-    });
+  try {
+    const mentionedUsernames = parseMentions(sanitizedBody);
+    const resolvedMentions = await resolveUsernames(mentionedUsernames, organizationId);
+    const restrictedUsers =
+      visibility === 'internal' ? await getRestrictedUserIds(organizationId) : new Set<string>();
+
+    for (const [, mentionedUserId] of resolvedMentions) {
+      if (restrictedUsers.has(mentionedUserId)) continue;
+      mentionUserIds.push(mentionedUserId);
+      await db.insert(commentMentions).values({
+        id: crypto.randomUUID(),
+        commentId: id,
+        userId: mentionedUserId,
+        createdAt: now,
+      });
+    }
+  } catch {
+    // Ignore mention side-effect failures to avoid blocking comment creation.
   }
 
   // Get author display name
@@ -234,18 +254,24 @@ export async function createComment(
     .where(eq(users.id, userId))
     .limit(1);
 
-  // Log activity (tag with visibility so activity listing can filter for restricted roles)
-  await activityService.log({
-    organizationId,
-    actorId: userId,
-    entityType: 'task',
-    entityId: taskId,
-    action: 'comment_added',
-    changes:
-      visibility === 'internal'
-        ? { commentVisibility: { before: null, after: 'internal' } }
-        : undefined,
-  });
+  // Best-effort activity log (tag with visibility so activity listing can filter by role).
+  try {
+    await activityService.log({
+      organizationId,
+      actorId: userId,
+      entityType: 'task',
+      entityId: taskId,
+      action: 'comment_added',
+      changes:
+        visibility === 'internal'
+          ? { commentVisibility: { before: null, after: 'internal' } }
+          : undefined,
+    });
+  } catch {
+    // Ignore activity side-effect failures to avoid blocking comment creation.
+  }
+
+  await syncCommentSearch(id);
 
   return {
     id,
@@ -283,13 +309,17 @@ export async function listComments(taskId: string, callerRole?: string): Promise
 
   // Fetch mentions for all comments
   const commentIds = rows.map((r) => r.comment.id);
-  const allMentions =
-    commentIds.length > 0
-      ? await db
-          .select()
-          .from(commentMentions)
-          .where(inArray(commentMentions.commentId, commentIds))
-      : [];
+  let allMentions: Array<typeof commentMentions.$inferSelect> = [];
+  if (commentIds.length > 0) {
+    try {
+      allMentions = await db
+        .select()
+        .from(commentMentions)
+        .where(inArray(commentMentions.commentId, commentIds));
+    } catch {
+      // Mention side data is non-critical for listing comments.
+    }
+  }
 
   const mentionsByComment = new Map<string, string[]>();
   for (const mention of allMentions) {
@@ -363,17 +393,21 @@ export async function updateComment(
   const mentionedUsernames = parseMentions(sanitizedBody);
   const resolvedMentions = await resolveUsernames(mentionedUsernames, organizationId);
 
-  // Delete old mentions and insert new ones
-  await db.delete(commentMentions).where(eq(commentMentions.commentId, commentId));
   const mentionUserIds: string[] = [];
-  for (const [, mentionUserId] of resolvedMentions) {
-    mentionUserIds.push(mentionUserId);
-    await db.insert(commentMentions).values({
-      id: crypto.randomUUID(),
-      commentId,
-      userId: mentionUserId,
-      createdAt: now,
-    });
+  // Delete old mentions and insert new ones (best-effort side data).
+  try {
+    await db.delete(commentMentions).where(eq(commentMentions.commentId, commentId));
+    for (const [, mentionUserId] of resolvedMentions) {
+      mentionUserIds.push(mentionUserId);
+      await db.insert(commentMentions).values({
+        id: crypto.randomUUID(),
+        commentId,
+        userId: mentionUserId,
+        createdAt: now,
+      });
+    }
+  } catch {
+    // Ignore mention side-effect failures to avoid blocking comment edits.
   }
 
   // Log activity
@@ -389,6 +423,8 @@ export async function updateComment(
         ? { commentVisibility: { before: 'internal', after: 'internal' } }
         : undefined,
   });
+
+  await syncCommentSearch(commentId);
 
   return {
     ...toOutput(result[0]),
@@ -445,6 +481,8 @@ export async function deleteComment(
           : undefined,
     });
   }
+
+  await removeCommentSearch(commentId);
 }
 
 /**

@@ -43,7 +43,8 @@ export interface SearchResults {
 export interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onNavigate?: (path: string) => void;
+  onNavigate?: (path: string, title?: string) => void;
+  onAction?: (actionId: string, label?: string) => void;
   onSearch?: (query: string) => Promise<SearchResults>;
   recentPages?: RecentPage[];
 }
@@ -54,7 +55,7 @@ interface ActionDef {
   id: string;
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
-  path: string;
+  path?: string;
   hint?: string;
 }
 
@@ -64,18 +65,19 @@ interface FlatItem {
   flatIndex: number;
   group: ItemGroup;
   key: string;
+  actionId?: string;
   label: string;
   subtitle?: string;
   Icon: React.ComponentType<{ className?: string }>;
   hint?: string;
-  path: string;
+  path?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_ACTIONS: ActionDef[] = [
-  { id: 'create-task', label: 'Create task', Icon: Plus, path: '/tasks/new', hint: 'N' },
-  { id: 'create-project', label: 'Create project', Icon: FolderPlus, path: '/projects/new' },
+  { id: 'create-task', label: 'Create task', Icon: Plus },
+  { id: 'create-project', label: 'Create project', Icon: FolderPlus },
   { id: 'go-dashboard', label: 'Go to dashboard', Icon: LayoutDashboard, path: '/' },
   { id: 'go-settings', label: 'Go to settings', Icon: Settings, path: '/settings' },
 ];
@@ -110,6 +112,7 @@ function buildFlatItems(
       flatIndex: idx++,
       group: 'actions',
       key: `action-${action.id}`,
+      actionId: action.id,
       label: action.label,
       Icon: action.Icon,
       hint: action.hint,
@@ -205,6 +208,7 @@ export function CommandPalette({
   open,
   onOpenChange,
   onNavigate,
+  onAction,
   onSearch,
   recentPages = [],
 }: CommandPaletteProps) {
@@ -287,10 +291,18 @@ export function CommandPalette({
 
   const selectItem = useCallback(
     (item: FlatItem) => {
-      onNavigate?.(item.path);
+      if (item.group === 'actions' && item.actionId) {
+        if (onAction) {
+          onAction(item.actionId, item.label);
+        } else if (item.path) {
+          onNavigate?.(item.path, item.label);
+        }
+      } else if (item.path) {
+        onNavigate?.(item.path, item.label);
+      }
       onOpenChange(false);
     },
-    [onNavigate, onOpenChange],
+    [onAction, onNavigate, onOpenChange],
   );
 
   const handleKeyDown = useCallback(

@@ -53,7 +53,10 @@ vi.mock('@taskforge/db', () => ({
   workflowStatuses: { id: 'workflowStatuses.id', name: 'workflowStatuses.name' },
   labels: { name: 'labels.name' },
   taskLabels: { taskId: 'taskLabels.taskId', labelId: 'taskLabels.labelId' },
-  projectMembers: { projectId: 'projectMembers.projectId', userId: 'projectMembers.userId' },
+  organizationMembers: {
+    organizationId: 'organizationMembers.organizationId',
+    userId: 'organizationMembers.userId',
+  },
 }));
 
 const {
@@ -92,7 +95,7 @@ describe('search.service', () => {
 
       expect(mockUpdateSettings).toHaveBeenCalledWith(
         expect.objectContaining({
-          searchableAttributes: ['title', 'description'],
+          searchableAttributes: ['title', 'description', 'projectName'],
           filterableAttributes: expect.arrayContaining([
             'status',
             'priority',
@@ -108,7 +111,7 @@ describe('search.service', () => {
   });
 
   describe('globalSearch', () => {
-    it('should search across all types by default', async () => {
+    it('should search across task and project types by default', async () => {
       // Mock project membership
       mockWhere.mockResolvedValueOnce([{ projectId: 'p1' }, { projectId: 'p2' }]);
 
@@ -122,7 +125,7 @@ describe('search.service', () => {
       expect(result.tasks).toBeDefined();
       expect(result.projects).toBeDefined();
       expect(result.comments).toBeDefined();
-      expect(mockSearch).toHaveBeenCalledTimes(3);
+      expect(mockSearch).toHaveBeenCalledTimes(2);
     });
 
     it('should return empty results if user has no project access', async () => {
@@ -167,7 +170,7 @@ describe('search.service', () => {
 
       expect(mockSearch).toHaveBeenCalledWith('test', {
         filter: `projectId = "${validProjectId}"`,
-        limit: 20,
+        limit: 100,
       });
     });
 
@@ -228,13 +231,16 @@ describe('search.service', () => {
 
       await indexTask('t1');
 
-      expect(mockAddDocuments).toHaveBeenCalledWith([
-        expect.objectContaining({
-          id: 't1',
-          title: 'Fix bug',
-          labels: ['bug'],
-        }),
-      ]);
+      expect(mockAddDocuments).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            id: 't1',
+            title: 'Fix bug',
+            labels: ['bug'],
+          }),
+        ],
+        { primaryKey: 'id' },
+      );
     });
   });
 
@@ -253,9 +259,10 @@ describe('search.service', () => {
 
       await indexProject('p1');
 
-      expect(mockAddDocuments).toHaveBeenCalledWith([
-        expect.objectContaining({ id: 'p1', name: 'My Project' }),
-      ]);
+      expect(mockAddDocuments).toHaveBeenCalledWith(
+        [expect.objectContaining({ id: 'p1', name: 'My Project' })],
+        { primaryKey: 'id' },
+      );
     });
 
     it('should remove from index if project not found', async () => {
@@ -293,14 +300,17 @@ describe('search.service', () => {
 
       await indexComment('c1');
 
-      expect(mockAddDocuments).toHaveBeenCalledWith([
-        expect.objectContaining({
-          id: 'c1',
-          body: 'Hello',
-          taskId: 't1',
-          projectId: 'p1',
-        }),
-      ]);
+      expect(mockAddDocuments).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            id: 'c1',
+            body: 'Hello',
+            taskId: 't1',
+            projectId: 'p1',
+          }),
+        ],
+        { primaryKey: 'id' },
+      );
     });
 
     it('should remove from index if comment not found', async () => {

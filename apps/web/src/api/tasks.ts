@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { dependencyKeys } from '@/api/dependencies';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ export const taskKeys = {
     sort?: { field: SortField; order: SortOrder },
   ) => [...taskKeys.forProject(projectId), { filters, sort }] as const,
   detail: (id: string) => [...taskKeys.all, 'detail', id] as const,
+  subtasks: (taskId: string) => [...taskKeys.all, 'subtasks', taskId] as const,
 };
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
@@ -124,6 +126,14 @@ export function useTasks(
   });
 }
 
+export function useTask(taskId: string) {
+  return useQuery({
+    queryKey: taskKeys.detail(taskId),
+    queryFn: () => apiClient.get<ApiEnvelope<Task>>(`/tasks/${taskId}`).then((r) => r.data),
+    enabled: !!taskId,
+  });
+}
+
 /** For List view: cursor-based infinite scroll */
 export function useInfiniteTasks(
   projectId: string,
@@ -147,6 +157,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (data: {
       projectId: string;
+      parentTaskId?: string;
       title: string;
       statusId?: string;
       priority?: Priority;
@@ -154,14 +165,61 @@ export function useCreateTask() {
       dueDate?: string;
       labelIds?: string[];
     }) => {
-      const { projectId, ...body } = data;
+      const { projectId, parentTaskId, ...body } = data;
+      if (parentTaskId) {
+        return apiClient
+          .post<ApiEnvelope<Task>>(`/tasks/${parentTaskId}/subtasks`, body)
+          .then((r) => r.data);
+      }
       return apiClient
         .post<ApiEnvelope<Task>>(`/projects/${projectId}/tasks`, body)
         .then((r) => r.data);
     },
+    onSuccess: (task, variables) => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(task.projectId) });
+      if (variables.parentTaskId) {
+        void queryClient.invalidateQueries({ queryKey: taskKeys.subtasks(variables.parentTaskId) });
+        void queryClient.invalidateQueries({ queryKey: taskKeys.detail(variables.parentTaskId) });
+        void queryClient.invalidateQueries({
+          queryKey: dependencyKeys.byTask(variables.parentTaskId),
+        });
+      }
+    },
+  });
+}
+
+export function useCreateSubtask(parentTaskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      title: string;
+      statusId?: string;
+      priority?: Priority;
+      assigneeId?: string | null;
+      dueDate?: string | null;
+      startDate?: string | null;
+      estimatedHours?: number;
+      description?: string;
+      labelIds?: string[];
+    }) =>
+      apiClient
+        .post<ApiEnvelope<Task>>(`/tasks/${parentTaskId}/subtasks`, data)
+        .then((r) => r.data),
     onSuccess: (task) => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.subtasks(parentTaskId) });
+      void queryClient.invalidateQueries({ queryKey: taskKeys.detail(parentTaskId) });
+      void queryClient.invalidateQueries({ queryKey: dependencyKeys.byTask(parentTaskId) });
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(task.projectId) });
     },
+  });
+}
+
+export function useSubtasks(taskId: string) {
+  return useQuery({
+    queryKey: taskKeys.subtasks(taskId),
+    queryFn: () =>
+      apiClient.get<ApiEnvelope<Task[]>>(`/tasks/${taskId}/subtasks`).then((r) => r.data),
+    enabled: !!taskId,
   });
 }
 
@@ -173,9 +231,48 @@ export function useUpdateTask(taskId: string) {
         Pick<Task, 'title' | 'description' | 'statusId' | 'priority' | 'assigneeId' | 'dueDate'>
       > & { labelIds?: string[] },
     ) => apiClient.patch<ApiEnvelope<Task>>(`/tasks/${taskId}`, data).then((r) => r.data),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.detail(taskId) });
+      const previousTask = queryClient.getQueryData<Task>(taskKeys.detail(taskId));
+
+      if (previousTask) {
+        queryClient.setQueryData<Task>(taskKeys.detail(taskId), {
+          ...previousTask,
+          ...patch,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      return { previousTask };
+    },
+    onError: (_error, _patch, context) => {
+      if (context?.previousTask) {
+        queryClient.setQueryData(taskKeys.detail(taskId), context.previousTask);
+      }
+    },
     onSuccess: (task) => {
       queryClient.setQueryData(taskKeys.detail(taskId), task);
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(task.projectId) });
+    },
+  });
+}
+
+export function useWatchTask(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.post(`/tasks/${taskId}/watch`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+    },
+  });
+}
+
+export function useUnwatchTask(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.delete(`/tasks/${taskId}/watch`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
     },
   });
 }

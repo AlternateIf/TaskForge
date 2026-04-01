@@ -45,7 +45,7 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
   const { token } = useAuthStore.getState();
 
   const headers = new Headers(options.headers);
-  if (!(options.body instanceof FormData)) {
+  if (!(options.body instanceof FormData) && options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
   if (token) {
@@ -90,8 +90,27 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
     let message = res.statusText;
     let code: string | undefined;
     try {
-      const body = (await res.json()) as { message?: string; error?: string };
-      message = body.message ?? body.error ?? message;
+      const body = (await res.json()) as {
+        code?: string;
+        message?: string;
+        error?:
+          | string
+          | {
+              code?: string;
+              message?: string;
+            };
+      };
+      if (body.code) {
+        code = body.code;
+      }
+      if (typeof body.error === 'string') {
+        message = body.error;
+      } else if (body.error && typeof body.error === 'object') {
+        message = body.error.message ?? body.message ?? message;
+        code = body.error.code ?? code;
+      } else {
+        message = body.message ?? message;
+      }
     } catch {
       // non-JSON error body
     }
@@ -110,21 +129,21 @@ export const apiClient = {
   post: <T>(path: string, body?: unknown, options?: RequestInit) =>
     request<T>(path, {
       method: 'POST',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       ...options,
     }),
 
   patch: <T>(path: string, body?: unknown, options?: RequestInit) =>
     request<T>(path, {
       method: 'PATCH',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       ...options,
     }),
 
   put: <T>(path: string, body?: unknown, options?: RequestInit) =>
     request<T>(path, {
       method: 'PUT',
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
       ...options,
     }),
 

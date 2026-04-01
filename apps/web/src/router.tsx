@@ -13,6 +13,7 @@ import { ProjectIndexPage } from '@/routes/projects/[projectId]';
 import { ProjectBoardPage } from '@/routes/projects/[projectId]/board';
 import { ProjectListPage } from '@/routes/projects/[projectId]/list';
 import { ProjectSettingsPage } from '@/routes/projects/[projectId]/settings';
+import { ProjectTaskDetailPage } from '@/routes/projects/[projectId]/tasks/[taskId]';
 import { SettingsPage } from '@/routes/settings';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -73,6 +74,9 @@ const projectIndexRoute = createRoute({
 const projectBoardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/projects/$projectId/board',
+  validateSearch: (search: Record<string, unknown>) => ({
+    task: typeof search.task === 'string' ? search.task : undefined,
+  }),
   component: function ProjectBoardWrapper() {
     const { projectId } = useParams({ strict: false }) as { projectId: string };
     return <ProjectBoardPage projectId={projectId} />;
@@ -82,9 +86,24 @@ const projectBoardRoute = createRoute({
 const projectListRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/projects/$projectId/list',
+  validateSearch: (search: Record<string, unknown>) => ({
+    task: typeof search.task === 'string' ? search.task : undefined,
+  }),
   component: function ProjectListWrapper() {
     const { projectId } = useParams({ strict: false }) as { projectId: string };
     return <ProjectListPage projectId={projectId} />;
+  },
+});
+
+const projectTaskDetailRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects/$projectId/tasks/$taskId',
+  component: function ProjectTaskDetailWrapper() {
+    const { projectId, taskId } = useParams({ strict: false }) as {
+      projectId: string;
+      taskId: string;
+    };
+    return <ProjectTaskDetailPage projectId={projectId} taskId={taskId} />;
   },
 });
 
@@ -196,6 +215,7 @@ const routeTree = rootRoute.addChildren([
     projectIndexRoute,
     projectBoardRoute,
     projectListRoute,
+    projectTaskDetailRoute,
     projectSettingsRoute,
     settingsRoute,
   ]),

@@ -18,7 +18,7 @@ Full-text search powered by Meilisearch, advanced filtering across multiple para
 ### API Endpoints
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/search` | Global search across tasks, projects, comments |
+| GET | `/api/v1/search` | Global search across tasks and projects (comment search deferred to Phase 2) |
 | GET | `/api/v1/projects/:projectId/tasks` | Task list with filtering (already exists, add filter support) |
 | POST | `/api/v1/saved-filters` | Save a filter preset |
 | GET | `/api/v1/saved-filters` | List saved filter presets |
@@ -99,7 +99,7 @@ Response:
 - [x] Meilisearch indexes are created on application start
 - [x] Tasks, projects, and comments are indexed on create/update
 - [x] Deleted entities are removed from index
-- [x] Global search returns results across all types
+- [x] Global search returns results across task and project types (comment search deferred to Phase 2)
 - [x] Search results respect permission checks (user can only see searchable entities)
 - [x] Task list filtering works for all parameters (status, priority, assignee, labels, date range)
 - [x] Saved filter presets can be created, listed, updated, and deleted

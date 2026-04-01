@@ -120,7 +120,7 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEle
 DropdownMenuContent.displayName = 'DropdownMenuContent';
 
 const DropdownMenuItem = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
-  ({ className, ...props }, ref) => {
+  ({ className, onClick, ...props }, ref) => {
     const ctx = useContext(DropdownMenuContext);
 
     return (
@@ -132,7 +132,12 @@ const DropdownMenuItem = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTML
           'flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body text-foreground transition-colors hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none',
           className,
         )}
-        onClick={() => ctx?.onOpenChange(false)}
+        onClick={(event) => {
+          onClick?.(event);
+          if (!event.defaultPrevented) {
+            ctx?.onOpenChange(false);
+          }
+        }}
         {...props}
       />
     );

@@ -15,6 +15,7 @@ export function ProjectIndexPage({ projectId }: ProjectIndexProps) {
     void navigate({
       to: view === 'list' ? '/projects/$projectId/list' : '/projects/$projectId/board',
       params: { projectId },
+      search: { task: undefined },
       replace: true,
     });
   }, [projectId, navigate]);

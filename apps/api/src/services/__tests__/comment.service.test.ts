@@ -249,6 +249,28 @@ describe('comment.service', () => {
         }),
       );
     });
+
+    it('should still create the comment when activity logging fails', async () => {
+      let callCount = 0;
+      mockLimit.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return [{ id: uuid2 }]; // task exists
+        if (callCount === 2) return [{ orgId }]; // org ID
+        if (callCount === 3) return [{ displayName: 'Test User' }]; // author
+        return [];
+      });
+      mockValues.mockResolvedValue(undefined);
+      vi.mocked(activityService.log).mockRejectedValueOnce(new Error('activity failed'));
+
+      await expect(
+        createComment(uuid1, uuid2, { body: 'resilient comment' }),
+      ).resolves.toMatchObject({
+        entityType: 'task',
+        entityId: uuid2,
+        authorId: uuid1,
+        body: 'resilient comment',
+      });
+    });
   });
 
   describe('updateComment', () => {

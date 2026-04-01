@@ -1,6 +1,18 @@
 import { useLogout } from '@/api/auth';
+import { apiClient } from '@/api/client';
+import {
+  type NotificationItem,
+  useMarkNotificationRead,
+  useNotifications,
+  useUnreadNotificationCount,
+} from '@/api/notifications';
+import { useProject, useProjects } from '@/api/projects';
+import { searchGlobal } from '@/api/search';
+import { CreateProjectDialog } from '@/components/forms/create-project-dialog';
+import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { CommandPalette } from '@/components/shortcuts/command-palette';
 import type { RecentPage } from '@/components/shortcuts/command-palette';
+import type { SearchResults } from '@/components/shortcuts/command-palette';
 import { useTheme } from '@/components/theme-provider';
 import { Avatar } from '@/components/ui/avatar';
 import {
@@ -14,7 +26,27 @@ import {
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter } from '@tanstack/react-router';
 import { Bell, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
+interface ApiEnvelope<T> {
+  data: T;
+}
+
+function stripHtml(content: string): string {
+  return content
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatNotificationDate(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -33,10 +65,23 @@ export function Header({
 }: HeaderProps) {
   const { user } = useAuthStore();
   const logout = useLogout();
+  const { data: notifications = [] } = useNotifications(8);
+  const { data: unreadCount = 0 } = useUnreadNotificationCount();
+  const markNotificationRead = useMarkNotificationRead();
   const router = useRouter();
   const { resolvedTheme: theme, setTheme } = useTheme();
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createTaskProjectId, setCreateTaskProjectId] = useState<string | null>(null);
   const open = commandPaletteOpen;
   const onOpenChange = onCommandPaletteOpenChange;
+  const currentProjectId = useMemo(() => {
+    const match = router.state.location.pathname.match(/^\/projects\/([^/]+)/);
+    return match?.[1];
+  }, [router.state.location.pathname]);
+  const { data: projects = [] } = useProjects();
+  const resolvedCreateTaskProjectId =
+    createTaskProjectId ?? currentProjectId ?? projects[0]?.id ?? null;
+  const { data: createTaskProject } = useProject(resolvedCreateTaskProjectId ?? '');
 
   const handleNavigate = useCallback(
     (path: string) => {
@@ -56,6 +101,101 @@ export function Header({
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   }, [theme, setTheme]);
+
+  const handleSearch = useCallback(
+    async (query: string): Promise<SearchResults> => {
+      const results = await searchGlobal(query, currentProjectId);
+
+      const taskResults = results.tasks.hits.map((item) => ({
+        id: item.id,
+        title: item.title,
+        subtitle: item.projectName ?? item.statusName ?? undefined,
+        path: `/projects/${item.projectId}/tasks/${item.id}`,
+        type: 'task' as const,
+      }));
+
+      return {
+        tasks: taskResults.slice(0, 100),
+        projects: results.projects.hits.map((item) => ({
+          id: item.id,
+          title: item.name,
+          subtitle: item.description ?? undefined,
+          path: `/projects/${item.id}`,
+          type: 'project' as const,
+        })),
+        people: [],
+      };
+    },
+    [currentProjectId],
+  );
+
+  const handlePaletteAction = useCallback(
+    (actionId: string) => {
+      if (actionId === 'create-project') {
+        setCreateProjectOpen(true);
+        return;
+      }
+
+      if (actionId === 'create-task') {
+        const projectId = currentProjectId ?? projects[0]?.id;
+        if (!projectId) {
+          void router.navigate({ to: '/projects' });
+          return;
+        }
+        setCreateTaskProjectId(projectId);
+        return;
+      }
+
+      if (actionId === 'go-dashboard') {
+        void handleNavigate('/dashboard');
+        return;
+      }
+
+      if (actionId === 'go-settings') {
+        void handleNavigate('/settings');
+      }
+    },
+    [currentProjectId, handleNavigate, projects, router],
+  );
+
+  const handleNotificationClick = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.readAt) {
+        markNotificationRead.mutate(notification.id);
+      }
+
+      if (notification.entityType === 'task' && notification.entityId) {
+        try {
+          const task = await apiClient
+            .get<ApiEnvelope<{ projectId: string }>>(`/tasks/${notification.entityId}`)
+            .then((res) => res.data);
+
+          await router.navigate({
+            to: '/projects/$projectId/tasks/$taskId',
+            params: {
+              projectId: task.projectId,
+              taskId: notification.entityId,
+            },
+          });
+          return;
+        } catch {
+          await router.navigate({ to: '/dashboard' });
+          return;
+        }
+      }
+
+      if (notification.entityType === 'project' && notification.entityId) {
+        await router.navigate({
+          to: '/projects/$projectId',
+          params: { projectId: notification.entityId },
+        });
+        return;
+      }
+
+      await router.navigate({ to: '/dashboard' });
+    },
+    [markNotificationRead, router],
+  );
 
   return (
     <>
@@ -91,20 +231,55 @@ export function Header({
         {/* Right actions */}
         <div className="flex items-center gap-xs">
           {/* Notifications */}
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative flex items-center justify-center rounded-radius-md p-sm text-muted hover:bg-surface-container-low transition-colors"
-          >
-            <Bell className="size-6" />
-            {/* Badge — placeholder until notification API is wired */}
-            <span
-              className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white"
-              aria-label="3 unread notifications"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Notifications"
+              className="relative flex items-center justify-center rounded-radius-md p-sm text-muted transition-colors hover:bg-surface-container-low"
             >
-              3
-            </span>
-          </button>
+              <Bell className="size-6" />
+              {unreadCount > 0 ? (
+                <span
+                  className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-[3px] text-[9px] font-bold text-white"
+                  aria-label={`${unreadCount} unread notifications`}
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              ) : null}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80">
+              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {notifications.length === 0 ? (
+                <p className="px-sm py-md text-small text-muted">No notifications</p>
+              ) : (
+                notifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    onClick={() => void handleNotificationClick(notification)}
+                    className="flex-col items-start gap-1 py-sm"
+                  >
+                    <p
+                      className={
+                        notification.readAt
+                          ? 'line-clamp-1 text-small font-medium text-foreground'
+                          : 'line-clamp-1 text-small font-semibold text-foreground'
+                      }
+                    >
+                      {notification.title}
+                    </p>
+                    {notification.body ? (
+                      <p className="line-clamp-2 text-label text-secondary">
+                        {stripHtml(notification.body)}
+                      </p>
+                    ) : null}
+                    <p className="text-label text-muted">
+                      {formatNotificationDate(notification.createdAt)}
+                    </p>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* User menu */}
           <DropdownMenu>
@@ -144,12 +319,54 @@ export function Header({
       <CommandPalette
         open={open}
         onOpenChange={onOpenChange}
-        onNavigate={(path) => {
+        onSearch={handleSearch}
+        onAction={handlePaletteAction}
+        onNavigate={(path, title) => {
           handleNavigate(path);
-          addRecentPage({ path, title: path });
+          addRecentPage({ path, title: title?.trim() || path });
         }}
         recentPages={recentPages}
       />
+
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        onSuccess={(projectId) => {
+          setCreateProjectOpen(false);
+          const path = `/projects/${projectId}/board`;
+          addRecentPage({ path, title: 'New project' });
+          void router.navigate({
+            to: '/projects/$projectId/board',
+            params: { projectId },
+            search: { task: undefined },
+          });
+        }}
+      />
+
+      {resolvedCreateTaskProjectId ? (
+        <CreateTaskDialog
+          open={Boolean(createTaskProjectId)}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              setCreateTaskProjectId(null);
+            }
+          }}
+          projectId={resolvedCreateTaskProjectId}
+          statuses={createTaskProject?.statuses ?? []}
+          members={createTaskProject?.members ?? []}
+          labels={createTaskProject?.labels ?? []}
+          onSuccess={(taskId) => {
+            const targetProjectId = resolvedCreateTaskProjectId;
+            setCreateTaskProjectId(null);
+            const path = `/projects/${targetProjectId}/tasks/${taskId}`;
+            addRecentPage({ path, title: 'New task' });
+            void router.navigate({
+              to: '/projects/$projectId/tasks/$taskId',
+              params: { projectId: targetProjectId, taskId },
+            });
+          }}
+        />
+      ) : null}
     </>
   );
 }

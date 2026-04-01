@@ -19,10 +19,14 @@ interface CreateTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
+  parentTaskId?: string;
   defaultStatusId?: string;
   statuses: WorkflowStatus[];
   members: ProjectMember[];
   labels: Label[];
+  dialogTitle?: string;
+  dialogDescription?: string;
+  submitLabel?: string;
   onSuccess?: (taskId: string) => void;
 }
 
@@ -30,10 +34,14 @@ export function CreateTaskDialog({
   open,
   onOpenChange,
   projectId,
+  parentTaskId,
   defaultStatusId,
   statuses,
   members,
   labels,
+  dialogTitle = 'New Task',
+  dialogDescription,
+  submitLabel,
   onSuccess,
 }: CreateTaskDialogProps) {
   const firstStatusId = statuses[0]?.id ?? '';
@@ -61,6 +69,7 @@ export function CreateTaskDialog({
     createTask.mutate(
       {
         projectId,
+        parentTaskId,
         title: title.trim(),
         statusId: statusId || undefined,
         priority,
@@ -87,7 +96,10 @@ export function CreateTaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Task</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          {dialogDescription ? (
+            <p className="text-body text-secondary">{dialogDescription}</p>
+          ) : null}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-md">
           <div className="flex flex-col gap-xs">
@@ -207,7 +219,9 @@ export function CreateTaskDialog({
               variant="primary"
               disabled={!title.trim() || createTask.isPending}
             >
-              {createTask.isPending ? 'Creating…' : 'Create Task'}
+              {createTask.isPending
+                ? 'Creating…'
+                : (submitLabel ?? (parentTaskId ? 'Create Subtask' : 'Create Task'))}
             </Button>
           </DialogFooter>
         </form>

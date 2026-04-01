@@ -67,6 +67,20 @@ interface ToolbarProps {
 
 export function Toolbar({ editor, mode, onImageUpload }: ToolbarProps) {
   const [showMore, setShowMore] = useState(false);
+  const inlineCodeActive = editor.isActive('code');
+
+  function handleInlineCodeToggle() {
+    if (editor.state.selection.empty) {
+      if (inlineCodeActive) {
+        editor.chain().focus().unsetCode().run();
+      } else {
+        editor.chain().focus().setCode().run();
+      }
+      return;
+    }
+
+    editor.chain().focus().toggleCode().run();
+  }
 
   return (
     <div
@@ -119,9 +133,9 @@ export function Toolbar({ editor, mode, onImageUpload }: ToolbarProps) {
 
       {/* Code */}
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleCode().run()}
-        active={editor.isActive('code')}
-        aria-label="Inline code"
+        onClick={handleInlineCodeToggle}
+        active={inlineCodeActive}
+        aria-label="Inline code toggle"
       >
         <Code className="size-4" strokeWidth={2} />
       </ToolbarButton>

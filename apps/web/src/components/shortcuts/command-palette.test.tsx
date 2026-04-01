@@ -44,10 +44,17 @@ const MOCK_SEARCH_RESULTS: SearchResults = {
 function renderPalette(props: Partial<React.ComponentProps<typeof CommandPalette>> = {}) {
   const onOpenChange = vi.fn();
   const onNavigate = vi.fn();
+  const onAction = vi.fn();
   render(
-    <CommandPalette open={true} onOpenChange={onOpenChange} onNavigate={onNavigate} {...props} />,
+    <CommandPalette
+      open={true}
+      onOpenChange={onOpenChange}
+      onNavigate={onNavigate}
+      onAction={onAction}
+      {...props}
+    />,
   );
-  return { onOpenChange, onNavigate };
+  return { onOpenChange, onNavigate, onAction };
 }
 
 // ─── Rendering ────────────────────────────────────────────────────────────────
@@ -86,10 +93,9 @@ describe('CommandPalette rendering', () => {
     expect(screen.queryByText('Recent')).not.toBeInTheDocument();
   });
 
-  it('shows keyboard hint for actions that have one', () => {
+  it('does not show an unbound keyboard hint for create task', () => {
     renderPalette();
-    // "Create task" has hint "N"
-    expect(screen.getByText('N')).toBeInTheDocument();
+    expect(screen.queryByText('N')).not.toBeInTheDocument();
   });
 });
 
@@ -199,20 +205,20 @@ describe('CommandPalette close behavior', () => {
 describe('CommandPalette action execution', () => {
   it('clicking an action calls onNavigate with the action path and closes the palette', async () => {
     const user = userEvent.setup();
-    const { onNavigate, onOpenChange } = renderPalette();
+    const { onAction, onOpenChange } = renderPalette();
     await user.click(screen.getByText('Create task'));
-    expect(onNavigate).toHaveBeenCalledWith('/tasks/new');
+    expect(onAction).toHaveBeenCalledWith('create-task', 'Create task');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('pressing Enter on the active action executes it', async () => {
     const user = userEvent.setup();
     // Default: first item is "Create task" (no recent pages)
-    const { onNavigate, onOpenChange } = renderPalette();
+    const { onAction, onOpenChange } = renderPalette();
     const input = screen.getByRole('combobox');
     await user.click(input);
     await user.keyboard('{Enter}');
-    expect(onNavigate).toHaveBeenCalledWith('/tasks/new');
+    expect(onAction).toHaveBeenCalledWith('create-task', 'Create task');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -223,7 +229,7 @@ describe('CommandPalette action execution', () => {
     await user.click(input);
     // First item is the first recent page
     await user.keyboard('{Enter}');
-    expect(onNavigate).toHaveBeenCalledWith('/projects/alpha');
+    expect(onNavigate).toHaveBeenCalledWith('/projects/alpha', 'Project Alpha');
   });
 
   it('ArrowDown then Enter executes the second item', async () => {
@@ -233,14 +239,14 @@ describe('CommandPalette action execution', () => {
     await user.click(input);
     await user.keyboard('{ArrowDown}');
     await user.keyboard('{Enter}');
-    expect(onNavigate).toHaveBeenCalledWith('/tasks/42');
+    expect(onNavigate).toHaveBeenCalledWith('/tasks/42', 'Fix login bug');
   });
 
   it('clicking a recent page navigates to its path', async () => {
     const user = userEvent.setup();
     const { onNavigate } = renderPalette({ recentPages: RECENT_PAGES });
     await user.click(screen.getByText('Project Alpha'));
-    expect(onNavigate).toHaveBeenCalledWith('/projects/alpha');
+    expect(onNavigate).toHaveBeenCalledWith('/projects/alpha', 'Project Alpha');
   });
 });
 
@@ -387,7 +393,7 @@ describe('CommandPalette search results', () => {
     act(() => {
       fireEvent.click(screen.getByText('Update API docs'));
     });
-    expect(onNavigate).toHaveBeenCalledWith('/tasks/t1');
+    expect(onNavigate).toHaveBeenCalledWith('/tasks/t1', 'Update API docs');
   });
 });
 
