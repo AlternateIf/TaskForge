@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { JwtPayload } from '../../services/auth.service.js';
 import { createSession } from '../../services/auth.service.js';
 import * as mfaService from '../../services/mfa.service.js';
-import { toUserOutput } from '../../services/user.service.js';
+import { getUserOrg, toUserOutput } from '../../services/user.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
 
@@ -61,10 +61,11 @@ export async function mfaVerifyLoginHandler(
   const tokens = await createSession(user, jwtSign, request.ip, request.headers['user-agent']);
 
   setRefreshCookie(reply, tokens.refreshTokenRaw);
+  const org = await getUserOrg(user.id);
 
   return reply.status(200).send(
     success({
-      user: toUserOutput(user),
+      user: toUserOutput(user, org),
       accessToken: tokens.accessToken,
     }),
   );

@@ -52,8 +52,22 @@ export async function getProjectHandler(
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const project = await projectService.getProject(request.params.id);
-  return reply.status(200).send(success(project));
+  const id = request.params.id;
+  const [project, workflows, members, labels] = await Promise.all([
+    projectService.getProject(id),
+    projectService.getProjectWorkflows(id),
+    projectService.listProjectMembers(id),
+    projectService.listLabels(id),
+  ]);
+  const defaultWorkflow = workflows.find((w) => w.isDefault) ?? workflows[0];
+  return reply.status(200).send(
+    success({
+      ...project,
+      statuses: defaultWorkflow?.statuses ?? [],
+      members,
+      labels,
+    }),
+  );
 }
 
 export async function updateProjectHandler(
@@ -173,6 +187,59 @@ export async function updateWorkflowStatusHandler(
   requireAuth(request);
   const status = await projectService.updateWorkflowStatus(request.params.statusId, request.body);
   return reply.status(200).send(success(status));
+}
+
+export async function updateWorkflowHandler(
+  request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      statuses: Array<{
+        id: string;
+        name: string;
+        color?: string | null;
+        position: number;
+        isInitial?: boolean;
+        isFinal?: boolean;
+      }>;
+    };
+  }>,
+  reply: FastifyReply,
+) {
+  requireAuth(request);
+  const id = request.params.id;
+  await projectService.bulkUpsertWorkflowStatuses(id, request.body.statuses ?? []);
+  const [project, workflows, members, labels] = await Promise.all([
+    projectService.getProject(id),
+    projectService.getProjectWorkflows(id),
+    projectService.listProjectMembers(id),
+    projectService.listLabels(id),
+  ]);
+  const defaultWorkflow = workflows.find((w) => w.isDefault) ?? workflows[0];
+  return reply
+    .status(200)
+    .send(success({ ...project, statuses: defaultWorkflow?.statuses ?? [], members, labels }));
+}
+
+export async function updateLabelsHandler(
+  request: FastifyRequest<{
+    Params: { id: string };
+    Body: { labels: Array<{ id: string; name: string; color?: string | null }> };
+  }>,
+  reply: FastifyReply,
+) {
+  requireAuth(request);
+  const id = request.params.id;
+  await projectService.bulkUpsertLabels(id, request.body.labels ?? []);
+  const [project, workflows, members, labels] = await Promise.all([
+    projectService.getProject(id),
+    projectService.getProjectWorkflows(id),
+    projectService.listProjectMembers(id),
+    projectService.listLabels(id),
+  ]);
+  const defaultWorkflow = workflows.find((w) => w.isDefault) ?? workflows[0];
+  return reply
+    .status(200)
+    .send(success({ ...project, statuses: defaultWorkflow?.statuses ?? [], members, labels }));
 }
 
 export async function deleteWorkflowStatusHandler(

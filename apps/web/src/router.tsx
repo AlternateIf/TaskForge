@@ -8,6 +8,12 @@ import { ResetPasswordPage } from '@/routes/auth/reset-password';
 import { DashboardPage } from '@/routes/dashboard';
 import { PrivacyPage } from '@/routes/legal/privacy';
 import { TermsPage } from '@/routes/legal/terms';
+import { ProjectsPage } from '@/routes/projects';
+import { ProjectIndexPage } from '@/routes/projects/[projectId]';
+import { ProjectBoardPage } from '@/routes/projects/[projectId]/board';
+import { ProjectListPage } from '@/routes/projects/[projectId]/list';
+import { ProjectSettingsPage } from '@/routes/projects/[projectId]/settings';
+import { SettingsPage } from '@/routes/settings';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   Outlet,
@@ -15,6 +21,7 @@ import {
   createRoute,
   createRouter,
   redirect,
+  useParams,
 } from '@tanstack/react-router';
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -44,6 +51,58 @@ const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/dashboard',
   component: DashboardPage,
+});
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+
+const projectsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects',
+  component: ProjectsPage,
+});
+
+const projectIndexRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects/$projectId',
+  component: function ProjectIndexWrapper() {
+    const { projectId } = useParams({ strict: false }) as { projectId: string };
+    return <ProjectIndexPage projectId={projectId} />;
+  },
+});
+
+const projectBoardRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects/$projectId/board',
+  component: function ProjectBoardWrapper() {
+    const { projectId } = useParams({ strict: false }) as { projectId: string };
+    return <ProjectBoardPage projectId={projectId} />;
+  },
+});
+
+const projectListRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects/$projectId/list',
+  component: function ProjectListWrapper() {
+    const { projectId } = useParams({ strict: false }) as { projectId: string };
+    return <ProjectListPage projectId={projectId} />;
+  },
+});
+
+const projectSettingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/projects/$projectId/settings',
+  component: function ProjectSettingsWrapper() {
+    const { projectId } = useParams({ strict: false }) as { projectId: string };
+    return <ProjectSettingsPage projectId={projectId} />;
+  },
+});
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+const settingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/settings',
+  component: SettingsPage,
 });
 
 // ─── Index redirect ───────────────────────────────────────────────────────────
@@ -131,7 +190,15 @@ const privacyRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  authenticatedRoute.addChildren([dashboardRoute]),
+  authenticatedRoute.addChildren([
+    dashboardRoute,
+    projectsRoute,
+    projectIndexRoute,
+    projectBoardRoute,
+    projectListRoute,
+    projectSettingsRoute,
+    settingsRoute,
+  ]),
   loginRoute,
   registerRoute,
   mfaRoute,

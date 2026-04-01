@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uid } from './uuid.js';
 
 export const TASK_PRIORITIES = ['none', 'low', 'medium', 'high', 'critical'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
@@ -6,39 +7,39 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 export const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   description: z.string().max(50000).optional(),
-  statusId: z.string().uuid('Invalid status ID').optional(),
+  statusId: uid('Invalid status ID').optional(),
   priority: z.enum(TASK_PRIORITIES).optional(),
-  assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+  assigneeId: uid('Invalid assignee ID').nullable().optional(),
   dueDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   startDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   estimatedHours: z.number().min(0).max(99999).optional(),
-  parentTaskId: z.string().uuid('Invalid parent task ID').optional(),
-  labelIds: z.array(z.string().uuid('Invalid label ID')).optional(),
+  parentTaskId: uid('Invalid parent task ID').optional(),
+  labelIds: z.array(uid('Invalid label ID')).optional(),
 });
 
 export const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().max(50000).nullable().optional(),
-  statusId: z.string().uuid('Invalid status ID').optional(),
+  statusId: uid('Invalid status ID').optional(),
   priority: z.enum(TASK_PRIORITIES).optional(),
-  assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+  assigneeId: uid('Invalid assignee ID').nullable().optional(),
   dueDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   startDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   estimatedHours: z.number().min(0).max(99999).nullable().optional(),
-  parentTaskId: z.string().uuid('Invalid parent task ID').nullable().optional(),
+  parentTaskId: uid('Invalid parent task ID').nullable().optional(),
 });
 
 export const assignTaskSchema = z.object({
-  assigneeId: z.string().uuid('Invalid assignee ID').nullable(),
+  assigneeId: uid('Invalid assignee ID').nullable(),
 });
 
 export const updateTaskPositionSchema = z.object({
   position: z.number().int().min(0),
-  statusId: z.string().uuid('Invalid status ID').optional(),
+  statusId: uid('Invalid status ID').optional(),
 });
 
 export const addTaskLabelSchema = z.object({
-  labelId: z.string().uuid('Invalid label ID'),
+  labelId: uid('Invalid label ID'),
 });
 
 // --- Subtask ---
@@ -46,13 +47,13 @@ export const addTaskLabelSchema = z.object({
 export const createSubtaskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   description: z.string().max(50000).optional(),
-  statusId: z.string().uuid('Invalid status ID').optional(),
+  statusId: uid('Invalid status ID').optional(),
   priority: z.enum(TASK_PRIORITIES).optional(),
-  assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+  assigneeId: uid('Invalid assignee ID').nullable().optional(),
   dueDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   startDate: z.string().datetime({ message: 'Invalid date format' }).nullable().optional(),
   estimatedHours: z.number().min(0).max(99999).optional(),
-  labelIds: z.array(z.string().uuid('Invalid label ID')).optional(),
+  labelIds: z.array(uid('Invalid label ID')).optional(),
 });
 
 // --- Checklists ---
@@ -82,7 +83,7 @@ export const DEPENDENCY_TYPES = ['blocked_by'] as const;
 export type DependencyType = (typeof DEPENDENCY_TYPES)[number];
 
 export const createDependencySchema = z.object({
-  dependsOnTaskId: z.string().uuid('Invalid task ID'),
+  dependsOnTaskId: uid('Invalid task ID'),
   type: z.enum(DEPENDENCY_TYPES),
 });
 
@@ -103,16 +104,16 @@ export type BulkAction = (typeof BULK_ACTIONS)[number];
 export const bulkActionSchema = z.object({
   action: z.enum(BULK_ACTIONS),
   ids: z
-    .array(z.string().uuid('Invalid task ID'))
+    .array(uid('Invalid task ID'))
     .min(1, 'At least one task ID required')
     .max(100, 'Maximum 100 tasks per bulk request'),
   data: z
     .object({
-      statusId: z.string().uuid('Invalid status ID').optional(),
-      assigneeId: z.string().uuid('Invalid assignee ID').nullable().optional(),
+      statusId: uid('Invalid status ID').optional(),
+      assigneeId: uid('Invalid assignee ID').nullable().optional(),
       priority: z.enum(TASK_PRIORITIES).optional(),
-      labelId: z.string().uuid('Invalid label ID').optional(),
-      projectId: z.string().uuid('Invalid project ID').optional(),
+      labelId: uid('Invalid label ID').optional(),
+      projectId: uid('Invalid project ID').optional(),
     })
     .optional(),
 });

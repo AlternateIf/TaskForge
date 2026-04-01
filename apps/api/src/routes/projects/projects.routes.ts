@@ -37,10 +37,31 @@ import {
   listProjectsHandler,
   removeProjectMemberHandler,
   updateLabelHandler,
+  updateLabelsHandler,
   updateProjectHandler,
   updateProjectMemberHandler,
+  updateWorkflowHandler,
   updateWorkflowStatusHandler,
 } from './projects.handlers.js';
+
+type UpdateWorkflowInput = {
+  statuses: Array<{
+    id: string;
+    name: string;
+    color?: string | null;
+    position: number;
+    isInitial?: boolean;
+    isFinal?: boolean;
+  }>;
+};
+
+type UpdateLabelsInput = {
+  labels: Array<{
+    id: string;
+    name: string;
+    color?: string | null;
+  }>;
+};
 
 export async function projectRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
@@ -261,6 +282,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
     deleteWorkflowStatusHandler,
   );
 
+  fastify.patch<{ Params: { id: string }; Body: UpdateWorkflowInput }>(
+    '/api/v1/projects/:id/workflow',
+    {
+      preHandler: authorize({
+        resource: 'project',
+        action: 'update',
+        getProjectId: (req) => (req.params as { id: string }).id,
+      }),
+    },
+    updateWorkflowHandler,
+  );
+
   // --- Labels ---
 
   fastify.get<{ Params: { id: string } }>(
@@ -319,5 +352,17 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }),
     },
     deleteLabelHandler,
+  );
+
+  fastify.patch<{ Params: { id: string }; Body: UpdateLabelsInput }>(
+    '/api/v1/projects/:id/labels',
+    {
+      preHandler: authorize({
+        resource: 'project',
+        action: 'update',
+        getProjectId: (req) => (req.params as { id: string }).id,
+      }),
+    },
+    updateLabelsHandler,
   );
 }

@@ -47,8 +47,10 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~App shell & auth pages (TanStack Router, sidebar, header, login/register/MFA/forgot/reset)~~ ✅
 
 ### Views
-- Kanban board (columns by status)
-- List view (sortable, filterable table)
+- ~~Project list page (grid, search, create dialog)~~ ✅
+- ~~Kanban board (columns by status, drag-and-drop, quick-add)~~ ✅
+- ~~List view (sortable, filterable table, cursor pagination, bulk actions)~~ ✅
+- ~~Project settings (workflow, labels, members)~~ ✅
 
 ### Comments & Activity
 - ~~Threaded comments with @mentions~~ ✅

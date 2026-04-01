@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uid } from './uuid.js';
 
 export const createOrganizationSchema = z.object({
   name: z
@@ -15,11 +16,11 @@ export const updateOrganizationSchema = z.object({
 
 export const addMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
-  roleId: z.string().uuid('Invalid role ID'),
+  roleId: uid('Invalid role ID'),
 });
 
 export const updateMemberRoleSchema = z.object({
-  roleId: z.string().uuid('Invalid role ID'),
+  roleId: uid('Invalid role ID'),
 });
 
 export const organizationOutputSchema = z.object({

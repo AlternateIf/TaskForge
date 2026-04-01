@@ -49,13 +49,15 @@ interface PriorityBadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const PriorityBadge = forwardRef<HTMLSpanElement, PriorityBadgeProps>(
   ({ priority, showLabel = true, showDot = false, className, ...props }, ref) => {
     const config = priorityConfig[priority];
+    const dotOnly = showDot && !showLabel;
 
     return (
       <span
         ref={ref}
         className={cn(
-          'inline-flex items-center gap-1 rounded-radius-sm px-sm py-0.5 text-label font-medium',
-          config.bgClass,
+          'inline-flex items-center gap-1 text-label font-medium',
+          !dotOnly && 'rounded-radius-sm px-sm py-0.5',
+          !dotOnly && config.bgClass,
           className,
         )}
         {...props}

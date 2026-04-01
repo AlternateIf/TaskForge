@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uid } from './uuid.js';
 
 export const passwordSchema = z
   .string()
@@ -16,7 +17,7 @@ export const registerInputSchema = z.object({
 export const loginInputSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
-  organizationId: z.string().uuid().optional(),
+  organizationId: uid().optional(),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -49,6 +50,8 @@ export const userOutputSchema = z.object({
   avatarUrl: z.string().nullable(),
   emailVerifiedAt: z.string().nullable(),
   createdAt: z.string(),
+  organizationId: z.string().optional(),
+  organizationName: z.string().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerInputSchema>;

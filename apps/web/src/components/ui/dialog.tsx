@@ -5,7 +5,6 @@ import {
   type ReactNode,
   createContext,
   forwardRef,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -65,27 +64,33 @@ const DialogContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>
     if (!ctx) throw new Error('DialogContent must be used within Dialog');
     const contentRef = useRef<HTMLDivElement>(null);
 
-    const handleKeyDown = useCallback(
-      (e: KeyboardEvent) => {
-        if (e.key === 'Escape') ctx.onOpenChange(false);
-      },
-      [ctx],
-    );
-
+    // Keep a stable ref to onOpenChange so the keydown effect never needs to re-run
+    const onOpenChangeRef = useRef(ctx.onOpenChange);
     useEffect(() => {
-      if (ctx.open) {
-        document.addEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = 'hidden';
-        const firstFocusable = contentRef.current?.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        firstFocusable?.focus();
-      }
+      onOpenChangeRef.current = ctx.onOpenChange;
+    });
+
+    // Focus the first focusable element only on mount (component is only mounted when open)
+    useEffect(() => {
+      document.body.style.overflow = 'hidden';
+      const firstFocusable = contentRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      firstFocusable?.focus();
       return () => {
-        document.removeEventListener('keydown', handleKeyDown);
         document.body.style.overflow = '';
       };
-    }, [ctx.open, handleKeyDown]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Escape key listener — stable, never re-runs
+    useEffect(() => {
+      function handleKeyDown(e: KeyboardEvent) {
+        if (e.key === 'Escape') onOpenChangeRef.current(false);
+      }
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     if (!ctx.open) return null;
 

@@ -1,5 +1,4 @@
 import crypto from 'node:crypto';
-import { sql } from 'drizzle-orm';
 import { db, pool } from '../client.js';
 import * as schema from '../schema/index.js';
 import { createOrganization } from './factories/organization.factory.js';
@@ -10,7 +9,7 @@ import { createUser } from './factories/user.factory.js';
 async function waitForDb(retries = 10, delay = 2000) {
   for (let i = 0; i < retries; i++) {
     try {
-      await db.execute(sql`SELECT 1`);
+      await pool.query('SELECT 1');
       console.log('Database connected');
       return;
     } catch {
@@ -114,13 +113,17 @@ async function seed() {
   console.log('  Added 3 org members');
 
   // 5. Create project
-  const project = createProject({
-    id: '00000000-0000-0000-0000-000000000030',
-    organizationId: org.id,
-    name: 'Product Launch',
-    slug: 'product-launch',
-    createdBy: pmUser.id,
-  });
+  const project = {
+    ...createProject({
+      id: '00000000-0000-0000-0000-000000000030',
+      organizationId: org.id,
+      name: 'Product Launch',
+      slug: 'product-launch',
+      createdBy: pmUser.id,
+    }),
+    description:
+      'Plan and execute the Q3 product launch including marketing, engineering, and go-to-market activities.',
+  };
   await db.insert(schema.projects).values(project);
   console.log('  Created project');
 

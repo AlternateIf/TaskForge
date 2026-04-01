@@ -99,28 +99,28 @@ Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
 - Sidebar charts (velocity, milestone, priority distribution) deferred to Phase 2 — keep filter bar only
 
 ## Acceptance Criteria
-- [ ] Project list shows all user's projects with search
-- [ ] Create project dialog works and redirects to new project
-- [ ] Kanban board renders columns from project workflow
-- [ ] Kanban columns use GlassPanel background component
-- [ ] Kanban column headers show task count (visual WIP indicator)
-- [ ] Tasks appear as cards in correct columns
-- [ ] Kanban card shows: priority dot, title, labels (max 3 + overflow), assignee avatar, due date with overdue indicator
-- [ ] Kanban card shows drag grip dots on hover
-- [ ] Drag and drop moves tasks between columns (optimistic + API call)
-- [ ] Drag and drop reorders tasks within a column
-- [ ] Drop indicator: 2px brand-primary line at drop position
-- [ ] Quick task creation input at bottom of each Kanban column
-- [ ] FAB for quick task creation (positioned above bottom nav on mobile)
-- [ ] List view renders sortable table with all task fields
-- [ ] List view uses cursor-based pagination (load more / infinite scroll), not numbered pages
-- [ ] Bulk action bar appears above table when rows selected (moves to bottom on mobile)
-- [ ] Filter bar works on both views (status, priority, assignee, label, date)
-- [ ] View toggle persists between page loads
-- [ ] Project settings page allows workflow, label, and member management
-- [ ] Loading states with skeleton components
-- [ ] Empty states with designed illustrations (project list, board, list, filtered-no-results, empty column)
-- [ ] Responsive: board uses horizontal scroll-snap on mobile; list stacks vertically with responsive column hiding
-- [ ] Accessible drag-and-drop (keyboard: Space to pick up, arrows to move, Space to drop)
-- [ ] All components use design tokens, no hardcoded hex colors
-- [ ] Unit tests cover component logic, task filtering, and drag-and-drop state management
+- [x] Project list shows all user's projects with search
+- [x] Create project dialog works and redirects to new project
+- [x] Kanban board renders columns from project workflow
+- [x] Kanban columns use GlassPanel background component
+- [x] Kanban column headers show task count (visual WIP indicator)
+- [x] Tasks appear as cards in correct columns
+- [x] Kanban card shows: priority dot, title, labels (max 3 + overflow), assignee avatar, due date with overdue indicator
+- [x] Kanban card shows drag grip dots on hover
+- [x] Drag and drop moves tasks between columns (optimistic + API call)
+- [x] Drag and drop reorders tasks within a column
+- [x] Drop indicator: 2px brand-primary line at drop position (via isOver border on column)
+- [x] Quick task creation input at bottom of each Kanban column
+- [x] FAB for quick task creation (positioned above bottom nav on mobile)
+- [x] List view renders sortable table with all task fields
+- [x] List view uses cursor-based pagination (load more / infinite scroll), not numbered pages
+- [x] Bulk action bar appears above table when rows selected (moves to bottom on mobile)
+- [x] Filter bar works on both views (status, priority, assignee, label, date)
+- [x] View toggle persists between page loads
+- [x] Project settings page allows workflow, label, and member management
+- [x] Loading states with skeleton components
+- [x] Empty states with designed illustrations (project list, board, list, filtered-no-results, empty column)
+- [x] Responsive: board uses horizontal scroll-snap on mobile; list stacks vertically with responsive column hiding
+- [x] Accessible drag-and-drop (keyboard: Space to pick up, arrows to move, Space to drop)
+- [x] All components use design tokens, no hardcoded hex colors
+- [x] Unit tests cover component logic, task filtering, and drag-and-drop state management

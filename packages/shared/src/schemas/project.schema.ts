@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uid } from './uuid.js';
 
 export const createProjectSchema = z.object({
   name: z.string().min(2, 'Project name must be at least 2 characters').max(255),
@@ -22,12 +23,12 @@ export const updateProjectSchema = z.object({
 });
 
 export const addProjectMemberSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
-  roleId: z.string().uuid('Invalid role ID').nullable().optional(),
+  userId: uid('Invalid user ID'),
+  roleId: uid('Invalid role ID').nullable().optional(),
 });
 
 export const updateProjectMemberSchema = z.object({
-  roleId: z.string().uuid('Invalid role ID').nullable(),
+  roleId: uid('Invalid role ID').nullable(),
 });
 
 export const createWorkflowStatusSchema = z.object({

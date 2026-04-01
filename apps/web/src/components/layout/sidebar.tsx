@@ -1,18 +1,19 @@
 import { useLogout } from '@/api/auth';
-import { Avatar } from '@/components/ui/avatar';
+import { useProject } from '@/api/projects';
+import { CreateProjectDialog } from '@/components/forms/create-project-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
-import { useRouter } from '@tanstack/react-router';
+import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  Keyboard,
   LayoutDashboard,
   LogOut,
   Plus,
-  Settings,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,6 +21,33 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const COLLAPSED_KEY = 'tf:sidebar-collapsed';
+const RECENT_PROJECTS_KEY = 'tf:recent-projects';
+
+// ─── Recent projects helpers ──────────────────────────────────────────────────
+
+interface RecentProject {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
+function getRecentProjects(): RecentProject[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+function recordRecentProject(project: RecentProject) {
+  try {
+    const existing = getRecentProjects();
+    const updated = [project, ...existing.filter((p) => p.id !== project.id)].slice(0, 3);
+    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
+  } catch {
+    // ignore
+  }
+}
 
 interface NavItem {
   label: string;
@@ -28,10 +56,24 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', Icon: LayoutDashboard },
+  { label: 'Personal Dashboard', path: '/dashboard', Icon: LayoutDashboard },
   { label: 'Projects', path: '/projects', Icon: FolderOpen },
-  { label: 'Settings', path: '/settings', Icon: Settings },
 ];
+
+// ─── TF Logo ──────────────────────────────────────────────────────────────────
+
+function TFLogo({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-radius-lg bg-white shadow-1 dark:bg-brand-primary',
+        className,
+      )}
+    >
+      <span className="text-sm font-bold text-brand-primary dark:text-white">TF</span>
+    </div>
+  );
+}
 
 // ─── SidebarNavItem ───────────────────────────────────────────────────────────
 
@@ -54,7 +96,7 @@ function SidebarNavItem({ item, collapsed, active, onClick }: SidebarNavItemProp
       className={cn(
         'flex w-full items-center gap-sm rounded-radius-lg px-sm py-sm text-body transition-all duration-normal',
         active
-          ? 'bg-surface-container-lowest text-brand-primary shadow-1'
+          ? 'bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-brand-primary font-medium'
           : 'text-foreground hover:bg-surface-container-lowest/50',
         collapsed && 'justify-center px-0',
       )}
@@ -83,9 +125,10 @@ function SidebarNavItem({ item, collapsed, active, onClick }: SidebarNavItemProp
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
-export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalette }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === 'true';
@@ -93,11 +136,27 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       return false;
     }
   });
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(getRecentProjects);
 
   const { user } = useAuthStore();
   const logout = useLogout();
   const router = useRouter();
-  const currentPath = router.state.location.pathname;
+  // useRouterState is reactive — re-renders on navigation (fixes highlight bug)
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
+
+  // Track recently visited projects
+  const currentProjectId = currentPath.match(/^\/projects\/([^/]+)/)?.[1];
+  const { data: currentProject } = useProject(currentProjectId ?? '');
+  useEffect(() => {
+    if (!currentProject) return;
+    recordRecentProject({
+      id: currentProject.id,
+      name: currentProject.name,
+      color: currentProject.color,
+    });
+    setRecentProjects(getRecentProjects());
+  }, [currentProject]);
 
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -146,21 +205,29 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         collapsed ? 'w-16' : 'w-60',
       )}
     >
-      {/* Logo + collapse toggle */}
+      {/* Logo header + collapse toggle */}
       <div
         className={cn(
-          'flex h-14 shrink-0 items-center border-b border-border/30 px-md',
+          'flex h-16 shrink-0 items-center border-b border-border/30 px-md',
           collapsed ? 'justify-center' : 'justify-between',
         )}
       >
         {!collapsed && (
-          <span className="text-heading-3 font-bold text-brand-primary">TaskForge</span>
+          <>
+            <TFLogo className="size-7 shrink-0" />
+            <span className="truncate text-body font-semibold text-foreground">
+              {user?.organizationName ?? 'TaskForge'}
+            </span>
+          </>
         )}
         {/* Mobile close */}
         <button
           type="button"
           onClick={onMobileClose}
-          className="flex items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:hidden"
+          className={cn(
+            'flex items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:hidden',
+            collapsed && 'hidden',
+          )}
           aria-label="Close sidebar"
         >
           <X className="size-5" />
@@ -169,7 +236,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="hidden items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:flex"
+          className={cn(
+            'hidden items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:flex',
+            collapsed && 'mt-0',
+          )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
@@ -183,9 +253,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             <TooltipTrigger>
               <button
                 type="button"
-                onClick={() => handleNavigate('/projects/new')}
+                onClick={() => setCreateProjectOpen(true)}
                 aria-label="New project"
-                className="flex w-full items-center justify-center rounded-radius-lg p-sm text-white bg-gradient-to-br from-brand-primary to-brand-primary-container shadow-1 hover:shadow-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-normal"
+                className="flex w-full items-center justify-center rounded-radius-lg p-sm text-white bg-linear-to-br from-brand-primary to-brand-primary-container shadow-1 hover:shadow-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-normal"
               >
                 <Plus className="size-4" />
               </button>
@@ -198,8 +268,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <Button
             variant="primary"
             size="sm"
-            className="w-full"
-            onClick={() => handleNavigate('/projects/new')}
+            className="w-full text-white"
+            onClick={() => setCreateProjectOpen(true)}
           >
             <Plus className="size-4" />
             New project
@@ -218,50 +288,66 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                 active={currentPath === item.path || currentPath.startsWith(`${item.path}/`)}
                 onClick={() => handleNavigate(item.path)}
               />
+              {/* Recent projects — shown indented under "Projects" */}
+              {item.path === '/projects' && recentProjects.length > 0 && (
+                <ul
+                  className={cn('mt-xs flex flex-col gap-xs', collapsed ? 'items-center' : 'pl-md')}
+                >
+                  {recentProjects.map((p) => {
+                    const isActive = currentPath.startsWith(`/projects/${p.id}`);
+                    const button = (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleNavigate(`/projects/${p.id}/board`)}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={cn(
+                          'flex w-full items-center gap-xs rounded-radius-md px-sm py-xs text-body transition-colors',
+                          isActive
+                            ? 'bg-brand-primary/10 text-brand-primary font-medium dark:bg-brand-primary/20'
+                            : 'text-secondary hover:bg-surface-container-lowest/50 hover:text-foreground',
+                          collapsed && 'justify-center px-0',
+                        )}
+                      >
+                        <span
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: p.color ?? '#6B7280' }}
+                          aria-hidden
+                        />
+                        {!collapsed && <span className="truncate text-label">{p.name}</span>}
+                      </button>
+                    );
+                    if (collapsed) {
+                      return (
+                        <li key={p.id}>
+                          <Tooltip>
+                            <TooltipTrigger>{button}</TooltipTrigger>
+                            <TooltipContent className="left-full ml-2 top-1/2 -translate-y-1/2">
+                              {p.name}
+                            </TooltipContent>
+                          </Tooltip>
+                        </li>
+                      );
+                    }
+                    return <li key={p.id}>{button}</li>;
+                  })}
+                </ul>
+              )}
             </li>
           ))}
         </ul>
       </nav>
 
-      {/* User section */}
+      {/* Bottom: shortcuts hint + sign-out */}
       <div className={cn('shrink-0 border-t border-border/30 p-sm', collapsed && 'p-xs')}>
-        <div
-          className={cn(
-            'flex items-center gap-sm rounded-radius-lg px-sm py-xs',
-            collapsed && 'justify-center px-0',
-          )}
-        >
-          <Avatar name={user?.displayName} userId={user?.id} size="sm" className="shrink-0" />
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-small font-medium text-foreground">{user?.displayName}</p>
-              <p className="truncate text-label text-muted">{user?.email}</p>
-            </div>
-          )}
-          {!collapsed && (
-            <Tooltip>
-              <TooltipTrigger>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  aria-label="Sign out"
-                  className="flex items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
-                >
-                  <LogOut className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="bottom-full mb-1 right-0">Sign out</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-        {collapsed && (
+        {collapsed ? (
           <Tooltip>
             <TooltipTrigger>
               <button
                 type="button"
                 onClick={handleLogout}
                 aria-label="Sign out"
-                className="mt-xs flex w-full items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
+                className="flex w-full items-center justify-center rounded-radius-md p-xs text-foreground hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
               >
                 <LogOut className="size-4" />
               </button>
@@ -270,6 +356,30 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               Sign out
             </TooltipContent>
           </Tooltip>
+        ) : (
+          <div className="flex items-center justify-between gap-sm">
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="flex items-center gap-xs text-foreground hover:text-brand-primary transition-colors"
+            >
+              <Keyboard className="size-3.5 shrink-0" />
+              <span className="text-label">Quick Actions</span>
+            </button>
+            <Tooltip>
+              <TooltipTrigger>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  aria-label="Sign out"
+                  className="flex items-center justify-center rounded-radius-md p-xs text-foreground hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
+                >
+                  <LogOut className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="bottom-full mb-1 right-0">Sign out</TooltipContent>
+            </Tooltip>
+          </div>
         )}
       </div>
     </div>
@@ -283,7 +393,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       {/* Mobile off-canvas */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Overlay */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismissal handled by Escape key listener above */}
           <div
             ref={overlayRef}
@@ -291,10 +400,19 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             onClick={onMobileClose}
             aria-hidden="true"
           />
-          {/* Drawer */}
           <aside className="absolute inset-y-0 left-0 flex w-60 shadow-4">{sidebarContent}</aside>
         </div>
       )}
+
+      {/* Create project dialog — triggered from sidebar button */}
+      <CreateProjectDialog
+        open={createProjectOpen}
+        onOpenChange={setCreateProjectOpen}
+        onSuccess={(projectId) => {
+          setCreateProjectOpen(false);
+          void router.navigate({ to: '/projects/$projectId/board', params: { projectId } });
+        }}
+      />
     </>
   );
 }

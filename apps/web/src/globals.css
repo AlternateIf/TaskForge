@@ -235,6 +235,14 @@
   }
 }
 
+/* ─── Dark mode: invert native date/time picker icon ─── */
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 /* ─── Base Styles ─── */
 
 @layer base {
@@ -251,7 +259,7 @@
   }
 
   body {
-    font-family: var(--font-sans);
+    font-family: var(--font-sans), sans-serif;
     font-size: var(--font-size-body);
     line-height: var(--font-size-body--line-height);
     color: var(--foreground);

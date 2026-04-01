@@ -9,11 +9,12 @@ import {
   taskLabels,
   taskWatchers,
   tasks,
+  users,
   workflowStatuses,
   workflows,
 } from '@taskforge/db';
 import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
-import { and, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { computeBlockedStatus } from './dependency.service.js';
@@ -36,6 +37,7 @@ export interface TaskOutput {
   statusName: string | null;
   priority: string;
   assigneeId: string | null;
+  assignee: { id: string; displayName: string; avatarUrl: string | null } | null;
   reporterId: string;
   parentTaskId: string | null;
   dueDate: string | null;
@@ -45,6 +47,7 @@ export interface TaskOutput {
   progress: TaskProgress | null;
   isBlocked: boolean;
   blockedByCount: number;
+  labels: Array<{ id: string; name: string; color: string | null }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +146,8 @@ function toTaskOutput(
   statusName?: string | null,
   progress?: TaskProgress | null,
   blockedStatus?: { isBlocked: boolean; blockedByCount: number } | null,
+  assignee?: { id: string; displayName: string; avatarUrl: string | null } | null,
+  taskLabelList?: Array<{ id: string; name: string; color: string | null }>,
 ): TaskOutput {
   return {
     id: t.id,
@@ -153,6 +158,7 @@ function toTaskOutput(
     statusName: statusName ?? null,
     priority: t.priority,
     assigneeId: t.assigneeId ?? null,
+    assignee: assignee ?? null,
     reporterId: t.reporterId,
     parentTaskId: t.parentTaskId ?? null,
     dueDate: t.dueDate ? t.dueDate.toISOString() : null,
@@ -162,6 +168,7 @@ function toTaskOutput(
     progress: progress ?? null,
     isBlocked: blockedStatus?.isBlocked ?? false,
     blockedByCount: blockedStatus?.blockedByCount ?? 0,
+    labels: taskLabelList ?? [],
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };
@@ -364,13 +371,16 @@ export async function listTasks(projectId: string, filters: TaskFilters): Promis
     .select({
       task: tasks,
       statusName: workflowStatuses.name,
+      assigneeDisplayName: users.displayName,
+      assigneeAvatarUrl: users.avatarUrl,
     })
     .from(tasks)
     .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(and(...conditions));
 
   const ordered =
-    sortOrder === 'desc' ? query.orderBy(sql`${sortColumn} DESC`) : query.orderBy(sortColumn);
+    sortOrder === 'desc' ? query.orderBy(desc(sortColumn)) : query.orderBy(sortColumn);
 
   const result = await ordered;
 
@@ -381,7 +391,46 @@ export async function listTasks(projectId: string, filters: TaskFilters): Promis
     filtered = result.filter((r) => r.task.title.toLowerCase().includes(term));
   }
 
-  return filtered.map((r) => toTaskOutput(r.task, r.statusName));
+  // Batch-fetch labels for all returned tasks
+  const taskIds = filtered.map((r) => r.task.id);
+  const labelsMap = new Map<string, Array<{ id: string; name: string; color: string | null }>>();
+  if (taskIds.length > 0) {
+    const labelRows = await db
+      .select({
+        taskId: taskLabels.taskId,
+        id: labels.id,
+        name: labels.name,
+        color: labels.color,
+      })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, taskIds));
+    for (const row of labelRows) {
+      let taskLabelsList = labelsMap.get(row.taskId);
+      if (!taskLabelsList) {
+        taskLabelsList = [];
+        labelsMap.set(row.taskId, taskLabelsList);
+      }
+      taskLabelsList.push({ id: row.id, name: row.name, color: row.color ?? null });
+    }
+  }
+
+  return filtered.map((r) =>
+    toTaskOutput(
+      r.task,
+      r.statusName,
+      null,
+      null,
+      r.task.assigneeId
+        ? {
+            id: r.task.assigneeId,
+            displayName: r.assigneeDisplayName ?? '',
+            avatarUrl: r.assigneeAvatarUrl ?? null,
+          }
+        : null,
+      labelsMap.get(r.task.id) ?? [],
+    ),
+  );
 }
 
 export async function getTask(taskId: string): Promise<TaskOutput> {

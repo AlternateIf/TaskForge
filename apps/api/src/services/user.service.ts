@@ -1,9 +1,12 @@
-import { db, sessions, users } from '@taskforge/db';
+import { db, organizationMembers, organizations, sessions, users } from '@taskforge/db';
 import type { UpdateProfileInput, UserOutput } from '@taskforge/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
-export function toUserOutput(user: typeof users.$inferSelect): UserOutput {
+export function toUserOutput(
+  user: typeof users.$inferSelect,
+  org?: { id: string; name: string },
+): UserOutput {
   return {
     id: user.id,
     email: user.email,
@@ -11,7 +14,20 @@ export function toUserOutput(user: typeof users.$inferSelect): UserOutput {
     avatarUrl: user.avatarUrl ?? null,
     emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
+    ...(org && { organizationId: org.id, organizationName: org.name }),
   };
+}
+
+export async function getUserOrg(
+  userId: string,
+): Promise<{ id: string; name: string } | undefined> {
+  const row = await db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizationMembers)
+    .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
+    .where(eq(organizationMembers.userId, userId))
+    .limit(1);
+  return row[0];
 }
 
 export async function getUserById(userId: string): Promise<UserOutput> {

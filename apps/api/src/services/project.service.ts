@@ -5,12 +5,13 @@ import {
   projectMembers,
   projects,
   roles,
+  tasks,
   users,
   workflowStatuses,
   workflows,
 } from '@taskforge/db';
 import type { CreateProjectInput, UpdateProjectInput } from '@taskforge/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 
@@ -76,6 +77,9 @@ export interface ProjectOutput {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
+  taskCount?: number;
+  memberCount?: number;
+  members?: Array<{ userId: string; displayName: string; avatarUrl: string | null }>;
 }
 
 function toProjectOutput(p: typeof projects.$inferSelect): ProjectOutput {
@@ -186,7 +190,52 @@ export async function listProjects(
     );
   }
 
-  return filtered.map(toProjectOutput);
+  const base = filtered.map(toProjectOutput);
+  if (base.length === 0) return base;
+
+  const projectIds = base.map((p) => p.id);
+
+  // Batch: task counts
+  const taskCountRows = await db
+    .select({
+      projectId: tasks.projectId,
+      count: count(tasks.id),
+    })
+    .from(tasks)
+    .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.deletedAt)))
+    .groupBy(tasks.projectId);
+  const taskCountMap = new Map(taskCountRows.map((r) => [r.projectId, r.count]));
+
+  // Batch: members
+  const memberRows = await db
+    .select({
+      projectId: projectMembers.projectId,
+      userId: projectMembers.userId,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(projectMembers)
+    .innerJoin(users, eq(projectMembers.userId, users.id))
+    .where(inArray(projectMembers.projectId, projectIds));
+  const membersMap = new Map<
+    string,
+    Array<{ userId: string; displayName: string; avatarUrl: string | null }>
+  >();
+  for (const m of memberRows) {
+    let members = membersMap.get(m.projectId);
+    if (!members) {
+      members = [];
+      membersMap.set(m.projectId, members);
+    }
+    members.push({ userId: m.userId, displayName: m.displayName, avatarUrl: m.avatarUrl ?? null });
+  }
+
+  return base.map((p) => ({
+    ...p,
+    taskCount: taskCountMap.get(p.id) ?? 0,
+    memberCount: membersMap.get(p.id)?.length ?? 0,
+    members: membersMap.get(p.id) ?? [],
+  }));
 }
 
 export async function getProject(projectId: string): Promise<ProjectOutput> {
@@ -765,6 +814,68 @@ export async function deleteWorkflowStatus(
   }
 }
 
+export async function bulkUpsertWorkflowStatuses(
+  projectId: string,
+  statuses: Array<{
+    id: string;
+    name: string;
+    color?: string | null;
+    position: number;
+    isInitial?: boolean;
+    isFinal?: boolean;
+  }>,
+): Promise<void> {
+  const workflow = (
+    await db
+      .select()
+      .from(workflows)
+      .where(and(eq(workflows.projectId, projectId), eq(workflows.isDefault, true)))
+      .limit(1)
+  )[0];
+
+  if (!workflow) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Default workflow not found');
+  }
+
+  const now = new Date();
+  const keptIds: string[] = [];
+
+  for (const [index, status] of statuses.entries()) {
+    const position = index;
+    if (status.id.startsWith('new-')) {
+      const newId = crypto.randomUUID();
+      keptIds.push(newId);
+      await db.insert(workflowStatuses).values({
+        id: newId,
+        workflowId: workflow.id,
+        name: status.name,
+        color: status.color ?? null,
+        position,
+        isInitial: status.isInitial ?? false,
+        isFinal: status.isFinal ?? false,
+        createdAt: now,
+      });
+    } else {
+      keptIds.push(status.id);
+      await db
+        .update(workflowStatuses)
+        .set({ name: status.name, color: status.color ?? null, position })
+        .where(eq(workflowStatuses.id, status.id));
+    }
+  }
+
+  // Delete statuses no longer in the list
+  const current = await db
+    .select({ id: workflowStatuses.id })
+    .from(workflowStatuses)
+    .where(eq(workflowStatuses.workflowId, workflow.id));
+
+  const toDelete = current.map((s) => s.id).filter((id) => !keptIds.includes(id));
+  if (toDelete.length > 0) {
+    await db.delete(workflowStatuses).where(inArray(workflowStatuses.id, toDelete));
+  }
+}
+
 // --- Labels ---
 
 export interface LabelOutput {
@@ -849,6 +960,44 @@ export async function updateLabel(
     color: updated.color ?? null,
     createdAt: updated.createdAt.toISOString(),
   };
+}
+
+export async function bulkUpsertLabels(
+  projectId: string,
+  labelInputs: Array<{ id: string; name: string; color?: string | null }>,
+): Promise<void> {
+  const now = new Date();
+  const keptIds: string[] = [];
+
+  for (const label of labelInputs) {
+    if (label.id.startsWith('new-')) {
+      const newId = crypto.randomUUID();
+      keptIds.push(newId);
+      await db.insert(labels).values({
+        id: newId,
+        projectId,
+        name: label.name,
+        color: label.color ?? null,
+        createdAt: now,
+      });
+    } else {
+      keptIds.push(label.id);
+      await db
+        .update(labels)
+        .set({ name: label.name, color: label.color ?? null })
+        .where(eq(labels.id, label.id));
+    }
+  }
+
+  const current = await db
+    .select({ id: labels.id })
+    .from(labels)
+    .where(eq(labels.projectId, projectId));
+
+  const toDelete = current.map((l) => l.id).filter((id) => !keptIds.includes(id));
+  if (toDelete.length > 0) {
+    await db.delete(labels).where(inArray(labels.id, toDelete));
+  }
 }
 
 export async function deleteLabel(labelId: string, actorId?: string): Promise<void> {
