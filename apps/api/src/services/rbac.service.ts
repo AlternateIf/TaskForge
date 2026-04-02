@@ -8,7 +8,7 @@ import {
   users,
 } from '@taskforge/db';
 import { ROLE_NAMES } from '@taskforge/shared';
-import { and, eq, isNull, not, or } from 'drizzle-orm';
+import { and, eq, isNull, not } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { loadPermissionContext } from './permission.service.js';

@@ -192,11 +192,7 @@ export async function checkPermission(
     }
   }
 
-  if (hasPermission(ctx.effectivePermissions, resource, action)) {
-    return true;
-  }
-
-  return false;
+  return hasPermission(ctx.effectivePermissions, resource, action);
 }
 
 export async function getOrgIdFromProject(projectId: string): Promise<string | null> {
