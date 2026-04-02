@@ -104,6 +104,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~Docker Compose setup (all services)~~ ✅
 - ~~GitHub Actions CI pipeline (lint, test, build, bundle size check, dependency audit)~~ ✅
 - ~~Database schema & connection (Drizzle ORM, all MVP entities, seed script)~~ ✅
+- Dev test-seed full reset + deterministic reseed command (`pnpm test-seed`) (MVP-045)
 - ~~Auto-create GitHub Issues for new feature files~~ ✅
 - ~~API server foundation (Fastify, plugins, health checks, error handling, Swagger)~~ ✅
 - Prometheus + Grafana + Loki monitoring
