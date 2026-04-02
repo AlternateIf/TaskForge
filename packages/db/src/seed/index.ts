@@ -1,12 +1,29 @@
-import crypto from 'node:crypto';
 import { db, pool } from '../client.js';
 import * as schema from '../schema/index.js';
-import { createOrganization } from './factories/organization.factory.js';
-import { createProject } from './factories/project.factory.js';
-import { createTask } from './factories/task.factory.js';
-import { createUser } from './factories/user.factory.js';
 
-async function waitForDb(retries = 10, delay = 2000) {
+type PermissionScope = 'global' | 'organization';
+
+interface PermissionCatalogEntry {
+  key: string;
+  resource: string;
+  action: string;
+  scope: PermissionScope;
+}
+
+const KNOWN_PASSWORD = 'Taskforge123!';
+const KNOWN_PASSWORD_HASH = '$2b$12$NP8SI4Y.jSLTo2eJuqHEQOve7AzKxIiWPOX18lD2YaHMPcvzPicbu';
+
+const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
+
+function id(num: number): string {
+  return `00000000-0000-0000-0000-${num.toString().padStart(12, '0')}`;
+}
+
+function at(minutesFromBase: number): Date {
+  return new Date(BASE_TIME.getTime() + minutesFromBase * 60_000);
+}
+
+async function waitForDb(retries = 20, delay = 2000): Promise<void> {
   for (let i = 0; i < retries; i++) {
     try {
       await pool.query('SELECT 1');
@@ -14,285 +31,1564 @@ async function waitForDb(retries = 10, delay = 2000) {
       return;
     } catch {
       console.log(`Waiting for database... (${i + 1}/${retries})`);
-      await new Promise((r) => setTimeout(r, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+
   throw new Error('Could not connect to database');
 }
 
-async function seed() {
+const permissionCatalog: PermissionCatalogEntry[] = [
+  {
+    key: 'organization.create.global',
+    resource: 'organization',
+    action: 'create',
+    scope: 'global',
+  },
+  { key: 'organization.read.org', resource: 'organization', action: 'read', scope: 'organization' },
+  {
+    key: 'organization.update.org',
+    resource: 'organization',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.delete.org',
+    resource: 'organization',
+    action: 'delete',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.settings.read.org',
+    resource: 'organization_settings',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.settings.update.org',
+    resource: 'organization_settings',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.auth_settings.read.org',
+    resource: 'organization_auth_settings',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.auth_settings.update.org',
+    resource: 'organization_auth_settings',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.features.read.org',
+    resource: 'organization_features',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    key: 'organization.features.update.org',
+    resource: 'organization_features',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'invitation.create.org',
+    resource: 'invitation',
+    action: 'create',
+    scope: 'organization',
+  },
+  { key: 'invitation.read.org', resource: 'invitation', action: 'read', scope: 'organization' },
+  {
+    key: 'invitation.update.org',
+    resource: 'invitation',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'invitation.delete.org',
+    resource: 'invitation',
+    action: 'delete',
+    scope: 'organization',
+  },
+  {
+    key: 'membership.create.org',
+    resource: 'membership',
+    action: 'create',
+    scope: 'organization',
+  },
+  { key: 'membership.read.org', resource: 'membership', action: 'read', scope: 'organization' },
+  {
+    key: 'membership.update.org',
+    resource: 'membership',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'membership.delete.org',
+    resource: 'membership',
+    action: 'delete',
+    scope: 'organization',
+  },
+  { key: 'role.create.org', resource: 'role', action: 'create', scope: 'organization' },
+  { key: 'role.read.org', resource: 'role', action: 'read', scope: 'organization' },
+  { key: 'role.update.org', resource: 'role', action: 'update', scope: 'organization' },
+  { key: 'role.delete.org', resource: 'role', action: 'delete', scope: 'organization' },
+  {
+    key: 'permission.read.org',
+    resource: 'permission',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    key: 'permission.update.org',
+    resource: 'permission',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    key: 'global_role_assignment.create',
+    resource: 'global_role_assignment',
+    action: 'create',
+    scope: 'global',
+  },
+  {
+    key: 'global_role_assignment.read',
+    resource: 'global_role_assignment',
+    action: 'read',
+    scope: 'global',
+  },
+  {
+    key: 'global_role_assignment.update',
+    resource: 'global_role_assignment',
+    action: 'update',
+    scope: 'global',
+  },
+  {
+    key: 'global_role_assignment.delete',
+    resource: 'global_role_assignment',
+    action: 'delete',
+    scope: 'global',
+  },
+];
+
+async function seed(): Promise<void> {
   await waitForDb();
 
-  console.log('Seeding database...');
+  console.log('Seeding database with deterministic fixtures...');
 
-  // Check if already seeded
   const existingUsers = await db.select().from(schema.users).limit(1);
   if (existingUsers.length > 0) {
     console.log('Database already seeded — skipping');
     return;
   }
 
-  // 1. Create users
-  const adminUser = createUser({
-    id: '00000000-0000-0000-0000-000000000001',
-    email: 'admin@taskforge.local',
-    displayName: 'Admin User',
-  });
-  const pmUser = createUser({
-    id: '00000000-0000-0000-0000-000000000002',
-    email: 'pm@taskforge.local',
-    displayName: 'Sarah Chen',
-  });
-  const memberUser = createUser({
-    id: '00000000-0000-0000-0000-000000000003',
-    email: 'member@taskforge.local',
-    displayName: 'Marcus Dev',
-  });
-
-  await db.insert(schema.users).values([adminUser, pmUser, memberUser]);
-  console.log('  Created 3 users');
-
-  // 2. Create organization
-  const org = createOrganization({
-    id: '00000000-0000-0000-0000-000000000010',
-    name: 'TaskForge Demo',
-    slug: 'taskforge-demo',
-  });
-  await db.insert(schema.organizations).values(org);
-  console.log('  Created organization');
-
-  // 3. Create roles
-  const roleData = [
-    { id: '00000000-0000-0000-0000-000000000020', name: 'Super Admin', isSystem: true },
-    { id: '00000000-0000-0000-0000-000000000021', name: 'Admin', isSystem: true },
-    { id: '00000000-0000-0000-0000-000000000022', name: 'Project Manager', isSystem: true },
-    { id: '00000000-0000-0000-0000-000000000023', name: 'Team Member', isSystem: true },
-    { id: '00000000-0000-0000-0000-000000000024', name: 'Guest', isSystem: true },
+  const users = [
+    {
+      id: id(1),
+      email: 'owner@acme.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Alex Acme',
+      mfaEnabled: true,
+      emailVerifiedAt: at(1),
+      lastLoginAt: at(500),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(2),
+      email: 'admin@acme.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Priya Admin',
+      mfaEnabled: false,
+      emailVerifiedAt: at(2),
+      lastLoginAt: at(490),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(3),
+      email: 'member@acme.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Marcus Member',
+      mfaEnabled: false,
+      emailVerifiedAt: at(3),
+      lastLoginAt: at(480),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(4),
+      email: 'owner@globex.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Jordan Globex',
+      mfaEnabled: true,
+      emailVerifiedAt: at(4),
+      lastLoginAt: at(470),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(5),
+      email: 'admin@globex.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Sam Ops',
+      mfaEnabled: false,
+      emailVerifiedAt: at(5),
+      lastLoginAt: at(460),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(6),
+      email: 'member@globex.taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Finn Newcomer',
+      mfaEnabled: false,
+      emailVerifiedAt: at(6),
+      lastLoginAt: at(450),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(7),
+      email: 'qa@taskforge.local',
+      passwordHash: KNOWN_PASSWORD_HASH,
+      displayName: 'Anil QA',
+      mfaEnabled: false,
+      emailVerifiedAt: at(7),
+      lastLoginAt: at(440),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
+    {
+      id: id(8),
+      email: 'integration.bot@taskforge.local',
+      passwordHash: null,
+      displayName: 'Integration Bot',
+      mfaEnabled: false,
+      emailVerifiedAt: at(8),
+      lastLoginAt: at(430),
+      createdAt: at(0),
+      updatedAt: at(0),
+    },
   ];
 
-  await db.insert(schema.roles).values(
-    roleData.map((r) => ({
-      ...r,
-      organizationId: org.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })),
-  );
-  console.log('  Created 5 roles');
+  const organizations = [
+    {
+      id: id(101),
+      name: 'Acme Product Group',
+      slug: 'acme-product-group',
+      settings: {
+        timezone: 'UTC',
+        dateFormat: 'YYYY-MM-DD',
+        onboardingChecklistEnabled: true,
+      },
+      createdAt: at(10),
+      updatedAt: at(10),
+    },
+    {
+      id: id(102),
+      name: 'Globex Operations',
+      slug: 'globex-operations',
+      settings: {
+        timezone: 'UTC',
+        dateFormat: 'YYYY-MM-DD',
+        onboardingChecklistEnabled: true,
+      },
+      createdAt: at(11),
+      updatedAt: at(11),
+    },
+  ];
 
-  // 4. Add members to org
-  await db.insert(schema.organizationMembers).values([
+  const organizationAuthSettings = [
     {
-      id: crypto.randomUUID(),
-      organizationId: org.id,
-      userId: adminUser.id,
-      roleId: roleData[0].id,
-      joinedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      id: id(151),
+      organizationId: id(101),
+      passwordAuthEnabled: true,
+      googleOauthEnabled: true,
+      githubOauthEnabled: true,
+      mfaEnforced: false,
+      mfaEnforcedAt: null,
+      mfaGracePeriodDays: 7,
+      allowedEmailDomains: ['taskforge.local'],
+      createdAt: at(15),
+      updatedAt: at(15),
     },
     {
-      id: crypto.randomUUID(),
-      organizationId: org.id,
-      userId: pmUser.id,
-      roleId: roleData[2].id,
-      joinedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      id: id(152),
+      organizationId: id(102),
+      passwordAuthEnabled: true,
+      googleOauthEnabled: false,
+      githubOauthEnabled: true,
+      mfaEnforced: true,
+      mfaEnforcedAt: at(16),
+      mfaGracePeriodDays: 3,
+      allowedEmailDomains: ['taskforge.local'],
+      createdAt: at(16),
+      updatedAt: at(16),
     },
-    {
-      id: crypto.randomUUID(),
-      organizationId: org.id,
-      userId: memberUser.id,
-      roleId: roleData[3].id,
-      joinedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ]);
-  console.log('  Added 3 org members');
+  ];
 
-  // 5. Create project
-  const project = {
-    ...createProject({
-      id: '00000000-0000-0000-0000-000000000030',
-      organizationId: org.id,
-      name: 'Product Launch',
-      slug: 'product-launch',
-      createdBy: pmUser.id,
-    }),
-    description:
-      'Plan and execute the Q3 product launch including marketing, engineering, and go-to-market activities.',
+  const roles = [
+    {
+      id: id(201),
+      organizationId: null,
+      name: 'Global Super Admin',
+      description: 'All global and organization governance permissions',
+      isSystem: true,
+      createdAt: at(20),
+      updatedAt: at(20),
+    },
+    {
+      id: id(202),
+      organizationId: null,
+      name: 'Global Admin',
+      description: 'Global governance management without super-admin invariants',
+      isSystem: true,
+      createdAt: at(20),
+      updatedAt: at(20),
+    },
+    {
+      id: id(211),
+      organizationId: id(101),
+      name: 'Organization Owner',
+      description: 'Owns organization governance and membership',
+      isSystem: true,
+      createdAt: at(21),
+      updatedAt: at(21),
+    },
+    {
+      id: id(212),
+      organizationId: id(101),
+      name: 'Organization Admin',
+      description: 'Administers organization settings and members',
+      isSystem: true,
+      createdAt: at(21),
+      updatedAt: at(21),
+    },
+    {
+      id: id(213),
+      organizationId: id(101),
+      name: 'Organization Member',
+      description: 'Reads organization and own membership',
+      isSystem: true,
+      createdAt: at(21),
+      updatedAt: at(21),
+    },
+    {
+      id: id(221),
+      organizationId: id(102),
+      name: 'Organization Owner',
+      description: 'Owns organization governance and membership',
+      isSystem: true,
+      createdAt: at(22),
+      updatedAt: at(22),
+    },
+    {
+      id: id(222),
+      organizationId: id(102),
+      name: 'Organization Admin',
+      description: 'Administers organization settings and members',
+      isSystem: true,
+      createdAt: at(22),
+      updatedAt: at(22),
+    },
+    {
+      id: id(223),
+      organizationId: id(102),
+      name: 'Organization Member',
+      description: 'Reads organization and own membership',
+      isSystem: true,
+      createdAt: at(22),
+      updatedAt: at(22),
+    },
+  ];
+
+  const rolePermissionKeys: Record<string, string[]> = {
+    [id(201)]: permissionCatalog.map((entry) => entry.key),
+    [id(202)]: permissionCatalog
+      .filter((entry) => entry.scope === 'global')
+      .map((entry) => entry.key),
+    [id(211)]: permissionCatalog
+      .filter((entry) => entry.scope === 'organization')
+      .map((entry) => entry.key),
+    [id(212)]: [
+      'organization.read.org',
+      'organization.update.org',
+      'organization.settings.read.org',
+      'organization.settings.update.org',
+      'organization.auth_settings.read.org',
+      'organization.auth_settings.update.org',
+      'organization.features.read.org',
+      'organization.features.update.org',
+      'invitation.create.org',
+      'invitation.read.org',
+      'invitation.update.org',
+      'invitation.delete.org',
+      'membership.read.org',
+      'membership.update.org',
+      'role.read.org',
+      'permission.read.org',
+    ],
+    [id(213)]: ['organization.read.org', 'membership.read.org'],
+    [id(221)]: permissionCatalog
+      .filter((entry) => entry.scope === 'organization')
+      .map((entry) => entry.key),
+    [id(222)]: [
+      'organization.read.org',
+      'organization.update.org',
+      'organization.settings.read.org',
+      'organization.settings.update.org',
+      'organization.auth_settings.read.org',
+      'organization.auth_settings.update.org',
+      'organization.features.read.org',
+      'organization.features.update.org',
+      'invitation.create.org',
+      'invitation.read.org',
+      'invitation.update.org',
+      'invitation.delete.org',
+      'membership.read.org',
+      'membership.update.org',
+      'role.read.org',
+      'permission.read.org',
+    ],
+    [id(223)]: ['organization.read.org', 'membership.read.org'],
   };
-  await db.insert(schema.projects).values(project);
-  console.log('  Created project');
 
-  // 6. Create workflow
-  const workflowId = '00000000-0000-0000-0000-000000000040';
-  await db.insert(schema.workflows).values({
-    id: workflowId,
-    projectId: project.id,
-    name: 'Default',
-    isDefault: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  const permissionByKey = new Map(permissionCatalog.map((entry) => [entry.key, entry]));
+  const permissions: (typeof schema.permissions.$inferInsert)[] = [];
+  let permissionIdCounter = 1000;
 
-  const statuses = [
+  for (const [roleId, keys] of Object.entries(rolePermissionKeys)) {
+    for (const key of keys) {
+      const permission = permissionByKey.get(key);
+      if (!permission) {
+        throw new Error(`Unknown permission key in role mapping: ${key}`);
+      }
+
+      permissions.push({
+        id: id(permissionIdCounter),
+        roleId,
+        resource: permission.resource,
+        action: permission.action,
+        scope: permission.scope,
+      });
+      permissionIdCounter += 1;
+    }
+  }
+
+  const organizationMembers = [
     {
-      id: '00000000-0000-0000-0000-000000000050',
+      id: id(301),
+      organizationId: id(101),
+      userId: id(1),
+      roleId: id(211),
+      joinedAt: at(30),
+      createdAt: at(30),
+      updatedAt: at(30),
+    },
+    {
+      id: id(302),
+      organizationId: id(101),
+      userId: id(2),
+      roleId: id(212),
+      joinedAt: at(31),
+      createdAt: at(31),
+      updatedAt: at(31),
+    },
+    {
+      id: id(303),
+      organizationId: id(101),
+      userId: id(3),
+      roleId: id(213),
+      joinedAt: at(32),
+      createdAt: at(32),
+      updatedAt: at(32),
+    },
+    {
+      id: id(304),
+      organizationId: id(101),
+      userId: id(7),
+      roleId: id(212),
+      joinedAt: at(33),
+      createdAt: at(33),
+      updatedAt: at(33),
+    },
+    {
+      id: id(305),
+      organizationId: id(102),
+      userId: id(4),
+      roleId: id(221),
+      joinedAt: at(34),
+      createdAt: at(34),
+      updatedAt: at(34),
+    },
+    {
+      id: id(306),
+      organizationId: id(102),
+      userId: id(5),
+      roleId: id(222),
+      joinedAt: at(35),
+      createdAt: at(35),
+      updatedAt: at(35),
+    },
+    {
+      id: id(307),
+      organizationId: id(102),
+      userId: id(6),
+      roleId: id(223),
+      joinedAt: at(36),
+      createdAt: at(36),
+      updatedAt: at(36),
+    },
+    {
+      id: id(308),
+      organizationId: id(102),
+      userId: id(7),
+      roleId: id(222),
+      joinedAt: at(37),
+      createdAt: at(37),
+      updatedAt: at(37),
+    },
+    {
+      id: id(309),
+      organizationId: id(102),
+      userId: id(2),
+      roleId: id(223),
+      joinedAt: at(38),
+      createdAt: at(38),
+      updatedAt: at(38),
+    },
+  ];
+
+  const oauthAccounts = [
+    {
+      id: id(401),
+      userId: id(6),
+      provider: 'github',
+      providerUserId: 'github-uid-finn-1',
+      accessToken: 'gho_seed_access_token',
+      refreshToken: 'ghr_seed_refresh_token',
+      expiresAt: at(10000),
+      createdAt: at(40),
+      updatedAt: at(40),
+    },
+  ];
+
+  const sessions = [
+    {
+      id: id(411),
+      userId: id(1),
+      tokenHash: 'session_hash_owner_acme',
+      ipAddress: '127.0.0.1',
+      userAgent: 'TaskForge Seed Browser/1.0',
+      expiresAt: at(20000),
+      createdAt: at(41),
+    },
+    {
+      id: id(412),
+      userId: id(4),
+      tokenHash: 'session_hash_owner_globex',
+      ipAddress: '127.0.0.1',
+      userAgent: 'TaskForge Seed Browser/1.0',
+      expiresAt: at(20010),
+      createdAt: at(42),
+    },
+    {
+      id: id(413),
+      userId: id(7),
+      tokenHash: 'session_hash_qa_shared',
+      ipAddress: '127.0.0.1',
+      userAgent: 'TaskForge Seed Browser/1.0',
+      expiresAt: at(20020),
+      createdAt: at(43),
+    },
+  ];
+
+  const verificationTokens = [
+    {
+      id: id(421),
+      userId: id(2),
+      type: 'password_reset' as const,
+      tokenHash: 'password_reset_hash_admin_acme',
+      expiresAt: at(5000),
+      usedAt: null,
+      createdAt: at(44),
+    },
+    {
+      id: id(422),
+      userId: id(5),
+      type: 'email_verify' as const,
+      tokenHash: 'email_verify_hash_admin_globex',
+      expiresAt: at(5001),
+      usedAt: at(4500),
+      createdAt: at(45),
+    },
+  ];
+
+  const projects = [
+    {
+      id: id(501),
+      organizationId: id(101),
+      name: 'Acme Mobile Launch',
+      slug: 'acme-mobile-launch',
+      description: 'Cross-team launch plan for the Acme mobile app.',
+      color: '#2563EB',
+      icon: 'rocket',
+      status: 'active' as const,
+      createdBy: id(2),
+      createdAt: at(50),
+      updatedAt: at(50),
+    },
+    {
+      id: id(502),
+      organizationId: id(101),
+      name: 'Acme Platform Reliability',
+      slug: 'acme-platform-reliability',
+      description: 'Reliability and observability improvements for platform APIs.',
+      color: '#059669',
+      icon: 'shield',
+      status: 'active' as const,
+      createdBy: id(1),
+      createdAt: at(51),
+      updatedAt: at(51),
+    },
+    {
+      id: id(503),
+      organizationId: id(102),
+      name: 'Globex Customer Ops',
+      slug: 'globex-customer-ops',
+      description: 'Service desk, escalation, and support workflow optimization.',
+      color: '#D97706',
+      icon: 'headset',
+      status: 'active' as const,
+      createdBy: id(5),
+      createdAt: at(52),
+      updatedAt: at(52),
+    },
+    {
+      id: id(504),
+      organizationId: id(102),
+      name: 'Globex Security Program',
+      slug: 'globex-security-program',
+      description: 'Security backlog, MFA rollout, and response playbooks.',
+      color: '#DC2626',
+      icon: 'lock',
+      status: 'active' as const,
+      createdBy: id(4),
+      createdAt: at(53),
+      updatedAt: at(53),
+    },
+  ];
+
+  const workflows = [
+    {
+      id: id(601),
+      projectId: id(501),
+      name: 'Default',
+      isDefault: true,
+      createdAt: at(60),
+      updatedAt: at(60),
+    },
+    {
+      id: id(602),
+      projectId: id(502),
+      name: 'Default',
+      isDefault: true,
+      createdAt: at(61),
+      updatedAt: at(61),
+    },
+    {
+      id: id(603),
+      projectId: id(503),
+      name: 'Default',
+      isDefault: true,
+      createdAt: at(62),
+      updatedAt: at(62),
+    },
+    {
+      id: id(604),
+      projectId: id(504),
+      name: 'Default',
+      isDefault: true,
+      createdAt: at(63),
+      updatedAt: at(63),
+    },
+  ];
+
+  const workflowStatuses = [
+    {
+      id: id(611),
+      workflowId: id(601),
       name: 'To Do',
-      color: '#6B7280',
+      color: '#64748B',
       position: 0,
       isInitial: true,
       isFinal: false,
+      createdAt: at(70),
     },
     {
-      id: '00000000-0000-0000-0000-000000000051',
+      id: id(612),
+      workflowId: id(601),
       name: 'In Progress',
       color: '#3B82F6',
       position: 1,
       isInitial: false,
       isFinal: false,
+      createdAt: at(71),
     },
     {
-      id: '00000000-0000-0000-0000-000000000052',
-      name: 'In Review',
+      id: id(613),
+      workflowId: id(601),
+      name: 'Review',
       color: '#F59E0B',
       position: 2,
       isInitial: false,
       isFinal: false,
+      createdAt: at(72),
     },
     {
-      id: '00000000-0000-0000-0000-000000000053',
+      id: id(614),
+      workflowId: id(601),
       name: 'Done',
       color: '#10B981',
       position: 3,
       isInitial: false,
       isFinal: true,
+      createdAt: at(73),
+    },
+    {
+      id: id(621),
+      workflowId: id(602),
+      name: 'To Do',
+      color: '#64748B',
+      position: 0,
+      isInitial: true,
+      isFinal: false,
+      createdAt: at(74),
+    },
+    {
+      id: id(622),
+      workflowId: id(602),
+      name: 'In Progress',
+      color: '#3B82F6',
+      position: 1,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(75),
+    },
+    {
+      id: id(623),
+      workflowId: id(602),
+      name: 'Review',
+      color: '#F59E0B',
+      position: 2,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(76),
+    },
+    {
+      id: id(624),
+      workflowId: id(602),
+      name: 'Done',
+      color: '#10B981',
+      position: 3,
+      isInitial: false,
+      isFinal: true,
+      createdAt: at(77),
+    },
+    {
+      id: id(631),
+      workflowId: id(603),
+      name: 'To Do',
+      color: '#64748B',
+      position: 0,
+      isInitial: true,
+      isFinal: false,
+      createdAt: at(78),
+    },
+    {
+      id: id(632),
+      workflowId: id(603),
+      name: 'In Progress',
+      color: '#3B82F6',
+      position: 1,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(79),
+    },
+    {
+      id: id(633),
+      workflowId: id(603),
+      name: 'Review',
+      color: '#F59E0B',
+      position: 2,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(80),
+    },
+    {
+      id: id(634),
+      workflowId: id(603),
+      name: 'Done',
+      color: '#10B981',
+      position: 3,
+      isInitial: false,
+      isFinal: true,
+      createdAt: at(81),
+    },
+    {
+      id: id(641),
+      workflowId: id(604),
+      name: 'To Do',
+      color: '#64748B',
+      position: 0,
+      isInitial: true,
+      isFinal: false,
+      createdAt: at(82),
+    },
+    {
+      id: id(642),
+      workflowId: id(604),
+      name: 'In Progress',
+      color: '#3B82F6',
+      position: 1,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(83),
+    },
+    {
+      id: id(643),
+      workflowId: id(604),
+      name: 'Review',
+      color: '#F59E0B',
+      position: 2,
+      isInitial: false,
+      isFinal: false,
+      createdAt: at(84),
+    },
+    {
+      id: id(644),
+      workflowId: id(604),
+      name: 'Done',
+      color: '#10B981',
+      position: 3,
+      isInitial: false,
+      isFinal: true,
+      createdAt: at(85),
     },
   ];
 
-  await db
-    .insert(schema.workflowStatuses)
-    .values(statuses.map((s) => ({ ...s, workflowId, createdAt: new Date() })));
-  console.log('  Created workflow with 4 statuses');
-
-  // 7. Create labels
-  const labelData = [
-    { id: crypto.randomUUID(), name: 'Bug', color: '#EF4444' },
-    { id: crypto.randomUUID(), name: 'Feature', color: '#3B82F6' },
-    { id: crypto.randomUUID(), name: 'Design', color: '#8B5CF6' },
-    { id: crypto.randomUUID(), name: 'Documentation', color: '#6B7280' },
-    { id: crypto.randomUUID(), name: 'Urgent', color: '#F97316' },
+  const projectMembers = [
+    { id: id(701), projectId: id(501), userId: id(1), roleId: id(211), createdAt: at(90) },
+    { id: id(702), projectId: id(501), userId: id(2), roleId: id(212), createdAt: at(91) },
+    { id: id(703), projectId: id(501), userId: id(3), roleId: id(213), createdAt: at(92) },
+    { id: id(704), projectId: id(502), userId: id(1), roleId: id(211), createdAt: at(93) },
+    { id: id(705), projectId: id(502), userId: id(7), roleId: id(212), createdAt: at(94) },
+    { id: id(706), projectId: id(503), userId: id(4), roleId: id(221), createdAt: at(95) },
+    { id: id(707), projectId: id(503), userId: id(5), roleId: id(222), createdAt: at(96) },
+    { id: id(708), projectId: id(503), userId: id(6), roleId: id(223), createdAt: at(97) },
+    { id: id(709), projectId: id(504), userId: id(4), roleId: id(221), createdAt: at(98) },
+    { id: id(710), projectId: id(504), userId: id(7), roleId: id(222), createdAt: at(99) },
   ];
 
-  await db
-    .insert(schema.labels)
-    .values(labelData.map((l) => ({ ...l, projectId: project.id, createdAt: new Date() })));
-  console.log('  Created 5 labels');
+  const labels = [
+    { id: id(801), projectId: id(501), name: 'Launch', color: '#2563EB', createdAt: at(100) },
+    { id: id(802), projectId: id(501), name: 'Mobile', color: '#7C3AED', createdAt: at(100) },
+    { id: id(803), projectId: id(501), name: 'Urgent', color: '#EA580C', createdAt: at(100) },
+    { id: id(804), projectId: id(502), name: 'Reliability', color: '#059669', createdAt: at(101) },
+    { id: id(805), projectId: id(502), name: 'Backend', color: '#0284C7', createdAt: at(101) },
+    {
+      id: id(806),
+      projectId: id(502),
+      name: 'Observability',
+      color: '#0F766E',
+      createdAt: at(101),
+    },
+    { id: id(807), projectId: id(503), name: 'Support', color: '#D97706', createdAt: at(102) },
+    { id: id(808), projectId: id(503), name: 'Automation', color: '#1D4ED8', createdAt: at(102) },
+    { id: id(809), projectId: id(503), name: 'Escalation', color: '#BE123C', createdAt: at(102) },
+    { id: id(810), projectId: id(504), name: 'Security', color: '#DC2626', createdAt: at(103) },
+    { id: id(811), projectId: id(504), name: 'MFA', color: '#2563EB', createdAt: at(103) },
+    { id: id(812), projectId: id(504), name: 'Incident', color: '#7C2D12', createdAt: at(103) },
+  ];
 
-  // 8. Create tasks
-  const taskData = [
-    createTask({
-      projectId: project.id,
-      title: 'Design landing page mockups',
-      statusId: statuses[1].id,
-      priority: 'high',
-      assigneeId: memberUser.id,
-      reporterId: pmUser.id,
+  const tasks = [
+    {
+      id: id(901),
+      projectId: id(501),
+      title: 'Launch readiness checklist',
+      description: 'Coordinate launch owners and completion checklist for release day.',
+      statusId: id(612),
+      priority: 'critical' as const,
+      assigneeId: id(2),
+      reporterId: id(1),
       position: 0,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Write API documentation',
-      statusId: statuses[0].id,
-      priority: 'medium',
-      reporterId: pmUser.id,
+      startDate: at(110),
+      dueDate: at(1000),
+      createdAt: at(110),
+      updatedAt: at(110),
+    },
+    {
+      id: id(902),
+      projectId: id(501),
+      title: 'Finalize app store screenshots',
+      description: 'Prepare iOS and Android localized screenshots.',
+      statusId: id(611),
+      priority: 'high' as const,
+      assigneeId: id(3),
+      reporterId: id(2),
       position: 1,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Fix login redirect bug',
-      statusId: statuses[0].id,
-      priority: 'critical',
-      assigneeId: memberUser.id,
-      reporterId: adminUser.id,
+      startDate: at(111),
+      dueDate: at(1010),
+      createdAt: at(111),
+      updatedAt: at(111),
+    },
+    {
+      id: id(903),
+      projectId: id(501),
+      title: 'Draft launch announcement',
+      description: 'Create initial customer announcement and FAQs.',
+      statusId: id(613),
+      priority: 'medium' as const,
+      assigneeId: id(2),
+      reporterId: id(3),
       position: 2,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Implement user onboarding flow',
-      statusId: statuses[2].id,
-      priority: 'high',
-      assigneeId: memberUser.id,
-      reporterId: pmUser.id,
-      position: 0,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Set up CI/CD pipeline',
-      statusId: statuses[3].id,
-      priority: 'medium',
-      assigneeId: adminUser.id,
-      reporterId: pmUser.id,
-      position: 0,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Review competitor analysis',
-      statusId: statuses[0].id,
-      priority: 'low',
-      reporterId: pmUser.id,
+      startDate: at(112),
+      dueDate: at(1020),
+      createdAt: at(112),
+      updatedAt: at(112),
+    },
+    {
+      id: id(904),
+      projectId: id(501),
+      title: 'Archive deprecated beta docs',
+      description: 'Remove or archive outdated beta-only documentation pages.',
+      statusId: id(614),
+      priority: 'low' as const,
+      assigneeId: id(3),
+      reporterId: id(2),
       position: 3,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Update brand guidelines',
-      statusId: statuses[1].id,
-      priority: 'medium',
-      assigneeId: pmUser.id,
-      reporterId: pmUser.id,
+      startDate: at(113),
+      dueDate: at(1030),
+      createdAt: at(113),
+      updatedAt: at(113),
+    },
+    {
+      id: id(905),
+      projectId: id(502),
+      title: 'Stabilize queue retry policy',
+      description: 'Tune retry/backoff settings for critical queues.',
+      statusId: id(622),
+      priority: 'high' as const,
+      assigneeId: id(7),
+      reporterId: id(1),
+      position: 0,
+      startDate: at(114),
+      dueDate: at(1040),
+      createdAt: at(114),
+      updatedAt: at(114),
+    },
+    {
+      id: id(906),
+      projectId: id(502),
+      title: 'Redis memory policy audit',
+      description: 'Validate Redis maxmemory policy against workload patterns.',
+      statusId: id(621),
+      priority: 'none' as const,
+      assigneeId: id(7),
+      reporterId: id(1),
       position: 1,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Plan Q2 sprint',
-      statusId: statuses[0].id,
-      priority: 'high',
-      reporterId: pmUser.id,
-      position: 4,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Add search functionality',
-      statusId: statuses[0].id,
-      priority: 'medium',
-      assigneeId: memberUser.id,
-      reporterId: pmUser.id,
-      position: 5,
-    }),
-    createTask({
-      projectId: project.id,
-      title: 'Performance audit',
-      statusId: statuses[1].id,
-      priority: 'high',
-      assigneeId: memberUser.id,
-      reporterId: adminUser.id,
+      startDate: at(115),
+      dueDate: at(1050),
+      createdAt: at(115),
+      updatedAt: at(115),
+    },
+    {
+      id: id(907),
+      projectId: id(502),
+      title: 'Create API error budget dashboard',
+      description: 'Expose latency and error budget by endpoint in Grafana.',
+      statusId: id(623),
+      priority: 'medium' as const,
+      assigneeId: id(1),
+      reporterId: id(7),
       position: 2,
-    }),
+      startDate: at(116),
+      dueDate: at(1060),
+      createdAt: at(116),
+      updatedAt: at(116),
+    },
+    {
+      id: id(908),
+      projectId: id(503),
+      title: 'Implement triage SLA dashboard',
+      description: 'Track first-response SLA and escalation breaches.',
+      statusId: id(632),
+      priority: 'critical' as const,
+      assigneeId: id(5),
+      reporterId: id(4),
+      position: 0,
+      startDate: at(117),
+      dueDate: at(1070),
+      createdAt: at(117),
+      updatedAt: at(117),
+    },
+    {
+      id: id(909),
+      projectId: id(503),
+      title: 'Automate ticket routing',
+      description: 'Route incoming tickets by language and region.',
+      statusId: id(631),
+      priority: 'high' as const,
+      assigneeId: id(6),
+      reporterId: id(5),
+      position: 1,
+      startDate: at(118),
+      dueDate: at(1080),
+      createdAt: at(118),
+      updatedAt: at(118),
+    },
+    {
+      id: id(910),
+      projectId: id(503),
+      title: 'Document escalation playbook',
+      description: 'Standardize escalation policy and severity mapping.',
+      statusId: id(634),
+      priority: 'low' as const,
+      assigneeId: id(5),
+      reporterId: id(4),
+      position: 2,
+      startDate: at(119),
+      dueDate: at(1090),
+      createdAt: at(119),
+      updatedAt: at(119),
+    },
+    {
+      id: id(911),
+      projectId: id(504),
+      title: 'MFA rollout wave 2',
+      description: 'Enable MFA for support and platform groups.',
+      statusId: id(642),
+      priority: 'critical' as const,
+      assigneeId: id(4),
+      reporterId: id(5),
+      position: 0,
+      startDate: at(120),
+      dueDate: at(1100),
+      createdAt: at(120),
+      updatedAt: at(120),
+    },
+    {
+      id: id(912),
+      projectId: id(501),
+      title: 'Confirm launch rollback owner',
+      description: 'Identify and document rollback authority.',
+      statusId: id(611),
+      priority: 'medium' as const,
+      assigneeId: id(2),
+      reporterId: id(1),
+      parentTaskId: id(901),
+      position: 0,
+      startDate: at(121),
+      dueDate: at(1110),
+      createdAt: at(121),
+      updatedAt: at(121),
+    },
+    {
+      id: id(913),
+      projectId: id(501),
+      title: 'Publish launch-day contact matrix',
+      description: 'Publish owner contacts by timezone and function.',
+      statusId: id(612),
+      priority: 'high' as const,
+      assigneeId: id(3),
+      reporterId: id(2),
+      parentTaskId: id(901),
+      position: 1,
+      startDate: at(122),
+      dueDate: at(1120),
+      createdAt: at(122),
+      updatedAt: at(122),
+    },
+    {
+      id: id(914),
+      projectId: id(504),
+      title: 'Run incident response tabletop',
+      description: 'Simulate a credential compromise and response timeline.',
+      statusId: id(643),
+      priority: 'medium' as const,
+      assigneeId: id(7),
+      reporterId: id(4),
+      position: 1,
+      startDate: at(123),
+      dueDate: at(1130),
+      createdAt: at(123),
+      updatedAt: at(123),
+    },
+    {
+      id: id(915),
+      projectId: id(504),
+      title: 'Close legacy auth endpoint',
+      description: 'Finalize deprecation and disable old auth endpoint in gateway.',
+      statusId: id(644),
+      priority: 'low' as const,
+      assigneeId: id(5),
+      reporterId: id(4),
+      position: 2,
+      startDate: at(124),
+      dueDate: at(1140),
+      createdAt: at(124),
+      updatedAt: at(124),
+    },
   ];
 
-  await db.insert(schema.tasks).values(taskData);
-  console.log('  Created 10 tasks');
+  const taskLabels = [
+    { taskId: id(901), labelId: id(801) },
+    { taskId: id(901), labelId: id(803) },
+    { taskId: id(902), labelId: id(802) },
+    { taskId: id(903), labelId: id(801) },
+    { taskId: id(905), labelId: id(804) },
+    { taskId: id(905), labelId: id(805) },
+    { taskId: id(906), labelId: id(806) },
+    { taskId: id(908), labelId: id(807) },
+    { taskId: id(909), labelId: id(808) },
+    { taskId: id(910), labelId: id(809) },
+    { taskId: id(911), labelId: id(810) },
+    { taskId: id(911), labelId: id(811) },
+    { taskId: id(914), labelId: id(812) },
+  ];
 
-  console.log('Seed complete!');
+  const taskWatchers = [
+    { taskId: id(901), userId: id(1) },
+    { taskId: id(901), userId: id(3) },
+    { taskId: id(905), userId: id(2) },
+    { taskId: id(908), userId: id(4) },
+    { taskId: id(908), userId: id(7) },
+    { taskId: id(911), userId: id(5) },
+    { taskId: id(914), userId: id(4) },
+    { taskId: id(914), userId: id(5) },
+  ];
+
+  const taskDependencies = [
+    {
+      id: id(951),
+      taskId: id(903),
+      dependsOnTaskId: id(901),
+      type: 'blocked_by' as const,
+      createdAt: at(130),
+    },
+    {
+      id: id(952),
+      taskId: id(901),
+      dependsOnTaskId: id(905),
+      type: 'blocks' as const,
+      createdAt: at(131),
+    },
+    {
+      id: id(953),
+      taskId: id(911),
+      dependsOnTaskId: id(914),
+      type: 'blocked_by' as const,
+      createdAt: at(132),
+    },
+  ];
+
+  const checklists = [
+    { id: id(961), taskId: id(901), title: 'Go-live checklist', position: 0, createdAt: at(140) },
+    {
+      id: id(962),
+      taskId: id(905),
+      title: 'Queue resilience checklist',
+      position: 0,
+      createdAt: at(141),
+    },
+    {
+      id: id(963),
+      taskId: id(911),
+      title: 'MFA rollout readiness checklist',
+      position: 0,
+      createdAt: at(142),
+    },
+  ];
+
+  const checklistItems = [
+    {
+      id: id(971),
+      checklistId: id(961),
+      title: 'Confirm final release artifacts',
+      isCompleted: true,
+      position: 0,
+      completedBy: id(2),
+      completedAt: at(150),
+      createdAt: at(150),
+      updatedAt: at(150),
+    },
+    {
+      id: id(972),
+      checklistId: id(961),
+      title: 'Run smoke tests in production',
+      isCompleted: false,
+      position: 1,
+      completedBy: null,
+      completedAt: null,
+      createdAt: at(151),
+      updatedAt: at(151),
+    },
+    {
+      id: id(973),
+      checklistId: id(962),
+      title: 'Validate dead-letter routing',
+      isCompleted: true,
+      position: 0,
+      completedBy: id(7),
+      completedAt: at(152),
+      createdAt: at(152),
+      updatedAt: at(152),
+    },
+    {
+      id: id(974),
+      checklistId: id(962),
+      title: 'Verify retry jitter settings',
+      isCompleted: false,
+      position: 1,
+      completedBy: null,
+      completedAt: null,
+      createdAt: at(153),
+      updatedAt: at(153),
+    },
+    {
+      id: id(975),
+      checklistId: id(963),
+      title: 'Confirm help-center content published',
+      isCompleted: true,
+      position: 0,
+      completedBy: id(4),
+      completedAt: at(154),
+      createdAt: at(154),
+      updatedAt: at(154),
+    },
+  ];
+
+  const comments = [
+    {
+      id: id(1001),
+      entityType: 'task',
+      entityId: id(901),
+      authorId: id(2),
+      body: 'Kickoff complete. @Marcus Member owns dry-run and @Anil QA validates checklist items.',
+      visibility: 'public',
+      parentCommentId: null,
+      createdAt: at(160),
+      updatedAt: at(160),
+    },
+    {
+      id: id(1002),
+      entityType: 'task',
+      entityId: id(901),
+      authorId: id(3),
+      body: 'Dry-run booked for tomorrow, shared notes in project docs.',
+      visibility: 'public',
+      parentCommentId: id(1001),
+      createdAt: at(161),
+      updatedAt: at(161),
+    },
+    {
+      id: id(1003),
+      entityType: 'task',
+      entityId: id(905),
+      authorId: id(7),
+      body: 'Queue retries tuned. Need one more production-like load test.',
+      visibility: 'internal',
+      parentCommentId: null,
+      createdAt: at(162),
+      updatedAt: at(162),
+    },
+    {
+      id: id(1004),
+      entityType: 'task',
+      entityId: id(908),
+      authorId: id(5),
+      body: 'SLA dashboard draft is in Grafana. @Sam Ops please review panel thresholds.',
+      visibility: 'public',
+      parentCommentId: null,
+      createdAt: at(163),
+      updatedAt: at(163),
+    },
+    {
+      id: id(1005),
+      entityType: 'task',
+      entityId: id(911),
+      authorId: id(4),
+      body: 'Wave 2 users informed. Expect ~40 accounts to enroll this week.',
+      visibility: 'public',
+      parentCommentId: null,
+      createdAt: at(164),
+      updatedAt: at(164),
+    },
+    {
+      id: id(1006),
+      entityType: 'project',
+      entityId: id(504),
+      authorId: id(7),
+      body: 'Incident tabletop agenda attached in runbook.',
+      visibility: 'internal',
+      parentCommentId: null,
+      createdAt: at(165),
+      updatedAt: at(165),
+    },
+  ];
+
+  const commentMentions = [
+    { id: id(1011), commentId: id(1001), userId: id(3), createdAt: at(166) },
+    { id: id(1012), commentId: id(1001), userId: id(7), createdAt: at(166) },
+    { id: id(1013), commentId: id(1004), userId: id(5), createdAt: at(167) },
+  ];
+
+  const activityLog: (typeof schema.activityLog.$inferInsert)[] = [
+    {
+      id: id(1101),
+      organizationId: id(101),
+      actorId: id(1),
+      actorDisplay: 'Alex Acme',
+      entityType: 'task',
+      entityId: id(901),
+      action: 'created',
+      changes: {
+        title: { before: null, after: 'Launch readiness checklist' },
+      },
+      createdAt: at(170),
+    },
+    {
+      id: id(1102),
+      organizationId: id(101),
+      actorId: id(2),
+      actorDisplay: 'Priya Admin',
+      entityType: 'task',
+      entityId: id(903),
+      action: 'status_changed',
+      changes: {
+        statusId: { before: id(611), after: id(613) },
+      },
+      createdAt: at(171),
+    },
+    {
+      id: id(1103),
+      organizationId: id(101),
+      actorId: id(7),
+      actorDisplay: 'Anil QA',
+      entityType: 'checklist_item',
+      entityId: id(973),
+      action: 'completed',
+      changes: {
+        isCompleted: { before: false, after: true },
+      },
+      createdAt: at(172),
+    },
+    {
+      id: id(1104),
+      organizationId: id(102),
+      actorId: id(4),
+      actorDisplay: 'Jordan Globex',
+      entityType: 'task',
+      entityId: id(911),
+      action: 'priority_changed',
+      changes: {
+        priority: { before: 'high', after: 'critical' },
+      },
+      createdAt: at(173),
+    },
+    {
+      id: id(1105),
+      organizationId: id(102),
+      actorId: id(5),
+      actorDisplay: 'Sam Ops',
+      entityType: 'task',
+      entityId: id(908),
+      action: 'commented',
+      changes: {
+        commentId: { before: null, after: id(1004) },
+      },
+      createdAt: at(174),
+    },
+    {
+      id: id(1106),
+      organizationId: id(102),
+      actorId: id(7),
+      actorDisplay: 'Anil QA',
+      entityType: 'project',
+      entityId: id(504),
+      action: 'security_review_logged',
+      changes: {
+        reviewStatus: { before: 'pending', after: 'in_review' },
+      },
+      createdAt: at(175),
+    },
+  ];
+
+  const notificationPreferences = [
+    {
+      id: id(1201),
+      userId: id(2),
+      eventType: 'task.assigned',
+      channel: 'in_app',
+      enabled: true,
+      createdAt: at(180),
+      updatedAt: at(180),
+    },
+    {
+      id: id(1202),
+      userId: id(2),
+      eventType: 'task.assigned',
+      channel: 'email',
+      enabled: true,
+      createdAt: at(181),
+      updatedAt: at(181),
+    },
+    {
+      id: id(1203),
+      userId: id(5),
+      eventType: 'comment.mention',
+      channel: 'in_app',
+      enabled: true,
+      createdAt: at(182),
+      updatedAt: at(182),
+    },
+    {
+      id: id(1204),
+      userId: id(6),
+      eventType: 'deadline.reminder',
+      channel: 'email',
+      enabled: false,
+      createdAt: at(183),
+      updatedAt: at(183),
+    },
+  ];
+
+  const notifications = [
+    {
+      id: id(1301),
+      userId: id(2),
+      type: 'task_assigned',
+      title: 'Assigned: Launch readiness checklist',
+      body: 'You were assigned to task Launch readiness checklist.',
+      entityType: 'task',
+      entityId: id(901),
+      readAt: null,
+      createdAt: at(190),
+    },
+    {
+      id: id(1302),
+      userId: id(3),
+      type: 'comment_mention',
+      title: 'Mentioned in a comment',
+      body: 'You were mentioned in launch kickoff comment.',
+      entityType: 'comment',
+      entityId: id(1001),
+      readAt: at(191),
+      createdAt: at(191),
+    },
+    {
+      id: id(1303),
+      userId: id(5),
+      type: 'comment_mention',
+      title: 'Mentioned in SLA dashboard task',
+      body: 'Please review panel thresholds.',
+      entityType: 'comment',
+      entityId: id(1004),
+      readAt: null,
+      createdAt: at(192),
+    },
+    {
+      id: id(1304),
+      userId: id(4),
+      type: 'deadline_reminder',
+      title: 'Task due soon: MFA rollout wave 2',
+      body: 'This task is due within 24 hours.',
+      entityType: 'task',
+      entityId: id(911),
+      readAt: null,
+      createdAt: at(193),
+    },
+  ];
+
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.users).values(users);
+    await tx.insert(schema.organizations).values(organizations);
+    await tx.insert(schema.organizationAuthSettings).values(organizationAuthSettings);
+
+    await tx.insert(schema.roles).values(roles);
+    await tx.insert(schema.permissions).values(permissions);
+    await tx.insert(schema.organizationMembers).values(organizationMembers);
+
+    await tx.insert(schema.oauthAccounts).values(oauthAccounts);
+    await tx.insert(schema.sessions).values(sessions);
+    await tx.insert(schema.verificationTokens).values(verificationTokens);
+
+    await tx.insert(schema.projects).values(projects);
+    await tx.insert(schema.workflows).values(workflows);
+    await tx.insert(schema.workflowStatuses).values(workflowStatuses);
+    await tx.insert(schema.projectMembers).values(projectMembers);
+    await tx.insert(schema.labels).values(labels);
+
+    await tx.insert(schema.tasks).values(tasks);
+    await tx.insert(schema.taskLabels).values(taskLabels);
+    await tx.insert(schema.taskWatchers).values(taskWatchers);
+    await tx.insert(schema.taskDependencies).values(taskDependencies);
+    await tx.insert(schema.checklists).values(checklists);
+    await tx.insert(schema.checklistItems).values(checklistItems);
+
+    await tx.insert(schema.comments).values(comments);
+    await tx.insert(schema.commentMentions).values(commentMentions);
+    await tx.insert(schema.activityLog).values(activityLog);
+    await tx.insert(schema.notificationPreferences).values(notificationPreferences);
+    await tx.insert(schema.notifications).values(notifications);
+  });
+
+  const summary = {
+    users: users.length,
+    organizations: organizations.length,
+    roles: roles.length,
+    permissions: permissions.length,
+    projects: projects.length,
+    tasks: tasks.length,
+    comments: comments.length,
+    notifications: notifications.length,
+  };
+
+  console.log('Deterministic seed complete.');
+  console.log('Fixture summary:');
+  console.log(`  Users: ${summary.users}`);
+  console.log(`  Organizations: ${summary.organizations}`);
+  console.log(`  Roles: ${summary.roles}`);
+  console.log(`  Permissions: ${summary.permissions}`);
+  console.log(`  Projects: ${summary.projects}`);
+  console.log(`  Tasks: ${summary.tasks}`);
+  console.log(`  Comments: ${summary.comments}`);
+  console.log(`  Notifications: ${summary.notifications}`);
+
+  console.log('Known dev credentials:');
+  console.log(`  Password (all password-enabled users): ${KNOWN_PASSWORD}`);
+  for (const email of [
+    'owner@acme.taskforge.local',
+    'admin@acme.taskforge.local',
+    'member@acme.taskforge.local',
+    'owner@globex.taskforge.local',
+    'admin@globex.taskforge.local',
+    'member@globex.taskforge.local',
+    'qa@taskforge.local',
+  ]) {
+    console.log(`  - ${email}`);
+  }
 }
 
-seed()
-  .catch((err) => {
-    console.error('Seed failed:', err);
-    process.exit(1);
+void seed()
+  .catch((error: unknown) => {
+    console.error('Seed failed:', error);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await pool.end();

@@ -12,6 +12,7 @@
     "migrate": "drizzle-kit migrate",
     "migrate:generate": "drizzle-kit generate",
     "seed": "tsx src/seed/index.ts",
+    "seed:validate": "tsx src/seed/validate.ts",
     "studio": "drizzle-kit studio"
   },
   "dependencies": {

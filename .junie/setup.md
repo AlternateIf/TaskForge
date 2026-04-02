@@ -92,6 +92,22 @@ This starts both the API and web dev servers via Turborepo:
 
 ---
 
+## Seeded Login Credentials (Deterministic Fixtures)
+
+These credentials are created by `NODE_ENV=development pnpm test-seed` and `pnpm --filter db seed`.
+
+- Password (all password-enabled seeded users): `Taskforge123!`
+- Users:
+  - `owner@acme.taskforge.local`
+  - `admin@acme.taskforge.local`
+  - `member@acme.taskforge.local`
+  - `owner@globex.taskforge.local`
+  - `admin@globex.taskforge.local`
+  - `member@globex.taskforge.local`
+  - `qa@taskforge.local`
+
+---
+
 ## Common Commands
 
 ### Development
@@ -117,6 +133,7 @@ pnpm --filter db migrate          # Run pending migrations
 pnpm --filter db migrate:generate # Generate migration from schema changes
 pnpm --filter db seed             # Seed development data
 pnpm --filter db studio           # Open Drizzle Studio (DB browser)
+NODE_ENV=development pnpm test-seed # DEV-ONLY full reset + deterministic reseed
 ```
 
 ### Testing
@@ -175,8 +192,9 @@ RabbitMQ may take a few seconds to initialize. The API and worker will retry con
 ### Clean reset
 To start fresh (destroys all local data):
 ```bash
-docker compose -f docker/docker-compose.yml down -v
-docker compose -f docker/docker-compose.yml up -d
-pnpm --filter db migrate
-pnpm --filter db seed
+NODE_ENV=development pnpm test-seed
 ```
+
+`pnpm test-seed` is **DEV ONLY** and intentionally destructive. It resets compose local state
+(MariaDB, Redis, RabbitMQ, Meilisearch, monitoring/tooling volumes), clears `local/uploads`,
+runs DB migration + deterministic seed, reindexes Meilisearch, and executes post-seed checks.

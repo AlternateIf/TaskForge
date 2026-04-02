@@ -123,6 +123,26 @@ function hasPermission(
   return false;
 }
 
+function hasMvp044GovernanceEquivalentPermission(
+  perms: { resource: string; action: string }[],
+  resource: Resource,
+  action: Action,
+): boolean {
+  // MVP-044 catalog intentionally excludes project-domain permissions.
+  // Project authorization derives from org governance permissions.
+  if (resource !== 'project') return false;
+
+  if (action === 'read') {
+    return hasPermission(perms, 'organization', 'read');
+  }
+
+  if (action === 'create' || action === 'update' || action === 'delete') {
+    return hasPermission(perms, 'organization', 'update');
+  }
+
+  return false;
+}
+
 /**
  * Check if a user has the required permission for a resource+action.
  *
@@ -149,12 +169,19 @@ export async function checkPermission(
     if (projectCtx) {
       // Project role overrides org role for this project
       if (projectCtx.roleName === ROLE_NAMES.SUPER_ADMIN) return true;
-      return hasPermission(projectCtx.permissions, resource, action);
+      if (hasPermission(projectCtx.permissions, resource, action)) {
+        return true;
+      }
+      return hasMvp044GovernanceEquivalentPermission(ctx.orgPermissions, resource, action);
     }
     // No project membership — fall through to org permissions
   }
 
-  return hasPermission(ctx.orgPermissions, resource, action);
+  if (hasPermission(ctx.orgPermissions, resource, action)) {
+    return true;
+  }
+
+  return hasMvp044GovernanceEquivalentPermission(ctx.orgPermissions, resource, action);
 }
 
 /**

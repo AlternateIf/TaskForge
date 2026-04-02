@@ -132,18 +132,18 @@ This feature must use only the MVP-044 governance permission domain below. No ta
 - `Organization Member`: organization read + membership read (self-visible) only.
 
 ## Acceptance Criteria
-- [ ] `pnpm test-seed` exists at root and executes a documented destructive reset + reseed flow.
-- [ ] Command aborts outside development environment.
-- [ ] Script output includes explicit dev-only and data-loss warning text.
-- [ ] Local data in MariaDB, Meilisearch, Redis, RabbitMQ, and compose-local tool state is reset.
-- [ ] `local/uploads` is cleared during reset flow.
-- [ ] DB migration is executed before reseeding.
-- [ ] Seed data is deterministic across repeated runs.
-- [ ] Seed contains multiple organizations, multiple users, multiple projects, and tasks across different workflows/priorities.
-- [ ] Meilisearch is reindexed from seeded DB as part of the same command.
-- [ ] MVP-044 permission catalog in this file is treated as the fixed set for governance seeding in this feature.
-- [ ] Automated checks verify post-seed counts/relationships and search availability.
+- [x] `pnpm test-seed` exists at root and executes a documented destructive reset + reseed flow.
+- [x] Command aborts outside development environment.
+- [x] Script output includes explicit dev-only and data-loss warning text.
+- [x] Local data in MariaDB, Meilisearch, Redis, RabbitMQ, and compose-local tool state is reset.
+- [x] `local/uploads` is cleared during reset flow.
+- [x] DB migration is executed before reseeding.
+- [x] Seed data is deterministic across repeated runs.
+- [x] Seed contains multiple organizations, multiple users, multiple projects, and tasks across different workflows/priorities.
+- [x] Meilisearch is reindexed from seeded DB as part of the same command.
+- [x] MVP-044 permission catalog in this file is treated as the fixed set for governance seeding in this feature.
+- [x] Automated checks verify post-seed counts/relationships and search availability.
 
 ## Post-Implementation Updates (Required)
-- [ ] Acceptance criteria checked in this file (`- [x]`)
-- [ ] Corresponding roadmap entry updated in `../../roadmap.md`
+- [x] Acceptance criteria checked in this file (`- [x]`)
+- [x] Corresponding roadmap entry updated in `../../roadmap.md`

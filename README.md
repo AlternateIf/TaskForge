@@ -127,6 +127,19 @@ pnpm --filter @taskforge/api dev:worker
 | Prometheus | http://localhost:9090 | Metrics |
 | Grafana | http://localhost:3002 | `admin / admin` by default |
 
+## Seeded Login Credentials
+
+The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these logins:
+
+- Password (all password-enabled seeded users): `Taskforge123!`
+- `owner@acme.taskforge.local`
+- `admin@acme.taskforge.local`
+- `member@acme.taskforge.local`
+- `owner@globex.taskforge.local`
+- `admin@globex.taskforge.local`
+- `member@globex.taskforge.local`
+- `qa@taskforge.local`
+
 ## Documentation
 
 Primary documentation lives in [`.junie/`](.junie/guidelines.md).
