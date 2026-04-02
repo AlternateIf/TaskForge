@@ -8,6 +8,8 @@ import { ResetPasswordPage } from '@/routes/auth/reset-password';
 import { DashboardPage } from '@/routes/dashboard';
 import { PrivacyPage } from '@/routes/legal/privacy';
 import { TermsPage } from '@/routes/legal/terms';
+import { NotFoundPage } from '@/routes/not-found';
+import { GlobalNotFoundRedirect } from '@/routes/not-found/global-not-found';
 import { ProjectsPage } from '@/routes/projects';
 import { ProjectIndexPage } from '@/routes/projects/[projectId]';
 import { ProjectBoardPage } from '@/routes/projects/[projectId]/board';
@@ -124,6 +126,12 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const notFoundRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/not-found',
+  component: NotFoundPage,
+});
+
 // ─── Index redirect ───────────────────────────────────────────────────────────
 
 const indexRoute = createRoute({
@@ -218,6 +226,7 @@ const routeTree = rootRoute.addChildren([
     projectTaskDetailRoute,
     projectSettingsRoute,
     settingsRoute,
+    notFoundRoute,
   ]),
   loginRoute,
   registerRoute,
@@ -229,7 +238,10 @@ const routeTree = rootRoute.addChildren([
   privacyRoute,
 ]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  defaultNotFoundComponent: GlobalNotFoundRedirect,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
