@@ -22,5 +22,28 @@ export default defineConfig({
   build: {
     target: 'es2022',
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+
+          if (id.includes('/@tiptap/')) return 'vendor-tiptap';
+          if (id.includes('/lowlight/') || id.includes('/highlight.js/')) return 'vendor-lowlight';
+          if (id.includes('/@tanstack/')) return 'vendor-tanstack';
+          if (id.includes('/@dnd-kit/')) return 'vendor-dnd-kit';
+          if (id.includes('/lucide-react/')) return 'vendor-lucide';
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/scheduler/') ||
+            id.includes('/zustand/')
+          ) {
+            return 'vendor-react';
+          }
+
+          return 'vendor-misc';
+        },
+      },
+    },
   },
 });

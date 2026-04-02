@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/stores/auth.store';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalNotFoundRedirect } from './global-not-found';
 
@@ -19,11 +19,15 @@ describe('GlobalNotFoundRedirect', () => {
   beforeEach(() => {
     navigateCalls.length = 0;
     currentHref = '/missing';
-    useAuthStore.getState().clearAuth();
+    act(() => {
+      useAuthStore.getState().clearAuth();
+    });
   });
 
   afterEach(() => {
-    useAuthStore.getState().clearAuth();
+    act(() => {
+      useAuthStore.getState().clearAuth();
+    });
   });
 
   it('redirects logged-out users to login with full href', () => {
@@ -39,12 +43,14 @@ describe('GlobalNotFoundRedirect', () => {
   });
 
   it('redirects logged-in users to authenticated not-found page', () => {
-    useAuthStore.getState().setAuth('token-1', {
-      id: 'user-1',
-      email: 'user@example.com',
-      displayName: 'Test User',
-      organizationId: 'org-1',
-      organizationName: 'TaskForge',
+    act(() => {
+      useAuthStore.getState().setAuth('token-1', {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'Test User',
+        organizationId: 'org-1',
+        organizationName: 'TaskForge',
+      });
     });
 
     render(<GlobalNotFoundRedirect />);

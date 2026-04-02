@@ -268,6 +268,12 @@ describe('CommandPalette search debounce', () => {
     });
   }
 
+  async function flushAsyncState() {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
   it('does not call onSearch immediately on input change', () => {
     const onSearch = vi.fn().mockResolvedValue(MOCK_SEARCH_RESULTS);
     renderPalette({ onSearch });
@@ -283,6 +289,7 @@ describe('CommandPalette search debounce', () => {
     const input = screen.getByRole('combobox');
     typeIntoInput(input, 'fix');
     act(() => vi.advanceTimersByTime(200));
+    await flushAsyncState();
     expect(onSearch).toHaveBeenCalledWith('fix');
     expect(onSearch).toHaveBeenCalledTimes(1);
   });
@@ -298,6 +305,7 @@ describe('CommandPalette search debounce', () => {
     act(() => vi.advanceTimersByTime(100));
     typeIntoInput(input, 'update api');
     act(() => vi.advanceTimersByTime(200));
+    await flushAsyncState();
     // Only 1 call with the final value
     expect(onSearch).toHaveBeenCalledTimes(1);
     expect(onSearch).toHaveBeenCalledWith('update api');
@@ -309,6 +317,7 @@ describe('CommandPalette search debounce', () => {
     const input = screen.getByRole('combobox');
     typeIntoInput(input, 'fix');
     act(() => vi.advanceTimersByTime(200));
+    await flushAsyncState();
     expect(onSearch).toHaveBeenCalledTimes(1);
     onSearch.mockClear();
     typeIntoInput(input, '');
