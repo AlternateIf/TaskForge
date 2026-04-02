@@ -1,6 +1,7 @@
 import type { CreateCommentInput, UpdateCommentInput } from '@taskforge/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as commentService from '../../services/comment.service.js';
+import type { PermissionContext } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
 
@@ -11,17 +12,75 @@ function requireAuth(request: FastifyRequest): string {
   return request.authUser.userId;
 }
 
+function hasPermission(
+  permissions: Array<{ resource: string; action: string }>,
+  resource: string,
+  action: string,
+): boolean {
+  return permissions.some((permission) => {
+    if (permission.resource !== resource) return false;
+    return permission.action === action || permission.action === 'manage';
+  });
+}
+
+function canAccessInternalComments(ctx?: PermissionContext): boolean {
+  if (!ctx) return false;
+  if (ctx.hasSuperAdmin) return true;
+
+  if (
+    hasPermission(ctx.effectivePermissions, 'comment', 'create') ||
+    hasPermission(ctx.effectivePermissions, 'comment', 'update')
+  ) {
+    return true;
+  }
+
+  for (const projectCtx of ctx.projectCache.values()) {
+    if (
+      projectCtx &&
+      (hasPermission(projectCtx.permissions, 'comment', 'create') ||
+        hasPermission(projectCtx.permissions, 'comment', 'update'))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function canModerateComments(ctx?: PermissionContext): boolean {
+  if (!ctx) return false;
+  if (ctx.hasSuperAdmin) return true;
+
+  if (
+    hasPermission(ctx.effectivePermissions, 'comment', 'delete') ||
+    hasPermission(ctx.effectivePermissions, 'comment', 'update')
+  ) {
+    return true;
+  }
+
+  for (const projectCtx of ctx.projectCache.values()) {
+    if (
+      projectCtx &&
+      (hasPermission(projectCtx.permissions, 'comment', 'delete') ||
+        hasPermission(projectCtx.permissions, 'comment', 'update'))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function createCommentHandler(
   request: FastifyRequest<{ Params: { taskId: string }; Body: CreateCommentInput }>,
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const roleName = request.permissionContext?.orgRoleName;
   const comment = await commentService.createComment(
     userId,
     request.params.taskId,
     request.body,
-    roleName,
+    canAccessInternalComments(request.permissionContext) ? undefined : 'Guest',
   );
   return reply.status(201).send(success(comment));
 }
@@ -31,8 +90,10 @@ export async function listCommentsHandler(
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const roleName = request.permissionContext?.orgRoleName;
-  const comments = await commentService.listComments(request.params.taskId, roleName);
+  const comments = await commentService.listComments(
+    request.params.taskId,
+    canAccessInternalComments(request.permissionContext) ? undefined : 'Guest',
+  );
   return reply.status(200).send(success(comments));
 }
 
@@ -50,8 +111,7 @@ export async function deleteCommentHandler(
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const roleName = request.permissionContext?.orgRoleName;
-  const isAdmin = roleName === 'Super Admin' || roleName === 'Admin';
+  const isAdmin = canModerateComments(request.permissionContext);
   await commentService.deleteComment(request.params.id, userId, isAdmin);
   return reply.status(204).send();
 }

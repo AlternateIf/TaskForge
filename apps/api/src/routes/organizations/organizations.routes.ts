@@ -1,12 +1,10 @@
 import {
-  addMemberSchema,
   createOrganizationSchema,
   updateAuthSettingsSchema,
   updateMemberRoleSchema,
   updateOrganizationSchema,
 } from '@taskforge/shared';
 import type {
-  AddMemberInput,
   UpdateAuthSettingsInput,
   UpdateMemberRoleInput,
   UpdateOrganizationInput,
@@ -14,10 +12,11 @@ import type {
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
 import type { FeatureMap } from '../../services/feature-toggle.service.js';
+import { hasGlobalPermission } from '../../services/permission.service.js';
+import { AppError, ErrorCode } from '../../utils/errors.js';
 import { getAuthSettingsHandler, updateAuthSettingsHandler } from './auth-settings.handlers.js';
 import { getFeaturesHandler, updateFeaturesHandler } from './features.handlers.js';
 import {
-  addMemberHandler,
   createOrganizationHandler,
   deleteOrganizationHandler,
   getOrganizationHandler,
@@ -36,9 +35,24 @@ export async function organizationRoutes(fastify: FastifyInstance) {
   fastify.post(
     '/api/v1/organizations',
     {
-      preHandler: async (request) => {
-        request.body = createOrganizationSchema.parse(request.body);
-      },
+      preHandler: [
+        async (request) => {
+          if (!request.authUser) {
+            throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+          }
+          const allowed = await hasGlobalPermission(
+            request.authUser.userId,
+            'organization',
+            'create',
+          );
+          if (!allowed) {
+            throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions');
+          }
+        },
+        async (request) => {
+          request.body = createOrganizationSchema.parse(request.body);
+        },
+      ],
     },
     createOrganizationHandler,
   );
@@ -79,19 +93,6 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     '/api/v1/organizations/:id/members',
     { preHandler: authorize({ resource: 'organization', action: 'read' }) },
     listMembersHandler,
-  );
-
-  fastify.post<{ Params: { id: string }; Body: AddMemberInput }>(
-    '/api/v1/organizations/:id/members',
-    {
-      preHandler: [
-        authorize({ resource: 'organization', action: 'update' }),
-        async (request) => {
-          request.body = addMemberSchema.parse(request.body);
-        },
-      ],
-    },
-    addMemberHandler,
   );
 
   fastify.patch<{ Params: { id: string; memberId: string }; Body: UpdateMemberRoleInput }>(

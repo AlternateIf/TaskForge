@@ -12,27 +12,34 @@ const MOCK_USER: AuthUser = {
 
 beforeEach(() => {
   // Reset store to initial state between tests
-  useAuthStore.setState({ token: null, user: null, isAuthenticated: false });
+  useAuthStore.setState({
+    token: null,
+    user: null,
+    isAuthenticated: false,
+    activeOrganizationId: null,
+  });
   localStorage.clear();
 });
 
 describe('useAuthStore', () => {
   describe('initial state', () => {
     it('starts unauthenticated', () => {
-      const { token, user, isAuthenticated } = useAuthStore.getState();
+      const { token, user, isAuthenticated, activeOrganizationId } = useAuthStore.getState();
       expect(token).toBeNull();
       expect(user).toBeNull();
       expect(isAuthenticated).toBe(false);
+      expect(activeOrganizationId).toBeNull();
     });
   });
 
   describe('setAuth', () => {
     it('sets token, user, and isAuthenticated', () => {
       useAuthStore.getState().setAuth('tok-abc', MOCK_USER);
-      const { token, user, isAuthenticated } = useAuthStore.getState();
+      const { token, user, isAuthenticated, activeOrganizationId } = useAuthStore.getState();
       expect(token).toBe('tok-abc');
       expect(user).toEqual(MOCK_USER);
       expect(isAuthenticated).toBe(true);
+      expect(activeOrganizationId).toBe('org-1');
     });
   });
 
@@ -40,10 +47,11 @@ describe('useAuthStore', () => {
     it('resets all auth state', () => {
       useAuthStore.getState().setAuth('tok-abc', MOCK_USER);
       useAuthStore.getState().clearAuth();
-      const { token, user, isAuthenticated } = useAuthStore.getState();
+      const { token, user, isAuthenticated, activeOrganizationId } = useAuthStore.getState();
       expect(token).toBeNull();
       expect(user).toBeNull();
       expect(isAuthenticated).toBe(false);
+      expect(activeOrganizationId).toBeNull();
     });
   });
 

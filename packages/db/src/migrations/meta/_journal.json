@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1775143302064,
+      "tag": "0000_overrated_blockbuster",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import type { LoginInput, RegisterInput } from '@taskforge/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as authService from '../../services/auth.service.js';
-import { getUserOrg, toUserOutput } from '../../services/user.service.js';
+import { getUserById } from '../../services/user.service.js';
 import { success } from '../../utils/response.js';
 
 const REFRESH_COOKIE = 'taskforge_refresh';
@@ -41,11 +41,11 @@ export async function registerHandler(
   );
 
   setRefreshCookie(reply, tokens.refreshTokenRaw);
-  const org = await getUserOrg(user.id);
+  const userOutput = await getUserById(user.id);
 
   return reply.status(201).send(
     success({
-      user: toUserOutput(user, org),
+      user: userOutput,
       accessToken: tokens.accessToken,
     }),
   );
@@ -77,14 +77,19 @@ export async function loginHandler(
   }
 
   setRefreshCookie(reply, result.tokens.refreshTokenRaw);
-  const org = await getUserOrg(result.user.id);
+  const userOutput = await getUserById(result.user.id);
 
   return reply.status(200).send(
     success({
-      user: toUserOutput(result.user, org),
+      user: userOutput,
       accessToken: result.tokens.accessToken,
     }),
   );
+}
+
+export async function authConfigHandler(_request: FastifyRequest, reply: FastifyReply) {
+  const config = await authService.getAuthConfig();
+  return reply.status(200).send(success(config));
 }
 
 export async function refreshHandler(request: FastifyRequest, reply: FastifyReply) {

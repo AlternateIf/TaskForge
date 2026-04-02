@@ -20,9 +20,11 @@ import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { checklistRoutes } from './routes/checklists/checklists.routes.js';
 import { commentRoutes } from './routes/comments/comments.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
+import { invitationRoutes } from './routes/invitations/invitations.routes.js';
 import { notificationRoutes } from './routes/notifications/notifications.routes.js';
 import { organizationRoutes } from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
+import { rbacRoutes } from './routes/rbac/rbac.routes.js';
 import { savedFilterRoutes } from './routes/saved-filters/saved-filters.routes.js';
 import { searchRoutes } from './routes/search/search.routes.js';
 import { bulkRoutes } from './routes/tasks/bulk.routes.js';
@@ -30,6 +32,7 @@ import { dependencyRoutes } from './routes/tasks/dependencies.routes.js';
 import { subtaskRoutes } from './routes/tasks/subtasks.routes.js';
 import { taskRoutes } from './routes/tasks/tasks.routes.js';
 import { userRoutes } from './routes/users/users.routes.js';
+import { bootstrapSuperAdmin } from './services/auth.service.js';
 import { initIndexes } from './services/search.service.js';
 import { loggerConfig } from './utils/logger.js';
 import { realtimeGateway } from './ws/gateway.js';
@@ -63,6 +66,8 @@ export async function buildServer() {
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes);
   await fastify.register(oauthRoutes);
+  await fastify.register(invitationRoutes);
+  await fastify.register(rbacRoutes);
   await fastify.register(mfaRoutes);
   await fastify.register(organizationRoutes);
   await fastify.register(projectRoutes);
@@ -90,6 +95,9 @@ export async function startServer() {
   const host = process.env.HOST ?? '0.0.0.0';
 
   registerGracefulShutdown(server);
+
+  await bootstrapSuperAdmin();
+  server.log.info('Bootstrap super admin check completed');
 
   // Initialize Meilisearch indexes
   try {

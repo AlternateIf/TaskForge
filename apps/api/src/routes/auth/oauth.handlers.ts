@@ -53,14 +53,21 @@ export async function oauthCallbackHandler(
 
   const jwtSign = (payload: JwtPayload, opts: { expiresIn: number }) =>
     request.server.jwtSign({ ...payload }, opts.expiresIn);
-
-  const { tokens, isNewUser } = await oauthService.handleOAuthCallback(
-    code,
-    state,
-    jwtSign,
-    request.ip,
-    request.headers['user-agent'],
-  );
+  let tokens: { accessToken: string; refreshTokenRaw: string };
+  let isNewUser = false;
+  try {
+    const result = await oauthService.handleOAuthCallback(
+      code,
+      state,
+      jwtSign,
+      request.ip,
+      request.headers['user-agent'],
+    );
+    tokens = result.tokens;
+    isNewUser = result.isNewUser;
+  } catch {
+    return reply.redirect(`${frontendUrl}/auth/login?error=oauth_failed`);
+  }
 
   setRefreshCookie(reply, tokens.refreshTokenRaw);
 

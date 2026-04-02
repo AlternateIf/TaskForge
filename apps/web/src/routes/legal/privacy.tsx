@@ -9,7 +9,7 @@ export function PrivacyPage() {
       <div className="mx-auto max-w-180">
         <button
           type="button"
-          onClick={() => void navigate({ to: '/auth/register' })}
+          onClick={() => void navigate({ to: '/auth/login', search: { redirect: undefined } })}
           className="mb-2xl flex items-center gap-xs text-small text-muted hover:text-foreground"
         >
           <ArrowLeft className="size-4" />

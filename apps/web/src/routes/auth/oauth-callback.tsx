@@ -11,6 +11,9 @@ interface MeResponse {
     avatarUrl?: string | null;
     organizationId?: string;
     organizationName?: string;
+    organizations?: Array<{ id: string; name: string }>;
+    permissions?: string[];
+    mustChangePassword?: boolean;
   };
 }
 
@@ -43,8 +46,11 @@ export function OAuthCallbackPage() {
           email: me.email,
           displayName: me.displayName,
           avatarUrl: me.avatarUrl ?? null,
-          organizationId: me.organizationId ?? 'personal',
-          organizationName: me.organizationName ?? 'Personal Workspace',
+          organizationId: me.organizationId,
+          organizationName: me.organizationName,
+          organizations: me.organizations ?? [],
+          permissions: me.permissions ?? [],
+          mustChangePassword: me.mustChangePassword ?? false,
         });
       } catch {
         // If profile fetch fails, keep the token flow conservative and require re-login.

@@ -20,4 +20,4 @@ COPY --chown=node:node packages/shared/ packages/shared/
 COPY --chown=node:node packages/db/ packages/db/
 COPY --chown=node:node packages/email-templates/ packages/email-templates/
 
-CMD ["pnpm", "--filter", "@taskforge/api", "dev"]
+CMD ["pnpm", "--filter", "@taskforge/api", "dev:worker"]

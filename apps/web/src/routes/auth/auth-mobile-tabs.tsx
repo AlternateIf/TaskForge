@@ -9,7 +9,6 @@ interface AuthTab {
 
 const TABS: AuthTab[] = [
   { label: 'Sign In', path: '/auth/login' },
-  { label: 'Join', path: '/auth/register' },
   { label: 'Help', path: 'mailto:support@taskforge.io', external: true },
 ];
 

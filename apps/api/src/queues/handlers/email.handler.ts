@@ -1,5 +1,7 @@
 import {
   renderDeadlineReminder,
+  renderInvitation,
+  renderInvitationRevoked,
   renderMention,
   renderTaskAssigned,
   renderTaskStatusChanged,
@@ -28,6 +30,10 @@ async function renderTemplate(
       return renderMention(data as never);
     case 'task_deadline_approaching':
       return renderDeadlineReminder(data as never);
+    case 'invitation':
+      return renderInvitation(data as never);
+    case 'invitation_revoked':
+      return renderInvitationRevoked(data as never);
     case 'welcome':
       return renderWelcome(data as never);
     default:

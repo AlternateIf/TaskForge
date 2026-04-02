@@ -5,13 +5,20 @@ import {
   commentMentions,
   comments,
   db,
+  invitationTargetPermissions,
+  invitationTargetRoles,
+  invitationTargets,
+  invitations,
   notificationPreferences,
   notifications,
   organizationMembers,
   organizations,
+  permissionAssignments,
   permissions,
   pool,
+  projectMembers,
   projects,
+  roleAssignments,
   roles,
   taskDependencies,
   taskWatchers,
@@ -50,6 +57,26 @@ const permissionCatalog: PermissionCatalogEntry[] = [
   { resource: 'role', action: 'delete', scope: 'organization' },
   { resource: 'permission', action: 'read', scope: 'organization' },
   { resource: 'permission', action: 'update', scope: 'organization' },
+  { resource: 'project', action: 'create', scope: 'organization' },
+  { resource: 'project', action: 'read', scope: 'organization' },
+  { resource: 'project', action: 'update', scope: 'organization' },
+  { resource: 'project', action: 'delete', scope: 'organization' },
+  { resource: 'task', action: 'create', scope: 'organization' },
+  { resource: 'task', action: 'read', scope: 'organization' },
+  { resource: 'task', action: 'update', scope: 'organization' },
+  { resource: 'task', action: 'delete', scope: 'organization' },
+  { resource: 'comment', action: 'create', scope: 'organization' },
+  { resource: 'comment', action: 'read', scope: 'organization' },
+  { resource: 'comment', action: 'update', scope: 'organization' },
+  { resource: 'comment', action: 'delete', scope: 'organization' },
+  { resource: 'attachment', action: 'create', scope: 'organization' },
+  { resource: 'attachment', action: 'read', scope: 'organization' },
+  { resource: 'attachment', action: 'update', scope: 'organization' },
+  { resource: 'attachment', action: 'delete', scope: 'organization' },
+  { resource: 'notification', action: 'create', scope: 'organization' },
+  { resource: 'notification', action: 'read', scope: 'organization' },
+  { resource: 'notification', action: 'update', scope: 'organization' },
+  { resource: 'notification', action: 'delete', scope: 'organization' },
   { resource: 'global_role_assignment', action: 'create', scope: 'global' },
   { resource: 'global_role_assignment', action: 'read', scope: 'global' },
   { resource: 'global_role_assignment', action: 'update', scope: 'global' },
@@ -86,6 +113,7 @@ async function countFrom(table: unknown): Promise<number> {
     [roles, 'roles'],
     [permissions, 'permissions'],
     [projects, 'projects'],
+    [projectMembers, 'project_members'],
     [tasks, 'tasks'],
     [taskDependencies, 'task_dependencies'],
     [taskWatchers, 'task_watchers'],
@@ -97,6 +125,12 @@ async function countFrom(table: unknown): Promise<number> {
     [notificationPreferences, 'notification_preferences'],
     [notifications, 'notifications'],
     [organizationMembers, 'organization_members'],
+    [roleAssignments, 'role_assignments'],
+    [permissionAssignments, 'permission_assignments'],
+    [invitations, 'invitations'],
+    [invitationTargets, 'invitation_targets'],
+    [invitationTargetRoles, 'invitation_target_roles'],
+    [invitationTargetPermissions, 'invitation_target_permissions'],
   ]);
 
   const tableName = queryByTable.get(table);
@@ -120,6 +154,7 @@ async function validateDatabaseState(): Promise<void> {
     roles: await countFrom(roles),
     permissions: await countFrom(permissions),
     projects: await countFrom(projects),
+    projectMembers: await countFrom(projectMembers),
     tasks: await countFrom(tasks),
     taskDependencies: await countFrom(taskDependencies),
     taskWatchers: await countFrom(taskWatchers),
@@ -131,13 +166,20 @@ async function validateDatabaseState(): Promise<void> {
     notificationPreferences: await countFrom(notificationPreferences),
     notifications: await countFrom(notifications),
     organizationMembers: await countFrom(organizationMembers),
+    roleAssignments: await countFrom(roleAssignments),
+    permissionAssignments: await countFrom(permissionAssignments),
+    invitations: await countFrom(invitations),
+    invitationTargets: await countFrom(invitationTargets),
+    invitationTargetRoles: await countFrom(invitationTargetRoles),
+    invitationTargetPermissions: await countFrom(invitationTargetPermissions),
   };
 
-  assert(counts.users === 8, `Expected 8 users, got ${counts.users}`);
+  assert(counts.users === 11, `Expected 11 users, got ${counts.users}`);
   assert(counts.organizations === 2, `Expected 2 organizations, got ${counts.organizations}`);
-  assert(counts.roles === 8, `Expected 8 roles, got ${counts.roles}`);
-  assert(counts.permissions === 115, `Expected 115 role permissions, got ${counts.permissions}`);
+  assert(counts.roles === 13, `Expected 13 roles, got ${counts.roles}`);
+  assert(counts.permissions === 290, `Expected 290 role permissions, got ${counts.permissions}`);
   assert(counts.projects === 4, `Expected 4 projects, got ${counts.projects}`);
+  assert(counts.projectMembers === 17, `Expected 17 project members, got ${counts.projectMembers}`);
   assert(counts.tasks === 15, `Expected 15 tasks, got ${counts.tasks}`);
   assert(
     counts.taskDependencies === 3,
@@ -158,8 +200,29 @@ async function validateDatabaseState(): Promise<void> {
   );
   assert(counts.notifications === 4, `Expected 4 notifications, got ${counts.notifications}`);
   assert(
-    counts.organizationMembers === 9,
-    `Expected 9 organization memberships, got ${counts.organizationMembers}`,
+    counts.organizationMembers === 16,
+    `Expected 16 organization memberships, got ${counts.organizationMembers}`,
+  );
+  assert(
+    counts.roleAssignments === 19,
+    `Expected 19 role assignments, got ${counts.roleAssignments}`,
+  );
+  assert(
+    counts.permissionAssignments === 5,
+    `Expected 5 direct permission assignments, got ${counts.permissionAssignments}`,
+  );
+  assert(counts.invitations === 3, `Expected 3 invitations, got ${counts.invitations}`);
+  assert(
+    counts.invitationTargets === 2,
+    `Expected 2 invitation targets, got ${counts.invitationTargets}`,
+  );
+  assert(
+    counts.invitationTargetRoles === 2,
+    `Expected 2 invitation target roles, got ${counts.invitationTargetRoles}`,
+  );
+  assert(
+    counts.invitationTargetPermissions === 2,
+    `Expected 2 invitation target permissions, got ${counts.invitationTargetPermissions}`,
   );
 
   const priorityRows = await db.select({ priority: tasks.priority }).from(tasks);
@@ -196,6 +259,29 @@ async function validateDatabaseState(): Promise<void> {
     );
   }
 
+  const [functionalRoleRows] = await pool.query(
+    `SELECT r.id, r.name
+     FROM roles r
+     WHERE r.organization_id IS NOT NULL
+       AND (r.name LIKE '%Member%' OR r.name LIKE '%Viewer%' OR r.name LIKE '%Support%')
+       AND NOT EXISTS (
+         SELECT 1
+         FROM permissions p
+         WHERE p.role_id = r.id
+           AND p.resource = 'organization'
+           AND p.action = 'read'
+           AND p.scope = 'organization'
+       )`,
+  );
+
+  const rolesMissingOrgRead = functionalRoleRows as Array<{ id: string; name: string }>;
+  assert(
+    rolesMissingOrgRead.length === 0,
+    `Expected all Member/Viewer/Support roles to include organization.read.org, missing for: ${rolesMissingOrgRead
+      .map((row) => row.name)
+      .join(', ')}`,
+  );
+
   const permissionRows = await db
     .select({
       resource: permissions.resource,
@@ -213,16 +299,158 @@ async function validateDatabaseState(): Promise<void> {
 
   assert(
     actualPermissionTuples.size === expectedPermissionTuples.size,
-    `Expected ${expectedPermissionTuples.size} distinct governance permission tuples, got ${actualPermissionTuples.size}`,
+    `Expected ${expectedPermissionTuples.size} distinct role permission tuples, got ${actualPermissionTuples.size}`,
   );
 
   for (const tuple of expectedPermissionTuples) {
-    assert(actualPermissionTuples.has(tuple), `Missing governance permission tuple: ${tuple}`);
+    assert(actualPermissionTuples.has(tuple), `Missing expected permission tuple: ${tuple}`);
   }
 
   for (const tuple of actualPermissionTuples) {
-    assert(expectedPermissionTuples.has(tuple), `Unexpected governance permission tuple: ${tuple}`);
+    assert(expectedPermissionTuples.has(tuple), `Unexpected permission tuple: ${tuple}`);
   }
+
+  // RBAC smoke checks (functional fixtures)
+  const [memberOrgReadRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'organization'
+       AND p.action = 'read'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((memberOrgReadRows as Array<{ count: number | string }>)[0]?.count ?? 0) > 0,
+    'Expected member@acme to have organization.read.org via role assignments',
+  );
+
+  const [memberOrgDeleteRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'organization'
+       AND p.action = 'delete'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((memberOrgDeleteRows as Array<{ count: number | string }>)[0]?.count ?? 0) === 0,
+    'Expected member@acme to NOT have organization.delete.org',
+  );
+
+  const [supportInviteReadRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'invitation'
+       AND p.action = 'read'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000011', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((supportInviteReadRows as Array<{ count: number | string }>)[0]?.count ?? 0) > 0,
+    'Expected support@taskforge to have invitation.read.org in Acme',
+  );
+
+  const [viewerInviteDeleteRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'invitation'
+       AND p.action = 'delete'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((viewerInviteDeleteRows as Array<{ count: number | string }>)[0]?.count ?? 0) === 0,
+    'Expected viewer@acme to NOT have invitation.delete.org',
+  );
+
+  const [globexAdminTaskReadRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'task'
+       AND p.action = 'read'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000102'],
+  );
+  assert(
+    Number((globexAdminTaskReadRows as Array<{ count: number | string }>)[0]?.count ?? 0) > 0,
+    'Expected admin@globex to have task.read.org via role assignments',
+  );
+
+  const [globexMemberTaskReadRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'task'
+       AND p.action = 'read'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000102'],
+  );
+  assert(
+    Number((globexMemberTaskReadRows as Array<{ count: number | string }>)[0]?.count ?? 0) > 0,
+    'Expected member@globex to have task.read.org via role assignments',
+  );
+
+  const [directGrantRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM permission_assignments
+     WHERE user_id = ?
+       AND organization_id = ?
+       AND permission_key = 'invitation.create.org'`,
+    ['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((directGrantRows as Array<{ count: number | string }>)[0]?.count ?? 0) === 1,
+    'Expected member@globex to have deterministic direct invitation.create.org grant in Acme',
+  );
+
+  const [roleGrantRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM role_assignments ra
+     INNER JOIN permissions p ON p.role_id = ra.role_id
+     WHERE ra.user_id = ?
+       AND (ra.organization_id = ? OR ra.organization_id IS NULL)
+       AND p.resource = 'invitation'
+       AND p.action = 'create'
+       AND p.scope = 'organization'`,
+    ['00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000101'],
+  );
+  assert(
+    Number((roleGrantRows as Array<{ count: number | string }>)[0]?.count ?? 0) === 0,
+    'Expected member@globex to gain invitation.create.org only via direct assignment, not role',
+  );
+
+  const [superAdminPermissionRows] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM permissions p
+     INNER JOIN role_assignments ra ON ra.role_id = p.role_id
+     INNER JOIN roles r ON r.id = ra.role_id
+     WHERE ra.user_id = ?
+       AND ra.organization_id IS NULL
+       AND r.name = 'Super Admin'`,
+    ['00000000-0000-0000-0000-000000000001'],
+  );
+  assert(
+    Number((superAdminPermissionRows as Array<{ count: number | string }>)[0]?.count ?? 0) ===
+      permissionCatalog.length,
+    `Expected super admin global assignment to expose all ${permissionCatalog.length} governance permissions`,
+  );
 
   console.log('[seed:validate] Database checks passed.');
 }

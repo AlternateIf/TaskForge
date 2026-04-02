@@ -5,6 +5,7 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 import { getRedis } from '../utils/redis.js';
 import { createSession } from './auth.service.js';
 import type { JwtPayload, TokenPair } from './auth.service.js';
+import * as invitationService from './invitation.service.js';
 
 const OAUTH_STATE_TTL = 600; // 10 minutes
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
@@ -187,6 +188,7 @@ export function buildAuthorizationUrl(
 export async function initiateOAuth(
   provider: string,
   callbackUrl: string,
+  options?: { inviteTokenHash?: string; inviteProvider?: string },
 ): Promise<{ authorizationUrl: string; state: string }> {
   // Validate provider config exists (throws if not configured)
   getProviderConfig(provider);
@@ -198,7 +200,13 @@ export async function initiateOAuth(
   const redis = getRedis();
   await redis.set(
     `oauth:state:${state}`,
-    JSON.stringify({ provider, codeVerifier, callbackUrl }),
+    JSON.stringify({
+      provider,
+      codeVerifier,
+      callbackUrl,
+      inviteTokenHash: options?.inviteTokenHash ?? null,
+      inviteProvider: options?.inviteProvider ?? null,
+    }),
     'EX',
     OAUTH_STATE_TTL,
   );
@@ -456,14 +464,39 @@ export async function handleOAuthCallback(
 
   await redis.del(`oauth:state:${state}`);
 
-  const { provider, codeVerifier, callbackUrl } = JSON.parse(stateData) as {
+  const parsedState = JSON.parse(stateData) as {
     provider: string;
     codeVerifier: string;
     callbackUrl: string;
+    inviteTokenHash?: string | null;
+    inviteProvider?: string | null;
   };
+  const { provider, codeVerifier, callbackUrl } = parsedState;
 
   const providerAccessToken = await exchangeCodeForToken(provider, code, codeVerifier, callbackUrl);
   const userInfo = await fetchUserInfo(provider, providerAccessToken);
+
+  if (parsedState.inviteTokenHash) {
+    if (parsedState.inviteProvider && parsedState.inviteProvider !== provider) {
+      throw new AppError(400, ErrorCode.BAD_REQUEST, 'OAuth provider mismatch for invitation');
+    }
+
+    const { user, tokens } = await invitationService.acceptInvitationWithOAuth(
+      parsedState.inviteTokenHash,
+      {
+        provider,
+        providerUserId: userInfo.providerUserId,
+        email: userInfo.email,
+        displayName: userInfo.displayName,
+        avatarUrl: userInfo.avatarUrl,
+      },
+      jwtSign,
+      ip,
+      userAgent,
+    );
+
+    return { user, tokens, isNewUser: false };
+  }
 
   const existingBefore = await db
     .select({ id: users.id })
@@ -483,6 +516,15 @@ export async function handleOAuthCallback(
     .limit(1);
 
   const isNewUser = existingBefore.length === 0 && existingOAuthBefore.length === 0;
+
+  const { isPublicRegisterAllowed } = await import('./auth.service.js');
+  if (isNewUser && !isPublicRegisterAllowed()) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'OAuth registration is disabled. Please use an invitation link.',
+    );
+  }
 
   const user = await findOrCreateUser(provider, userInfo);
   const tokens = await createSession(user, jwtSign, ip, userAgent);

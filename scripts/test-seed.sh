@@ -6,6 +6,11 @@ COMPOSE_FILE="${ROOT_DIR}/docker/docker-compose.yml"
 UPLOADS_DIR="${ROOT_DIR}/local/uploads"
 COMPOSE_CMD=(docker compose -f "${COMPOSE_FILE}")
 WAIT_TIMEOUT_SECONDS=180
+LOG_TAIL_LINES=80
+CORE_SERVICES=(mariadb redis rabbitmq meilisearch)
+TEST_SEED_DATABASE_URL="${TEST_SEED_DATABASE_URL:-mysql://taskforge:taskforge@localhost:3306/taskforge}"
+DB_CMD_RETRIES="${DB_CMD_RETRIES:-8}"
+DB_CMD_RETRY_DELAY_SECONDS="${DB_CMD_RETRY_DELAY_SECONDS:-3}"
 
 log() {
   printf '[test-seed] %s\n' "$1"
@@ -13,12 +18,73 @@ log() {
 
 abort() {
   printf '[test-seed] ERROR: %s\n' "$1" >&2
+  print_failure_diagnostics || true
   exit 1
 }
+
+print_failure_diagnostics() {
+  printf '[test-seed] ---- diagnostics start ----\n' >&2
+
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '[test-seed] docker command not available; skipping diagnostics.\n' >&2
+    printf '[test-seed] ---- diagnostics end ----\n' >&2
+    return
+  fi
+
+  if ! docker info >/dev/null 2>&1; then
+    printf '[test-seed] Docker daemon not reachable; cannot gather compose diagnostics.\n' >&2
+    printf '[test-seed] ---- diagnostics end ----\n' >&2
+    return
+  fi
+
+  printf '[test-seed] docker compose ps:\n' >&2
+  "${COMPOSE_CMD[@]}" ps >&2 || true
+
+  mapfile -t services < <("${COMPOSE_CMD[@]}" config --services 2>/dev/null || true)
+  if [[ "${#services[@]}" -eq 0 ]]; then
+    printf '[test-seed] no compose services resolved for log collection.\n' >&2
+    printf '[test-seed] ---- diagnostics end ----\n' >&2
+    return
+  fi
+
+  for service in "${services[@]}"; do
+    printf '[test-seed] logs (%s, last %s lines):\n' "$service" "$LOG_TAIL_LINES" >&2
+    "${COMPOSE_CMD[@]}" logs --tail="$LOG_TAIL_LINES" "$service" >&2 || true
+  done
+
+  printf '[test-seed] ---- diagnostics end ----\n' >&2
+}
+
+trap 'print_failure_diagnostics || true' ERR
 
 require_cmd() {
   local name="$1"
   command -v "$name" >/dev/null 2>&1 || abort "Required command not found: ${name}"
+}
+
+run_db_workspace_cmd() {
+  local label="$1"
+  shift
+  local attempt=1
+
+  while (( attempt <= DB_CMD_RETRIES )); do
+    if (
+      cd "$ROOT_DIR"
+      DATABASE_URL="$TEST_SEED_DATABASE_URL" "$@"
+    ); then
+      return 0
+    fi
+
+    if (( attempt == DB_CMD_RETRIES )); then
+      break
+    fi
+
+    log "${label} failed (attempt ${attempt}/${DB_CMD_RETRIES}); retrying in ${DB_CMD_RETRY_DELAY_SECONDS}s..."
+    sleep "$DB_CMD_RETRY_DELAY_SECONDS"
+    attempt=$((attempt + 1))
+  done
+
+  return 1
 }
 
 wait_for_service() {
@@ -95,34 +161,27 @@ main() {
   mkdir -p "$UPLOADS_DIR"
   find "$UPLOADS_DIR" -mindepth 1 -delete
 
-  log 'Recreating compose services...'
-  "${COMPOSE_CMD[@]}" up -d
+  log 'Recreating core infrastructure services...'
+  "${COMPOSE_CMD[@]}" up -d "${CORE_SERVICES[@]}"
 
-  log 'Waiting for services to become healthy/running...'
-  mapfile -t services < <("${COMPOSE_CMD[@]}" config --services)
-  for service in "${services[@]}"; do
+  log 'Waiting for core infrastructure services to become healthy/running...'
+  for service in "${CORE_SERVICES[@]}"; do
     wait_for_service "$service" "$WAIT_TIMEOUT_SECONDS"
   done
 
   if find "$ROOT_DIR/packages/db/src/migrations" -maxdepth 1 -type f | grep -q .; then
     log 'Running database migrations...'
-    (
-      cd "$ROOT_DIR"
-      pnpm --filter @taskforge/db migrate
-    )
+    run_db_workspace_cmd "Database migrations" pnpm --filter @taskforge/db migrate ||
+      abort "Database migrations failed after ${DB_CMD_RETRIES} attempts."
   else
     log 'No SQL migration files found. Running schema sync via drizzle push...'
-    (
-      cd "$ROOT_DIR"
-      pnpm --filter @taskforge/db push
-    )
+    run_db_workspace_cmd "Schema push" pnpm --filter @taskforge/db push ||
+      abort "Schema push failed after ${DB_CMD_RETRIES} attempts."
   fi
 
   log 'Running deterministic database seed...'
-  (
-    cd "$ROOT_DIR"
-    pnpm --filter @taskforge/db seed
-  )
+  run_db_workspace_cmd "Database seed" pnpm --filter @taskforge/db seed ||
+    abort "Database seed failed after ${DB_CMD_RETRIES} attempts."
 
   log 'Reindexing Meilisearch from seeded DB...'
   (
@@ -130,11 +189,16 @@ main() {
     pnpm --filter @taskforge/api reindex:search
   )
 
+  log 'Starting compose services after schema+seed reset...'
+  "${COMPOSE_CMD[@]}" up -d
+
+  log 'Waiting for API and worker after startup...'
+  wait_for_service "api" "$WAIT_TIMEOUT_SECONDS"
+  wait_for_service "worker" "$WAIT_TIMEOUT_SECONDS"
+
   log 'Running post-seed validation checks...'
-  (
-    cd "$ROOT_DIR"
-    pnpm --filter @taskforge/db seed:validate
-  )
+  run_db_workspace_cmd "Seed validation" pnpm --filter @taskforge/db seed:validate ||
+    abort "Seed validation failed after ${DB_CMD_RETRIES} attempts."
 
   cat <<'SUMMARY'
 
@@ -153,6 +217,9 @@ Known dev credentials (deterministic fixtures):
   - admin@globex.taskforge.local
   - member@globex.taskforge.local
   - qa@taskforge.local
+  - viewer@acme.taskforge.local
+  - contractor@globex.taskforge.local
+  - support@taskforge.local
 
 SUMMARY
 }

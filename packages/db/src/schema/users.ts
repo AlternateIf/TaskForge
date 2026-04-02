@@ -19,6 +19,7 @@ export const users = mysqlTable(
     avatarUrl: text('avatar_url'),
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
     mfaSecret: varchar('mfa_secret', { length: 255 }),
+    mustChangePassword: boolean('must_change_password').notNull().default(false),
     emailVerifiedAt: datetime('email_verified_at'),
     lastLoginAt: datetime('last_login_at'),
     createdAt: datetime('created_at').notNull().default(new Date()),

@@ -4,6 +4,11 @@ import {
   DeadlineReminderEmail,
   type DeadlineReminderProps,
 } from './templates/deadline-reminder.js';
+import {
+  InvitationRevokedEmail,
+  type InvitationRevokedProps,
+} from './templates/invitation-revoked.js';
+import { InvitationEmail, type InvitationProps } from './templates/invitation.js';
 import { MentionEmail, type MentionProps } from './templates/mention.js';
 import { TaskAssignedEmail, type TaskAssignedProps } from './templates/task-assigned.js';
 import {
@@ -14,6 +19,8 @@ import { WelcomeEmail, type WelcomeProps } from './templates/welcome.js';
 
 export type {
   DeadlineReminderProps,
+  InvitationProps,
+  InvitationRevokedProps,
   MentionProps,
   TaskAssignedProps,
   TaskStatusChangedProps,
@@ -34,6 +41,14 @@ export function renderMention(props: MentionProps): Promise<string> {
 
 export function renderDeadlineReminder(props: DeadlineReminderProps): Promise<string> {
   return render(React.createElement(DeadlineReminderEmail, props));
+}
+
+export function renderInvitation(props: InvitationProps): Promise<string> {
+  return render(React.createElement(InvitationEmail, props));
+}
+
+export function renderInvitationRevoked(props: InvitationRevokedProps): Promise<string> {
+  return render(React.createElement(InvitationRevokedEmail, props));
 }
 
 export function renderWelcome(props: WelcomeProps): Promise<string> {

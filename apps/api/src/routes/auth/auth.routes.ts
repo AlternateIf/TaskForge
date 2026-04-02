@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  authConfigHandler,
   forgotPasswordHandler,
   loginHandler,
   logoutHandler,
@@ -19,6 +20,8 @@ import {
 export async function authRoutes(fastify: FastifyInstance) {
   // Tighter rate limit for auth endpoints
   const authRateLimit = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
+
+  fastify.get('/api/v1/auth/config', {}, authConfigHandler);
 
   fastify.post(
     '/api/v1/auth/register',

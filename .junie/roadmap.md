@@ -15,6 +15,7 @@ The minimum viable product: core task management with auth, projects, a function
 - ~~OAuth 2.0 / OIDC login (Google, GitHub)~~ ✅
 - ~~MFA support (TOTP)~~ ✅
 - ~~Admin-configurable auth methods (enable/disable JWT, OAuth providers, MFA enforcement per org)~~ ✅
+- ~~Invite-only onboarding via invitations (password + OAuth from `/auth/invite/:token`)~~ ✅
 
 ### Organizations & Multi-Tenancy
 - ~~Organization creation and membership~~ ✅
@@ -22,7 +23,7 @@ The minimum viable product: core task management with auth, projects, a function
 - Trial signup flow (no credit card, minimal setup wizard)
 
 ### Roles & Permissions
-- ~~Built-in roles: Super Admin, Admin, Project Manager, Team Member, Guest~~ ✅
+- ~~RBAC v2 governance model (immutable `Super Admin`, global+org role scope, multi-role union, direct permission grants)~~ ✅
 - ~~Role-based access at organization and project level~~ ✅
 
 ### Projects

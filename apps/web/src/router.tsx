@@ -1,5 +1,7 @@
 import { AppShell } from '@/components/layout/app-shell';
+import { ForcePasswordPage } from '@/routes/auth/force-password';
 import { ForgotPasswordPage } from '@/routes/auth/forgot-password';
+import { InvitePage } from '@/routes/auth/invite';
 import { LoginPage } from '@/routes/auth/login';
 import { MfaPage } from '@/routes/auth/mfa';
 import { OAuthCallbackPage } from '@/routes/auth/oauth-callback';
@@ -39,11 +41,21 @@ const authenticatedRoute = createRoute({
   id: '_authenticated',
   component: AppShell,
   beforeLoad: ({ location }) => {
-    if (!useAuthStore.getState().isAuthenticated) {
+    const authState = useAuthStore.getState();
+    if (!authState.isAuthenticated) {
       throw redirect({
         to: '/auth/login',
         search: { redirect: location.pathname },
       });
+    }
+
+    const mustChangePassword = authState.user?.mustChangePassword ?? false;
+    if (mustChangePassword && location.pathname !== '/force-password') {
+      throw redirect({ to: '/force-password' });
+    }
+
+    if (!mustChangePassword && location.pathname === '/force-password') {
+      throw redirect({ to: '/dashboard' });
     }
   },
 });
@@ -126,6 +138,21 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const forcePasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/force-password',
+  beforeLoad: () => {
+    const authState = useAuthStore.getState();
+    if (!authState.isAuthenticated) {
+      throw redirect({ to: '/auth/login', search: { redirect: undefined } });
+    }
+    if (!authState.user?.mustChangePassword) {
+      throw redirect({ to: '/dashboard' });
+    }
+  },
+  component: ForcePasswordPage,
+});
+
 const notFoundRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/not-found',
@@ -199,6 +226,15 @@ const oauthCallbackRoute = createRoute({
   component: OAuthCallbackPage,
 });
 
+const inviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/invite/$token',
+  component: function InviteWrapper() {
+    const { token } = useParams({ strict: false }) as { token: string };
+    return <InvitePage token={token} />;
+  },
+});
+
 // ─── Legal routes ─────────────────────────────────────────────────────────────
 
 const termsRoute = createRoute({
@@ -228,12 +264,14 @@ const routeTree = rootRoute.addChildren([
     settingsRoute,
     notFoundRoute,
   ]),
+  forcePasswordRoute,
   loginRoute,
   registerRoute,
   mfaRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
   oauthCallbackRoute,
+  inviteRoute,
   termsRoute,
   privacyRoute,
 ]);

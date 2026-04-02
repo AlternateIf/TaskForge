@@ -1,4 +1,4 @@
-import { useRegister } from '@/api/auth';
+import { useAuthConfig, useRegister } from '@/api/auth';
 import type { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -126,6 +126,7 @@ function PasswordStrength({ password }: PasswordStrengthProps) {
 export function RegisterPage() {
   const navigate = useNavigate();
   const register = useRegister();
+  const authConfig = useAuthConfig();
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -147,6 +148,27 @@ export function RegisterPage() {
       const msg = (err as ApiError).message ?? 'Registration failed';
       toast.error(msg);
     }
+  }
+
+  if (!authConfig.isLoading && authConfig.data && !authConfig.data.allowPublicRegister) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-lg">
+        <div className="max-w-md rounded-radius-xl border border-border/30 bg-surface-container-lowest p-lg text-center">
+          <h1 className="text-heading-3 font-semibold text-foreground">
+            Registration by invitation only
+          </h1>
+          <p className="mt-xs text-body text-secondary">
+            Ask your administrator for an invitation link.
+          </p>
+          <Button
+            className="mt-md"
+            onClick={() => void navigate({ to: '/auth/login', search: { redirect: undefined } })}
+          >
+            Go to sign in
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

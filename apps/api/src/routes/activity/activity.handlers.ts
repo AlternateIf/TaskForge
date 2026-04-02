@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as activityService from '../../services/activity.service.js';
-import { isRestrictedRole } from '../../services/comment.service.js';
+import type { PermissionContext } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { paginated } from '../../utils/response.js';
 import type { ActivityQuery } from './activity.schemas.js';
@@ -12,18 +12,43 @@ function requireAuth(request: FastifyRequest): string {
   return request.authUser.userId;
 }
 
+function canAccessInternalComments(ctx?: PermissionContext): boolean {
+  if (!ctx) return false;
+  if (ctx.hasSuperAdmin) return true;
+
+  const hasCommentPower = (permissions: Array<{ resource: string; action: string }>) =>
+    permissions.some(
+      (permission) =>
+        permission.resource === 'comment' &&
+        (permission.action === 'manage' ||
+          permission.action === 'create' ||
+          permission.action === 'update'),
+    );
+
+  if (hasCommentPower(ctx.effectivePermissions)) {
+    return true;
+  }
+
+  for (const projectCtx of ctx.projectCache.values()) {
+    if (projectCtx && hasCommentPower(projectCtx.permissions)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function getTaskActivityHandler(
   request: FastifyRequest<{ Params: { taskId: string }; Querystring: ActivityQuery }>,
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const roleName = request.permissionContext?.orgRoleName;
   const { items, cursor, hasMore } = await activityService.listActivity({
     entityType: 'task',
     entityId: request.params.taskId,
     cursor: request.query.cursor,
     limit: request.query.limit,
-    excludeInternalComments: isRestrictedRole(roleName),
+    excludeInternalComments: !canAccessInternalComments(request.permissionContext),
   });
   return reply.status(200).send(paginated(items, cursor, hasMore));
 }
@@ -33,13 +58,12 @@ export async function getProjectActivityHandler(
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const roleName = request.permissionContext?.orgRoleName;
   const { items, cursor, hasMore } = await activityService.listActivity({
     entityType: 'project',
     entityId: request.params.projectId,
     cursor: request.query.cursor,
     limit: request.query.limit,
-    excludeInternalComments: isRestrictedRole(roleName),
+    excludeInternalComments: !canAccessInternalComments(request.permissionContext),
   });
   return reply.status(200).send(paginated(items, cursor, hasMore));
 }

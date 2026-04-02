@@ -1,4 +1,4 @@
-import { useLogin } from '@/api/auth';
+import { useAuthConfig, useLogin } from '@/api/auth';
 import type { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -15,6 +15,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: '/auth/login' });
   const login = useLogin();
+  const authConfig = useAuthConfig();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -120,16 +121,18 @@ export function LoginPage() {
               </Button>
             </form>
 
-            <p className="text-center text-sm text-muted">
-              Don&apos;t have an account?{' '}
-              <button
-                type="button"
-                onClick={() => void navigate({ to: '/auth/register' })}
-                className="font-medium text-brand-primary hover:underline focus-visible:outline-none focus-visible:underline"
-              >
-                Create one
-              </button>
-            </p>
+            {authConfig.data?.allowPublicRegister ? (
+              <p className="text-center text-sm text-muted">
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => void navigate({ to: '/auth/register' })}
+                  className="font-medium text-brand-primary hover:underline focus-visible:outline-none focus-visible:underline"
+                >
+                  Create one
+                </button>
+              </p>
+            ) : null}
           </div>
         </div>
       </main>

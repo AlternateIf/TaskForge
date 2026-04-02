@@ -1,21 +1,21 @@
 import {
   db,
-  organizationMembers,
+  permissionAssignments,
   permissions,
   projectMembers,
   projects,
+  roleAssignments,
   roles,
   tasks,
 } from '@taskforge/db';
 import { MANAGE_ACTIONS, ROLE_NAMES } from '@taskforge/shared';
 import type { Action, Resource } from '@taskforge/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 
 export interface PermissionContext {
   orgId: string;
-  orgRoleName: string;
-  orgRoleId: string;
-  orgPermissions: { resource: string; action: string; scope: string }[];
+  hasSuperAdmin: boolean;
+  effectivePermissions: { resource: string; action: string; scope: string }[];
   /** Cached project-level overrides: projectId -> permissions */
   projectCache: Map<
     string,
@@ -23,51 +23,101 @@ export interface PermissionContext {
   >;
 }
 
+function permissionKeyToTuple(
+  key: string,
+): { resource: string; action: string; scope: string } | null {
+  const parts = key.split('.');
+  if (parts.length < 3) return null;
+
+  const scopeToken = parts[parts.length - 1];
+  const actionToken = parts[parts.length - 2];
+  const resourceToken = parts.slice(0, -2).join('.');
+
+  if (!scopeToken || !actionToken || !resourceToken) return null;
+
+  const scope = scopeToken === 'org' ? 'organization' : scopeToken;
+
+  return { resource: resourceToken, action: actionToken, scope };
+}
+
 /**
- * Load the user's org-level role and permissions for a given organization.
- * Result is meant to be cached on the request object for the duration of the request.
+ * Load the user's org-level effective permissions for a given organization.
+ * Runtime source of truth is role assignments + direct permission assignments.
  */
 export async function loadPermissionContext(
   userId: string,
   orgId: string,
 ): Promise<PermissionContext | null> {
-  const membership = (
-    await db
-      .select({
-        roleId: organizationMembers.roleId,
-        roleName: roles.name,
-      })
-      .from(organizationMembers)
-      .innerJoin(roles, eq(organizationMembers.roleId, roles.id))
-      .where(
-        and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, userId)),
-      )
-      .limit(1)
-  )[0];
-
-  if (!membership) return null;
-
-  const perms = await db
+  const assignedRoleRows = await db
     .select({
-      resource: permissions.resource,
-      action: permissions.action,
-      scope: permissions.scope,
+      roleId: roleAssignments.roleId,
+      roleName: roles.name,
     })
-    .from(permissions)
-    .where(eq(permissions.roleId, membership.roleId));
+    .from(roleAssignments)
+    .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+    .where(
+      and(
+        eq(roleAssignments.userId, userId),
+        or(eq(roleAssignments.organizationId, orgId), isNull(roleAssignments.organizationId)),
+      ),
+    );
+
+  const hasSuperAdmin = assignedRoleRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
+
+  const rolePermissionRows =
+    assignedRoleRows.length === 0
+      ? []
+      : await db
+          .select({
+            resource: permissions.resource,
+            action: permissions.action,
+            scope: permissions.scope,
+          })
+          .from(permissions)
+          .where(or(...assignedRoleRows.map((row) => eq(permissions.roleId, row.roleId))));
+
+  const directPermissionRows = await db
+    .select({ permissionKey: permissionAssignments.permissionKey })
+    .from(permissionAssignments)
+    .where(
+      and(
+        eq(permissionAssignments.userId, userId),
+        or(
+          eq(permissionAssignments.organizationId, orgId),
+          isNull(permissionAssignments.organizationId),
+        ),
+      ),
+    );
+
+  const directPermissionTuples = directPermissionRows
+    .map((row) => permissionKeyToTuple(row.permissionKey))
+    .filter((row): row is { resource: string; action: string; scope: string } => row !== null);
+
+  const tupleSet = new Set<string>();
+  const effectivePermissions: { resource: string; action: string; scope: string }[] = [];
+
+  for (const tuple of [...rolePermissionRows, ...directPermissionTuples]) {
+    const key = `${tuple.resource}:${tuple.action}:${tuple.scope}`;
+    if (tupleSet.has(key)) continue;
+    tupleSet.add(key);
+    effectivePermissions.push(tuple);
+  }
+
+  if (!hasSuperAdmin && effectivePermissions.length === 0) {
+    return null;
+  }
 
   return {
     orgId,
-    orgRoleName: membership.roleName,
-    orgRoleId: membership.roleId,
-    orgPermissions: perms,
+    hasSuperAdmin,
+    effectivePermissions,
     projectCache: new Map(),
   };
 }
 
 /**
  * Load project-level role and permissions for a user in a specific project.
- * Returns null if the user has no project-level membership (falls back to org role).
+ * Returns null if the user has no project-level membership (falls back to org permissions).
  */
 async function loadProjectPermissions(
   userId: string,
@@ -104,10 +154,6 @@ async function loadProjectPermissions(
   return { roleName: role.name, permissions: perms };
 }
 
-/**
- * Check if a permission list grants a specific resource+action.
- * Handles 'manage' expansion: a 'manage' permission on a resource grants all CRUD actions.
- */
 function hasPermission(
   perms: { resource: string; action: string }[],
   resource: Resource,
@@ -123,32 +169,6 @@ function hasPermission(
   return false;
 }
 
-function hasMvp044GovernanceEquivalentPermission(
-  perms: { resource: string; action: string }[],
-  resource: Resource,
-  action: Action,
-): boolean {
-  // MVP-044 catalog intentionally excludes project-domain permissions.
-  // Project authorization derives from org governance permissions.
-  if (resource !== 'project') return false;
-
-  if (action === 'read') {
-    return hasPermission(perms, 'organization', 'read');
-  }
-
-  if (action === 'create' || action === 'update' || action === 'delete') {
-    return hasPermission(perms, 'organization', 'update');
-  }
-
-  return false;
-}
-
-/**
- * Check if a user has the required permission for a resource+action.
- *
- * If projectId is provided, checks project-level role first, then falls back to org role.
- * Super Admin always passes.
- */
 export async function checkPermission(
   ctx: PermissionContext,
   userId: string,
@@ -156,10 +176,8 @@ export async function checkPermission(
   action: Action,
   projectId?: string,
 ): Promise<boolean> {
-  // Super Admin fast path
-  if (ctx.orgRoleName === ROLE_NAMES.SUPER_ADMIN) return true;
+  if (ctx.hasSuperAdmin) return true;
 
-  // If project context, check project-level override first
   if (projectId) {
     if (!ctx.projectCache.has(projectId)) {
       const projectPerms = await loadProjectPermissions(userId, projectId);
@@ -167,26 +185,20 @@ export async function checkPermission(
     }
     const projectCtx = ctx.projectCache.get(projectId);
     if (projectCtx) {
-      // Project role overrides org role for this project
       if (projectCtx.roleName === ROLE_NAMES.SUPER_ADMIN) return true;
       if (hasPermission(projectCtx.permissions, resource, action)) {
         return true;
       }
-      return hasMvp044GovernanceEquivalentPermission(ctx.orgPermissions, resource, action);
     }
-    // No project membership — fall through to org permissions
   }
 
-  if (hasPermission(ctx.orgPermissions, resource, action)) {
+  if (hasPermission(ctx.effectivePermissions, resource, action)) {
     return true;
   }
 
-  return hasMvp044GovernanceEquivalentPermission(ctx.orgPermissions, resource, action);
+  return false;
 }
 
-/**
- * Resolve the orgId from a projectId.
- */
 export async function getOrgIdFromProject(projectId: string): Promise<string | null> {
   const project = (
     await db
@@ -198,9 +210,6 @@ export async function getOrgIdFromProject(projectId: string): Promise<string | n
   return project?.organizationId ?? null;
 }
 
-/**
- * Resolve projectId and orgId from a taskId.
- */
 export async function getProjectIdFromTask(
   taskId: string,
 ): Promise<{ projectId: string; orgId: string } | null> {
@@ -216,4 +225,46 @@ export async function getProjectIdFromTask(
       .limit(1)
   )[0];
   return result ?? null;
+}
+
+export async function hasGlobalPermission(
+  userId: string,
+  resource: Resource,
+  action: Action,
+): Promise<boolean> {
+  const globalRoles = await db
+    .select({
+      roleId: roleAssignments.roleId,
+      roleName: roles.name,
+    })
+    .from(roleAssignments)
+    .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+    .where(and(eq(roleAssignments.userId, userId), isNull(roleAssignments.organizationId)));
+
+  if (globalRoles.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN)) {
+    return true;
+  }
+
+  if (globalRoles.length > 0) {
+    const rolePerms = await db
+      .select({
+        resource: permissions.resource,
+        action: permissions.action,
+      })
+      .from(permissions)
+      .where(or(...globalRoles.map((row) => eq(permissions.roleId, row.roleId))));
+    if (hasPermission(rolePerms, resource, action)) return true;
+  }
+
+  const directPerms = await db
+    .select({ permissionKey: permissionAssignments.permissionKey })
+    .from(permissionAssignments)
+    .where(
+      and(eq(permissionAssignments.userId, userId), isNull(permissionAssignments.organizationId)),
+    );
+  const tuples = directPerms
+    .map((row) => permissionKeyToTuple(row.permissionKey))
+    .filter((row): row is { resource: string; action: string; scope: string } => row !== null);
+
+  return hasPermission(tuples, resource, action);
 }

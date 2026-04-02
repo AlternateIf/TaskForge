@@ -487,55 +487,55 @@ This catalog is the authoritative MVP-044 governance permission set. It intentio
 - No other roles are preconfigured; all others are user-created custom roles.
 
 ## Acceptance Criteria
-- [ ] Public registration is disabled by default and blocked at API level.
-- [ ] OAuth callback no longer auto-provisions accounts without valid invitation context when invite-only mode is active.
-- [ ] Register UI entry points are hidden/removed in invite-only mode.
-- [ ] Global super admin is bootstrapped and forced to change password on first login.
-- [ ] `Super Admin` is the only preconfigured role, is immutable, and has full permission catalog.
-- [ ] Initial bootstrap super user cannot lose `Super Admin`.
-- [ ] Invite flow supports new and existing accounts with one-time 72h tokens.
-- [ ] No draft invite workflow in MVP: invite create endpoint sends immediately and only `sent` invites are manageable.
-- [ ] Inviter can define organization targets and role assignments and/or direct permission grants before sending invite.
-- [ ] Default invite onboarding flow works end-to-end: invite sent -> user sets first password -> password stored hashed -> user auto-logged-in -> redirected to dashboard.
-- [ ] Invitation email always uses one canonical link (`/auth/invite/:token`) and that page shows both set-password and OAuth options.
-- [ ] OAuth invite onboarding works end-to-end from the same link: choose provider -> verify state/email -> create/link OAuth user -> apply invite payload -> auto-login -> dashboard redirect.
-- [ ] OAuth acceptance does not require creating an intermediate password user; new OAuth users are created with `passwordHash=null`.
-- [ ] Existing-account handling is correct: password create-account path does not create duplicates; user is required to sign in/link before invite apply.
-- [ ] Existing-account OAuth handling links to the existing matching-email user and does not create duplicate users.
-- [ ] Re-invite consume is additive-only and applies only missing memberships/roles/permissions without removing or downgrading existing assignments.
-- [ ] Allowed auth methods on invite are correctly constrained by env/org/invite intersection.
-- [ ] Invite resend invalidates previously issued token.
-- [ ] Invite expiry is anchored to `sentAt` with `72h` TTL, and resend resets `sentAt`/`expiresAt`.
-- [ ] Invite acceptance is single-use under concurrent requests (first succeeds, subsequent attempt fails).
-- [ ] Invite terminal-state rules are enforced (`accepted`/`revoked`/`expired` cannot be reused/resend; new access changes require new invite).
-- [ ] Invite acceptance re-validates token state at password submit and OAuth callback; revoked/expired/used invites never apply assignments.
-- [ ] Password and OAuth acceptance apply identity link/create, assignment apply, and invite consume atomically in one transaction.
-- [ ] RBAC v2 supports global+org scope and multi-role union permissions.
-- [ ] Escalation prevention is enforced server-side for role assignment and direct permission grants.
-- [ ] Organization creation is permission-gated.
-- [ ] Role and membership changes are effective on next request.
-- [ ] Legacy role-name checks and single-role authorization paths are removed.
-- [ ] Authorization no longer reads `organization_members.role_id` for decision-making (reads role assignments).
-- [ ] Legacy direct member-add-by-email path is removed from public API.
-- [ ] Audit logs are written for invite, role, membership, and org governance changes.
-- [ ] Logs and error outputs never leak plaintext credentials or auth tokens (passwords, invite raw tokens, OAuth/session tokens/codes).
-- [ ] Invite token exposure hardening is enforced (path-only token, no-referrer policy, no telemetry leakage, safe OAuth state binding).
-- [ ] Permission seeding uses the fixed MVP-044 permission catalog defined in this document.
-- [ ] `pnpm test-seed` creates deterministic custom role fixtures on every run and does not rely on predefined non-`Super Admin` roles.
-- [ ] Frontend uses one unified `/settings` page with collapsible permission-gated sections (`Profile`, `Invitations`, `Organizations`, `Roles`, `Permissions`) and no separate governance sub-pages.
-- [ ] `/settings` visible sections follow fixed order: `Profile`, `Invitations`, `Organizations`, `Roles`, `Permissions` (with hidden sections omitted).
-- [ ] `Settings` is reachable from user badge menu, main sidebar, and command palette (single `Settings` command only).
-- [ ] `Profile` section shows name, email, and all organization memberships (not only one org).
-- [ ] Invitations UI shows only `sent` invites with `Resend` and `Revoke` actions; no draft workflow and no invite detail/history page in MVP.
-- [ ] Invite entry page reuses existing register/auth shell with invite context + set-password form + OAuth buttons.
-- [ ] `mustChangePassword` enforces blocking full-page flow until completed.
-- [ ] Multi-org post-login context uses existing sidebar org-name area as switcher; when user has exactly one org, render plain org-name text (no switcher control).
-- [ ] New frontend UI is mobile-friendly and fully usable in both dark and light mode while reusing existing design tokens/components.
-- [ ] Migration/cutover for RBAC v2 and invite-only model is executed in one go for pre-alpha (no phased rollout dependency).
-- [ ] Unit tests cover invite lifecycle, RBAC v2 checks, bootstrap flow, OAuth invite constraints, settings section gating/order, and legacy regression cases.
-- [ ] API responses follow the MVP-044 error contract mappings for invite and onboarding edge cases.
-- [ ] MVP-044 implementation is self-contained and does not require changes to MVP-045.
+- [x] Public registration is disabled by default and blocked at API level.
+- [x] OAuth callback no longer auto-provisions accounts without valid invitation context when invite-only mode is active.
+- [x] Register UI entry points are hidden/removed in invite-only mode.
+- [x] Global super admin is bootstrapped and forced to change password on first login.
+- [x] `Super Admin` is the only preconfigured role, is immutable, and has full permission catalog.
+- [x] Initial bootstrap super user cannot lose `Super Admin`.
+- [x] Invite flow supports new and existing accounts with one-time 72h tokens.
+- [x] No draft invite workflow in MVP: invite create endpoint sends immediately and only `sent` invites are manageable.
+- [x] Inviter can define organization targets and role assignments and/or direct permission grants before sending invite.
+- [x] Default invite onboarding flow works end-to-end: invite sent -> user sets first password -> password stored hashed -> user auto-logged-in -> redirected to dashboard.
+- [x] Invitation email always uses one canonical link (`/auth/invite/:token`) and that page shows both set-password and OAuth options.
+- [x] OAuth invite onboarding works end-to-end from the same link: choose provider -> verify state/email -> create/link OAuth user -> apply invite payload -> auto-login -> dashboard redirect.
+- [x] OAuth acceptance does not require creating an intermediate password user; new OAuth users are created with `passwordHash=null`.
+- [x] Existing-account handling is correct: password create-account path does not create duplicates; user is required to sign in/link before invite apply.
+- [x] Existing-account OAuth handling links to the existing matching-email user and does not create duplicate users.
+- [x] Re-invite consume is additive-only and applies only missing memberships/roles/permissions without removing or downgrading existing assignments.
+- [x] Allowed auth methods on invite are correctly constrained by env/org/invite intersection.
+- [x] Invite resend invalidates previously issued token.
+- [x] Invite expiry is anchored to `sentAt` with `72h` TTL, and resend resets `sentAt`/`expiresAt`.
+- [x] Invite acceptance is single-use under concurrent requests (first succeeds, subsequent attempt fails).
+- [x] Invite terminal-state rules are enforced (`accepted`/`revoked`/`expired` cannot be reused/resend; new access changes require new invite).
+- [x] Invite acceptance re-validates token state at password submit and OAuth callback; revoked/expired/used invites never apply assignments.
+- [x] Password and OAuth acceptance apply identity link/create, assignment apply, and invite consume atomically in one transaction.
+- [x] RBAC v2 supports global+org scope and multi-role union permissions.
+- [x] Escalation prevention is enforced server-side for role assignment and direct permission grants.
+- [x] Organization creation is permission-gated.
+- [x] Role and membership changes are effective on next request.
+- [x] Legacy role-name checks and single-role authorization paths are removed.
+- [x] Authorization no longer reads `organization_members.role_id` for decision-making (reads role assignments).
+- [x] Legacy direct member-add-by-email path is removed from public API.
+- [x] Audit logs are written for invite, role, membership, and org governance changes.
+- [x] Logs and error outputs never leak plaintext credentials or auth tokens (passwords, invite raw tokens, OAuth/session tokens/codes).
+- [x] Invite token exposure hardening is enforced (path-only token, no-referrer policy, no telemetry leakage, safe OAuth state binding).
+- [x] Permission seeding uses the fixed MVP-044 permission catalog defined in this document.
+- [x] `pnpm test-seed` creates deterministic custom role fixtures on every run and does not rely on predefined non-`Super Admin` roles.
+- [x] Frontend uses one unified `/settings` page with collapsible permission-gated sections (`Profile`, `Invitations`, `Organizations`, `Roles`, `Permissions`) and no separate governance sub-pages.
+- [x] `/settings` visible sections follow fixed order: `Profile`, `Invitations`, `Organizations`, `Roles`, `Permissions` (with hidden sections omitted).
+- [x] `Settings` is reachable from user badge menu, main sidebar, and command palette (single `Settings` command only).
+- [x] `Profile` section shows name, email, and all organization memberships (not only one org).
+- [x] Invitations UI shows only `sent` invites with `Resend` and `Revoke` actions; no draft workflow and no invite detail/history page in MVP.
+- [x] Invite entry page reuses existing register/auth shell with invite context + set-password form + OAuth buttons.
+- [x] `mustChangePassword` enforces blocking full-page flow until completed.
+- [x] Multi-org post-login context uses existing sidebar org-name area as switcher; when user has exactly one org, render plain org-name text (no switcher control).
+- [x] New frontend UI is mobile-friendly and fully usable in both dark and light mode while reusing existing design tokens/components.
+- [x] Migration/cutover for RBAC v2 and invite-only model is executed in one go for pre-alpha (no phased rollout dependency).
+- [x] Unit tests cover invite lifecycle, RBAC v2 checks, bootstrap flow, OAuth invite constraints, settings section gating/order, and legacy regression cases.
+- [x] API responses follow the MVP-044 error contract mappings for invite and onboarding edge cases.
+- [x] MVP-044 implementation is self-contained and does not require changes to MVP-045.
 
 ## Post-Implementation Updates (Required)
-- [ ] Acceptance criteria checked in this file (`- [x]`)
-- [ ] Corresponding roadmap entry updated in `../../roadmap.md`
+- [x] Acceptance criteria checked in this file (`- [x]`)
+- [x] Corresponding roadmap entry updated in `../../roadmap.md`

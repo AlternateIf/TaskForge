@@ -295,7 +295,7 @@ export function Header({
                 <span className="text-label font-normal text-muted">{user?.email}</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNavigate('/settings/profile')}>
+              <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
                 <User className="size-4" />
                 Profile
               </DropdownMenuItem>

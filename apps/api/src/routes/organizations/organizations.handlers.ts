@@ -1,5 +1,4 @@
 import type {
-  AddMemberInput,
   CreateOrganizationInput,
   UpdateMemberRoleInput,
   UpdateOrganizationInput,
@@ -65,20 +64,6 @@ export async function listMembersHandler(
   const userId = requireAuth(request);
   const members = await orgService.listMembers(request.params.id, userId);
   return reply.status(200).send(success(members));
-}
-
-export async function addMemberHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: AddMemberInput }>,
-  reply: FastifyReply,
-) {
-  const userId = requireAuth(request);
-  const member = await orgService.addMember(
-    request.params.id,
-    userId,
-    request.body.email,
-    request.body.roleId,
-  );
-  return reply.status(201).send(success(member));
 }
 
 export async function updateMemberRoleHandler(

@@ -63,6 +63,8 @@ function ProviderIcon({ provider }: { provider: OAuthProviderInfo }) {
 interface OAuthButtonsProps {
   /** Text shown in the divider below the buttons, e.g. "or continue with email" */
   dividerLabel: string;
+  allowedProviderIds?: string[];
+  onProviderClick?: (providerId: string) => void;
 }
 
 /**
@@ -70,19 +72,29 @@ interface OAuthButtonsProps {
  * button for each one. Renders nothing (including the divider) when no
  * providers are configured or while the request is in-flight.
  */
-export function OAuthButtons({ dividerLabel }: OAuthButtonsProps) {
+export function OAuthButtons({
+  dividerLabel,
+  allowedProviderIds,
+  onProviderClick,
+}: OAuthButtonsProps) {
   const { data: providers } = useOAuthProviders();
 
   if (!providers || providers.length === 0) return null;
+  const filteredProviders = allowedProviderIds
+    ? providers.filter((provider) => allowedProviderIds.includes(provider.id))
+    : providers;
+  if (filteredProviders.length === 0) return null;
 
   return (
     <>
       <div className="flex flex-col gap-sm">
-        {providers.map((provider) => (
+        {filteredProviders.map((provider) => (
           <button
             key={provider.id}
             type="button"
-            onClick={() => initiateOAuth(provider.id)}
+            onClick={() =>
+              onProviderClick ? onProviderClick(provider.id) : initiateOAuth(provider.id)
+            }
             className="flex h-11 w-full items-center justify-center gap-sm rounded-radius-md border border-border bg-surface-container-lowest px-lg py-xs text-sm font-medium text-foreground transition-colors hover:bg-surface-container-low"
           >
             <ProviderIcon provider={provider} />

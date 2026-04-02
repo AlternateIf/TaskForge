@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Plus,
+  Settings,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -58,6 +59,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Personal Dashboard', path: '/dashboard', Icon: LayoutDashboard },
   { label: 'Projects', path: '/projects', Icon: FolderOpen },
+  { label: 'Settings', path: '/settings', Icon: Settings },
 ];
 
 // ─── TF Logo ──────────────────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(getRecentProjects);
 
-  const { user } = useAuthStore();
+  const { user, activeOrganizationId, setActiveOrganizationId } = useAuthStore();
   const logout = useLogout();
   const router = useRouter();
   // useRouterState is reactive — re-renders on navigation (fixes highlight bug)
@@ -159,6 +161,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
   }, [currentProject]);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const organizations =
+    user?.organizations && user.organizations.length > 0
+      ? user.organizations
+      : user?.organizationId && user.organizationName
+        ? [{ id: user.organizationId, name: user.organizationName }]
+        : [];
+  const activeOrg =
+    organizations.find((organization) => organization.id === activeOrganizationId) ??
+    organizations[0];
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -215,9 +226,24 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
         {!collapsed && (
           <>
             <TFLogo className="size-7 shrink-0" />
-            <span className="truncate text-body font-semibold text-foreground">
-              {user?.organizationName ?? 'TaskForge'}
-            </span>
+            {organizations.length <= 1 ? (
+              <span className="truncate text-body font-semibold text-foreground">
+                {activeOrg?.name ?? 'TaskForge'}
+              </span>
+            ) : (
+              <select
+                value={activeOrg?.id ?? ''}
+                onChange={(event) => setActiveOrganizationId(event.target.value)}
+                className="h-8 min-w-0 flex-1 truncate rounded-radius-md border border-border/30 bg-surface-container-lowest px-xs text-body font-semibold text-foreground outline-none focus-visible:border-border"
+                aria-label="Switch organization"
+              >
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </>
         )}
         {/* Mobile close */}

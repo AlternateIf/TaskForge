@@ -1,5 +1,13 @@
 export const RESOURCES = {
   ORGANIZATION: 'organization',
+  ORGANIZATION_SETTINGS: 'organization_settings',
+  ORGANIZATION_AUTH_SETTINGS: 'organization_auth_settings',
+  ORGANIZATION_FEATURES: 'organization_features',
+  INVITATION: 'invitation',
+  MEMBERSHIP: 'membership',
+  ROLE: 'role',
+  PERMISSION: 'permission',
+  GLOBAL_ROLE_ASSIGNMENT: 'global_role_assignment',
   PROJECT: 'project',
   TASK: 'task',
   COMMENT: 'comment',
@@ -23,6 +31,7 @@ export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
 export const MANAGE_ACTIONS: Action[] = ['create', 'read', 'update', 'delete'];
 
 export const SCOPES = {
+  GLOBAL: 'global',
   ORGANIZATION: 'organization',
   PROJECT: 'project',
 } as const;
@@ -39,7 +48,15 @@ export const BUILT_IN_PERMISSIONS: Record<
   { resource: Resource; action: Action; scope: Scope }[]
 > = {
   'Super Admin': [
-    { resource: 'organization', action: 'manage', scope: 'organization' },
+    { resource: 'organization', action: 'manage', scope: 'global' },
+    { resource: 'organization_settings', action: 'manage', scope: 'organization' },
+    { resource: 'organization_auth_settings', action: 'manage', scope: 'organization' },
+    { resource: 'organization_features', action: 'manage', scope: 'organization' },
+    { resource: 'invitation', action: 'manage', scope: 'organization' },
+    { resource: 'membership', action: 'manage', scope: 'organization' },
+    { resource: 'role', action: 'manage', scope: 'organization' },
+    { resource: 'permission', action: 'manage', scope: 'organization' },
+    { resource: 'global_role_assignment', action: 'manage', scope: 'global' },
     { resource: 'project', action: 'manage', scope: 'organization' },
     { resource: 'task', action: 'manage', scope: 'organization' },
     { resource: 'comment', action: 'manage', scope: 'organization' },

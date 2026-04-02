@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { db, sessions, users, verificationTokens } from '@taskforge/db';
+import { db, roleAssignments, roles, sessions, users, verificationTokens } from '@taskforge/db';
+import { ROLE_NAMES } from '@taskforge/shared';
 import type { RegisterInput } from '@taskforge/shared';
 import bcrypt from 'bcrypt';
 import { and, eq, gt, isNull, ne } from 'drizzle-orm';
@@ -10,6 +11,14 @@ const ACCESS_TOKEN_EXPIRY = 15 * 60; // 15 minutes in seconds
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 const EMAIL_VERIFY_EXPIRY_HOURS = 24;
 const PASSWORD_RESET_EXPIRY_HOURS = 1;
+const AUTH_ALLOW_PUBLIC_REGISTER = process.env.AUTH_ALLOW_PUBLIC_REGISTER === 'true';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const SEEDED_DEV_MARKER_EMAIL = 'owner@acme.taskforge.local';
+
+export interface AuthConfig {
+  allowPublicRegister: boolean;
+  enabledOAuthProviders: string[];
+}
 
 export interface TokenPair {
   accessToken: string;
@@ -37,6 +46,10 @@ export async function registerUser(
   ip?: string,
   userAgent?: string,
 ): Promise<{ user: typeof users.$inferSelect; tokens: TokenPair }> {
+  if (!AUTH_ALLOW_PUBLIC_REGISTER) {
+    throw new AppError(403, ErrorCode.FORBIDDEN, 'Public registration is disabled');
+  }
+
   // Check for existing user
   const existing = await db
     .select({ id: users.id })
@@ -245,7 +258,10 @@ export async function changePassword(
   const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   const now = new Date();
 
-  await db.update(users).set({ passwordHash: newHash, updatedAt: now }).where(eq(users.id, userId));
+  await db
+    .update(users)
+    .set({ passwordHash: newHash, mustChangePassword: false, updatedAt: now })
+    .where(eq(users.id, userId));
 
   // Invalidate all sessions except current (revokes refresh tokens too)
   await db
@@ -253,6 +269,126 @@ export async function changePassword(
     .where(and(eq(sessions.userId, userId), ne(sessions.id, currentSessionId)));
 
   return { message: 'Password changed. All other sessions have been signed out.' };
+}
+
+export function isPublicRegisterAllowed(): boolean {
+  return AUTH_ALLOW_PUBLIC_REGISTER;
+}
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  const { getAvailableProviders } = await import('./oauth.service.js');
+  return {
+    allowPublicRegister: AUTH_ALLOW_PUBLIC_REGISTER,
+    enabledOAuthProviders: getAvailableProviders().map((provider) => provider.id),
+  };
+}
+
+export async function bootstrapSuperAdmin(): Promise<void> {
+  const bootstrapEmail = process.env.AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL;
+  const bootstrapPassword = process.env.AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD;
+
+  if (IS_PROD && (!bootstrapEmail || !bootstrapPassword)) {
+    throw new Error(
+      'AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL and AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD are required in production',
+    );
+  }
+
+  const email = bootstrapEmail ?? 'superadmin@taskforge.local';
+  const password = bootstrapPassword ?? 'Taskforge123!';
+
+  // Preserve deterministic db seed fixtures in development when bootstrap credentials are implicit defaults.
+  if (!IS_PROD && !bootstrapEmail && !bootstrapPassword) {
+    const seededDevFixtureExists = (
+      await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, SEEDED_DEV_MARKER_EMAIL))
+        .limit(1)
+    )[0];
+
+    if (seededDevFixtureExists) {
+      return;
+    }
+  }
+
+  const now = new Date();
+
+  let superRole = (
+    await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(and(eq(roles.name, ROLE_NAMES.SUPER_ADMIN), isNull(roles.organizationId)))
+      .limit(1)
+  )[0];
+
+  if (!superRole) {
+    const roleId = crypto.randomUUID();
+    await db.insert(roles).values({
+      id: roleId,
+      organizationId: null,
+      name: ROLE_NAMES.SUPER_ADMIN,
+      description: 'Platform super admin with full permissions',
+      isSystem: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    superRole = { id: roleId };
+  }
+
+  let superUser = (
+    await db
+      .select({ id: users.id, passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+  )[0];
+
+  if (!superUser) {
+    const userId = crypto.randomUUID();
+    await db.insert(users).values({
+      id: userId,
+      email,
+      passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+      displayName: 'Super Admin',
+      emailVerifiedAt: now,
+      mustChangePassword: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    superUser = { id: userId, passwordHash: 'set' };
+  }
+
+  const existingAssignment = (
+    await db
+      .select({ id: roleAssignments.id })
+      .from(roleAssignments)
+      .where(
+        and(
+          eq(roleAssignments.userId, superUser.id),
+          eq(roleAssignments.roleId, superRole.id),
+          isNull(roleAssignments.organizationId),
+        ),
+      )
+      .limit(1)
+  )[0];
+
+  if (!existingAssignment) {
+    await db.insert(roleAssignments).values({
+      id: crypto.randomUUID(),
+      userId: superUser.id,
+      roleId: superRole.id,
+      organizationId: null,
+      assignedByUserId: superUser.id,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Keep bootstrap user in a forced-change state unless explicitly cleared by password change flow.
+  await db
+    .update(users)
+    .set({ mustChangePassword: true, updatedAt: now })
+    .where(eq(users.id, superUser.id));
 }
 
 export async function forgotPassword(email: string): Promise<void> {

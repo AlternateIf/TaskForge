@@ -12,6 +12,34 @@ vi.mock('@taskforge/db', () => ({
     update: mockUpdate,
     delete: mockDelete,
   },
+  organizationMembers: {
+    organizationId: 'organizationMembers.organizationId',
+    userId: 'organizationMembers.userId',
+  },
+  organizations: {
+    id: 'organizations.id',
+    name: 'organizations.name',
+  },
+  roleAssignments: {
+    roleId: 'roleAssignments.roleId',
+    organizationId: 'roleAssignments.organizationId',
+    userId: 'roleAssignments.userId',
+  },
+  roles: {
+    id: 'roles.id',
+    name: 'roles.name',
+  },
+  permissions: {
+    roleId: 'permissions.roleId',
+    resource: 'permissions.resource',
+    action: 'permissions.action',
+    scope: 'permissions.scope',
+  },
+  permissionAssignments: {
+    userId: 'permissionAssignments.userId',
+    organizationId: 'permissionAssignments.organizationId',
+    permissionKey: 'permissionAssignments.permissionKey',
+  },
   users: {
     id: 'users.id',
     email: 'users.email',
@@ -28,6 +56,7 @@ vi.mock('@taskforge/db', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ _type: 'eq', left: a, right: b })),
   and: vi.fn((...args: unknown[]) => ({ _type: 'and', conditions: args })),
+  or: vi.fn((...args: unknown[]) => ({ _type: 'or', conditions: args })),
   isNull: vi.fn((a) => ({ _type: 'isNull', field: a })),
 }));
 
@@ -48,6 +77,7 @@ function makeUser(overrides: Record<string, unknown> = {}) {
     mfaEnabled: false,
     mfaSecret: null,
     emailVerifiedAt: null,
+    mustChangePassword: false,
     lastLoginAt: null,
     createdAt: now,
     updatedAt: now,
@@ -66,6 +96,18 @@ function setupSelectChain(resolvedRows: unknown[]) {
   chain.from.mockReturnValue(chain);
   chain.where.mockReturnValue(chain);
   chain.limit.mockResolvedValueOnce(resolvedRows);
+}
+
+function setupSelectWhereChain(resolvedRows: unknown[]) {
+  const chain = {
+    from: vi.fn(),
+    innerJoin: vi.fn(),
+    where: vi.fn(),
+  };
+  mockSelect.mockReturnValueOnce(chain);
+  chain.from.mockReturnValue(chain);
+  chain.innerJoin.mockReturnValue(chain);
+  chain.where.mockResolvedValueOnce(resolvedRows);
 }
 
 function setupUpdateChain() {
@@ -102,6 +144,7 @@ describe('user.service', () => {
         displayName: 'Test User',
         avatarUrl: null,
         emailVerifiedAt: null,
+        mustChangePassword: false,
         createdAt: now.toISOString(),
       });
     });
@@ -117,6 +160,9 @@ describe('user.service', () => {
   describe('getUserById', () => {
     it('should return user profile', async () => {
       setupSelectChain([makeUser()]);
+      setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await getUserById(userId);
 
@@ -136,6 +182,9 @@ describe('user.service', () => {
     it('should update display name', async () => {
       setupUpdateChain();
       setupSelectChain([makeUser({ displayName: 'New Name' })]);
+      setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await updateProfile(userId, { displayName: 'New Name' });
 
@@ -146,6 +195,9 @@ describe('user.service', () => {
     it('should update avatar URL', async () => {
       setupUpdateChain();
       setupSelectChain([makeUser({ avatarUrl: 'https://example.com/new.png' })]);
+      setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await updateProfile(userId, {
         avatarUrl: 'https://example.com/new.png',
@@ -157,6 +209,9 @@ describe('user.service', () => {
     it('should allow clearing avatar by setting null', async () => {
       setupUpdateChain();
       setupSelectChain([makeUser({ avatarUrl: null })]);
+      setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await updateProfile(userId, { avatarUrl: null });
 

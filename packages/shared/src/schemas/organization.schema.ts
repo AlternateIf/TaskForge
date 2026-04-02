@@ -16,11 +16,11 @@ export const updateOrganizationSchema = z.object({
 
 export const addMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
-  roleId: uid('Invalid role ID'),
+  roleId: uid('Invalid role ID').optional(),
 });
 
 export const updateMemberRoleSchema = z.object({
-  roleId: uid('Invalid role ID'),
+  roleId: uid('Invalid role ID').nullable(),
 });
 
 export const organizationOutputSchema = z.object({
@@ -39,8 +39,8 @@ export const memberOutputSchema = z.object({
   userId: z.string(),
   email: z.string(),
   displayName: z.string(),
-  roleName: z.string(),
-  roleId: z.string(),
+  roleName: z.string().nullable(),
+  roleId: z.string().nullable(),
   joinedAt: z.string(),
 });
 

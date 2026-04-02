@@ -49,9 +49,18 @@ export const userOutputSchema = z.object({
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
   emailVerifiedAt: z.string().nullable(),
+  mustChangePassword: z.boolean().default(false),
   createdAt: z.string(),
   organizationId: z.string().optional(),
   organizationName: z.string().optional(),
+  organizations: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerInputSchema>;

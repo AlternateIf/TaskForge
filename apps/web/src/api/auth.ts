@@ -9,6 +9,7 @@ interface AuthResponse {
   data: {
     accessToken: string;
     user: AuthUser;
+    mfaRequired?: boolean;
     requiresMfa?: boolean;
     mfaToken?: string;
   };
@@ -22,11 +23,19 @@ interface MessageResponse {
   data: { message: string };
 }
 
+interface AuthConfigResponse {
+  data: {
+    allowPublicRegister: boolean;
+    enabledOAuthProviders: string[];
+  };
+}
+
 // ─── useLogin ─────────────────────────────────────────────────────────────────
 
 interface LoginInput {
   email: string;
   password: string;
+  organizationId?: string;
 }
 
 export function useLogin() {
@@ -36,7 +45,8 @@ export function useLogin() {
     mutationFn: (input: LoginInput) => apiClient.post<AuthResponse>('/auth/login', input),
     onSuccess: (res) => {
       const { accessToken, user, requiresMfa } = res.data;
-      if (!requiresMfa) {
+      const mfaRequired = requiresMfa ?? res.data.mfaRequired ?? false;
+      if (!mfaRequired) {
         setAuth(accessToken, user);
       }
     },
@@ -139,6 +149,28 @@ export function useResetPassword() {
   });
 }
 
+interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export function useChangePassword() {
+  const { setUser } = useAuthStore();
+
+  return useMutation({
+    mutationFn: (input: ChangePasswordInput) =>
+      apiClient.patch<MessageResponse>('/users/me/password', input),
+    onSuccess: async () => {
+      try {
+        const me = await apiClient.get<MeResponse>('/users/me');
+        setUser(me.data);
+      } catch {
+        // Ignore hydration failure; guard will refresh on next route load.
+      }
+    },
+  });
+}
+
 // ─── useOAuthProviders ────────────────────────────────────────────────────────
 
 export interface OAuthProviderInfo {
@@ -160,7 +192,87 @@ export function useOAuthProviders() {
   });
 }
 
+export function useAuthConfig() {
+  return useQuery({
+    queryKey: ['auth-config'],
+    queryFn: () => apiClient.get<AuthConfigResponse>('/auth/config'),
+    select: (res: AuthConfigResponse) => res.data,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
 export function initiateOAuth(provider: string) {
   const apiBase = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api/v1';
   window.location.href = `${apiBase}/auth/oauth/${provider}`;
+}
+
+export function initiateInviteOAuth(token: string, provider: string) {
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api/v1';
+  window.location.href = `${apiBase}/invitations/tokens/${token}/oauth/${provider}`;
+}
+
+interface InviteTokenValidationResponse {
+  data: {
+    invitationId: string;
+    email: string;
+    allowedAuthMethods: string[];
+    targets: Array<{ organizationId: string; organizationName: string }>;
+    status: 'sent' | 'accepted' | 'revoked' | 'expired';
+  };
+}
+
+interface AcceptInvitePasswordInput {
+  token: string;
+  password: string;
+}
+
+export function useInviteTokenValidation(token: string | undefined) {
+  return useQuery({
+    queryKey: ['invite-token', token],
+    queryFn: () =>
+      apiClient
+        .get<InviteTokenValidationResponse>(`/invitations/tokens/${token}`)
+        .then((res) => res.data),
+    enabled: Boolean(token),
+    retry: false,
+  });
+}
+
+export function useAcceptInvitePassword() {
+  const { setAuth } = useAuthStore();
+  return useMutation({
+    mutationFn: (input: AcceptInvitePasswordInput) =>
+      apiClient.post<AuthResponse>(`/invitations/tokens/${input.token}/accept-password`, {
+        password: input.password,
+      }),
+    onSuccess: (res) => {
+      const { accessToken, user } = res.data;
+      setAuth(accessToken, user);
+    },
+  });
+}
+
+interface AcceptInviteExistingInput {
+  token: string;
+}
+
+interface AcceptInviteExistingResponse {
+  data: {
+    user: AuthUser;
+  };
+}
+
+export function useAcceptInviteExisting() {
+  const { setUser } = useAuthStore();
+
+  return useMutation({
+    mutationFn: (input: AcceptInviteExistingInput) =>
+      apiClient.post<AcceptInviteExistingResponse>(
+        `/invitations/tokens/${input.token}/accept-existing`,
+      ),
+    onSuccess: (res) => {
+      setUser(res.data.user);
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
 }

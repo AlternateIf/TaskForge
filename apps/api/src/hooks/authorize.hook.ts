@@ -98,7 +98,7 @@ export function authorize(options: AuthorizeOptions) {
     if (!request.permissionContext || request.permissionContext.orgId !== orgId) {
       const ctx = await loadPermissionContext(userId, orgId);
       if (!ctx) {
-        throw new AppError(403, ErrorCode.FORBIDDEN, 'You are not a member of this organization');
+        throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions');
       }
       request.permissionContext = ctx;
     }
