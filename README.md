@@ -127,18 +127,26 @@ pnpm --filter @taskforge/api dev:worker
 | Prometheus | http://localhost:9090 | Metrics |
 | Grafana | http://localhost:3002 | `admin / admin` by default |
 
-## Seeded Login Credentials
+## Seeded Login Users
 
-The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these logins:
+The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these identities:
 
-- Password (all password-enabled seeded users): `Taskforge123!`
-- `owner@acme.taskforge.local`
-- `admin@acme.taskforge.local`
-- `member@acme.taskforge.local`
-- `owner@globex.taskforge.local`
-- `admin@globex.taskforge.local`
-- `member@globex.taskforge.local`
-- `qa@taskforge.local`
+- Shared password (all password-enabled seeded users): `Taskforge123!`
+- Interactive login users:
+  - `owner@acme.taskforge.local` (`Super Admin` + `Acme Owner`, MFA enabled)
+  - `admin@acme.taskforge.local` (`Global Admin`, `Acme Admin`, `Globex Member`)
+  - `member@acme.taskforge.local` (`Acme Member`, `Globex Viewer`)
+  - `owner@globex.taskforge.local` (`Globex Owner`, MFA enabled)
+  - `admin@globex.taskforge.local` (`Globex Admin`)
+  - `member@globex.taskforge.local` (`Globex Member`, `Acme Viewer`, seeded GitHub OAuth)
+  - `qa@taskforge.local` (`Acme Admin`, `Globex Admin`)
+  - `viewer@acme.taskforge.local` (`Acme Viewer`)
+  - `contractor@globex.taskforge.local` (`Globex Viewer`)
+  - `support@taskforge.local` (`Global Auditor`, `Acme Support`, `Globex Support`)
+- Non-interactive seeded identity:
+  - `integration.bot@taskforge.local` (no password hash; used for automation/integration fixtures)
+
+See [`.junie/setup.md`](.junie/setup.md) for the full setup-oriented matrix.
 
 ## Documentation
 

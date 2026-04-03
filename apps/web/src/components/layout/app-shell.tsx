@@ -10,15 +10,10 @@ export function AppShell() {
 
   const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), []);
   const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), []);
-  const openCommandPalette = useCallback(() => onOpenChange(true), [onOpenChange]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
-      <Sidebar
-        mobileOpen={mobileSidebarOpen}
-        onMobileClose={closeMobileSidebar}
-        onOpenCommandPalette={openCommandPalette}
-      />
+      <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={closeMobileSidebar} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           onMenuClick={openMobileSidebar}

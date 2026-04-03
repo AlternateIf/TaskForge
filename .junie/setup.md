@@ -92,19 +92,33 @@ This starts both the API and web dev servers via Turborepo:
 
 ---
 
-## Seeded Login Credentials (Deterministic Fixtures)
+## Seeded Login Users (Deterministic Fixtures)
 
-These credentials are created by `NODE_ENV=development pnpm test-seed` and `pnpm --filter db seed`.
+These identities are created by `NODE_ENV=development pnpm test-seed` and `pnpm --filter db seed`.
 
-- Password (all password-enabled seeded users): `Taskforge123!`
-- Users:
-  - `owner@acme.taskforge.local`
-  - `admin@acme.taskforge.local`
-  - `member@acme.taskforge.local`
-  - `owner@globex.taskforge.local`
-  - `admin@globex.taskforge.local`
-  - `member@globex.taskforge.local`
-  - `qa@taskforge.local`
+- Shared password (all password-enabled seeded users): `Taskforge123!`
+- Fixture organizations: `Acme Product Group` and `Globex Operations`
+
+### Interactive login users (web/API)
+
+| Email | Used/Setup For | Seeded Roles / Scope | Auth Notes |
+|---|---|---|---|
+| `owner@acme.taskforge.local` | Full governance baseline in dev fixtures | `Super Admin` (global), `Acme Owner` | Password login, MFA enabled |
+| `admin@acme.taskforge.local` | Org admin workflows and cross-org membership checks | `Global Admin`, `Acme Admin`, `Globex Member` | Password login |
+| `member@acme.taskforge.local` | Standard member task/comment flows + cross-org viewer access | `Acme Member`, `Globex Viewer` | Password login |
+| `owner@globex.taskforge.local` | Globex owner governance and MFA-required org checks | `Globex Owner` | Password login, MFA enabled |
+| `admin@globex.taskforge.local` | Globex org administration flows | `Globex Admin` | Password login |
+| `member@globex.taskforge.local` | Member-level work execution and viewer behavior in Acme | `Globex Member`, `Acme Viewer` | Password login, seeded GitHub OAuth account |
+| `qa@taskforge.local` | Cross-tenant QA smoke tests | `Acme Admin`, `Globex Admin` | Password login |
+| `viewer@acme.taskforge.local` | Read-only org governance and project/task visibility | `Acme Viewer` | Password login |
+| `contractor@globex.taskforge.local` | Restricted Globex read-only/contractor scenario testing | `Globex Viewer` | Password login |
+| `support@taskforge.local` | Support and audit workflows across organizations | `Global Auditor`, `Acme Support`, `Globex Support` | Password login |
+
+### Non-interactive seeded identity
+
+| Email | Used/Setup For | Seeded Roles / Scope | Auth Notes |
+|---|---|---|---|
+| `integration.bot@taskforge.local` | Automation/integration identity for permission and API flow fixtures | `Acme Viewer` + direct global permission (`organization.create.global`) | No password hash; not intended for interactive login |
 
 ---
 

@@ -24,8 +24,8 @@
   --brand-primary: #2563eb;
   --brand-primary-hover: #1d4ed8;
   --brand-primary-container: #004ac6;
-  --accent: #8b5cf6;
-  --accent-hover: #7c3aed;
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
 
   /* Semantic status */
   --success: #16a34a;
@@ -50,6 +50,21 @@
   --border: #e2e8f0;
   --border-ghost: rgba(195, 198, 215, 0.15);
   --ring: #2563eb;
+
+  /* Sidebar (Pencil parity: mode + Blue accent variant) */
+  --sidebar-shell: #eef4ff;
+  --sidebar-shell-border: #e2e8f0;
+  --sidebar-org: #f8fbff;
+  --sidebar-org-border: #d2deef;
+  --sidebar-org-chevron: #52627b;
+  --sidebar-row-bg: #e4ecf8;
+  --sidebar-row-active-bg: #d6e4ff;
+  --sidebar-row-text: #1f2a44;
+  --sidebar-row-muted: #64748b;
+  --sidebar-row-accent: #1d4ed8;
+  --sidebar-logout-hint: #475569;
+  --sidebar-shadow-1: #ffffff00;
+  --sidebar-shadow-2: #0b122012;
 
   /* Shadows — tinted with on-surface color */
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -78,8 +93,8 @@
   --brand-primary: #3b82f6;
   --brand-primary-hover: #60a5fa;
   --brand-primary-container: #2563eb;
-  --accent: #a78bfa;
-  --accent-hover: #c4b5fd;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
 
   --success: #22c55e;
   --warning: #f59e0b;
@@ -100,6 +115,20 @@
   --border: #334155;
   --border-ghost: rgba(195, 198, 215, 0.1);
   --ring: #3b82f6;
+
+  --sidebar-shell: #1f2b40;
+  --sidebar-shell-border: #334155;
+  --sidebar-org: #2f3f5a;
+  --sidebar-org-border: #4b5f7d;
+  --sidebar-org-chevron: #d7e2f2;
+  --sidebar-row-bg: #1f2b40;
+  --sidebar-row-active-bg: #273a58;
+  --sidebar-row-text: #cbd5e1;
+  --sidebar-row-muted: #94a3b8;
+  --sidebar-row-accent: #60a5fa;
+  --sidebar-logout-hint: #64748b;
+  --sidebar-shadow-1: #ffffff14;
+  --sidebar-shadow-2: #0b122033;
 
   --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -142,6 +171,18 @@
   --color-border: var(--border);
   --color-border-ghost: var(--border-ghost);
   --color-ring: var(--ring);
+
+  --color-sidebar-shell: var(--sidebar-shell);
+  --color-sidebar-shell-border: var(--sidebar-shell-border);
+  --color-sidebar-org: var(--sidebar-org);
+  --color-sidebar-org-border: var(--sidebar-org-border);
+  --color-sidebar-org-chevron: var(--sidebar-org-chevron);
+  --color-sidebar-row: var(--sidebar-row-bg);
+  --color-sidebar-row-active: var(--sidebar-row-active-bg);
+  --color-sidebar-row-text: var(--sidebar-row-text);
+  --color-sidebar-row-muted: var(--sidebar-row-muted);
+  --color-sidebar-row-accent: var(--sidebar-row-accent);
+  --color-sidebar-logout-hint: var(--sidebar-logout-hint);
 
   --color-priority-critical-bg: var(--priority-critical-bg);
   --color-priority-high-bg: var(--priority-high-bg);
@@ -211,7 +252,7 @@
   /* App shell dimensions */
   --container-max: 1280px;
   --width-sidebar: 240px;
-  --width-sidebar-collapsed: 64px;
+  --width-sidebar-collapsed: 76px;
   --height-header: 56px;
 
   /* Breakpoints */

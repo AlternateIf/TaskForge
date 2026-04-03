@@ -9,8 +9,8 @@ import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   FolderOpen,
-  Keyboard,
   LayoutDashboard,
   LogOut,
   Plus,
@@ -68,11 +68,11 @@ function TFLogo({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-radius-lg bg-white shadow-1 dark:bg-brand-primary',
+        'inline-flex shrink-0 items-center justify-center rounded-[6px] bg-brand-primary text-white',
         className,
       )}
     >
-      <span className="text-sm font-bold text-brand-primary dark:text-white">TF</span>
+      <span className="text-label font-bold text-white">TF</span>
     </div>
   );
 }
@@ -96,14 +96,19 @@ function SidebarNavItem({ item, collapsed, active, onClick }: SidebarNavItemProp
       aria-label={collapsed ? item.label : undefined}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex w-full items-center gap-sm rounded-radius-lg px-sm py-sm text-body transition-all duration-normal',
+        'flex w-full items-center gap-sm rounded-radius-lg px-2.5 py-sm text-body transition-colors',
         active
-          ? 'bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-brand-primary font-medium'
-          : 'text-foreground hover:bg-surface-container-lowest/50',
-        collapsed && 'justify-center px-0',
+          ? 'bg-sidebar-row-active text-sidebar-row-accent font-semibold'
+          : 'text-sidebar-row-text hover:bg-sidebar-row-active/70',
+        collapsed && 'justify-center p-sm',
       )}
     >
-      <Icon className="size-5 shrink-0" />
+      <Icon
+        className={cn(
+          'size-4 shrink-0',
+          active ? 'text-sidebar-row-accent' : 'text-sidebar-row-muted',
+        )}
+      />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </button>
   );
@@ -127,10 +132,9 @@ function SidebarNavItem({ item, collapsed, active, onClick }: SidebarNavItemProp
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
-  onOpenCommandPalette?: () => void;
 }
 
-export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalette }: SidebarProps) {
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === 'true';
@@ -209,32 +213,63 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mobileOpen, onMobileClose]);
 
+  const organizationCardShadow = {
+    boxShadow: '0 1px 0 var(--sidebar-shadow-1), 0 4px 10px -2px var(--sidebar-shadow-2)',
+  };
+
   const sidebarContent = (
     <div
       className={cn(
-        'flex h-full flex-col bg-surface-container-low transition-all duration-normal',
-        collapsed ? 'w-16' : 'w-60',
+        'flex h-full flex-col border-r border-sidebar-shell-border bg-sidebar-shell transition-all duration-normal',
+        collapsed ? 'w-sidebar-collapsed gap-sm px-[8px] py-2.5' : 'w-60 gap-1.5 p-md',
       )}
     >
-      {/* Logo header + collapse toggle */}
-      <div
-        className={cn(
-          'flex h-16 shrink-0 items-center border-b border-border/30 px-md',
-          collapsed ? 'justify-center' : 'justify-between',
-        )}
-      >
-        {!collapsed && (
-          <>
-            <TFLogo className="size-7 shrink-0" />
-            {organizations.length <= 1 ? (
-              <span className="truncate text-body font-semibold text-foreground">
-                {activeOrg?.name ?? 'TaskForge'}
-              </span>
-            ) : (
+      {!collapsed ? (
+        <div className="flex shrink-0 flex-col gap-1.5 pt-0.5">
+          <div className="flex items-center justify-between">
+            <span className="px-0.5 text-label font-bold tracking-[0.02em] text-sidebar-row-muted">
+              Organization
+            </span>
+            <div className="flex items-center gap-xs">
+              <button
+                type="button"
+                onClick={onMobileClose}
+                className="flex items-center justify-center rounded-radius-md p-xs text-sidebar-row-muted hover:bg-sidebar-row/80 lg:hidden"
+                aria-label="Close sidebar"
+              >
+                <X className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="hidden items-center justify-center rounded-radius-md p-xs text-sidebar-row-text hover:bg-sidebar-row/80 lg:flex"
+                aria-label="Collapse sidebar"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+          </div>
+          {organizations.length <= 1 ? (
+            <div
+              className="flex items-center justify-between gap-sm rounded-radius-xl border border-sidebar-org-border bg-sidebar-org px-2.5 py-1.75"
+              style={organizationCardShadow}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <TFLogo className="size-6" />
+                <span className="truncate text-small font-semibold text-sidebar-row-text">
+                  {activeOrg?.name ?? 'TaskForge'}
+                </span>
+              </div>
+              <ChevronsUpDown className="size-4 shrink-0 text-sidebar-org-chevron" />
+            </div>
+          ) : (
+            <div className="relative">
+              <TFLogo className="pointer-events-none absolute left-2.5 top-1/2 size-6 -translate-y-1/2" />
               <select
                 value={activeOrg?.id ?? ''}
                 onChange={(event) => setActiveOrganizationId(event.target.value)}
-                className="h-8 min-w-0 flex-1 truncate rounded-radius-md border border-border/30 bg-surface-container-lowest px-xs text-body font-semibold text-foreground outline-none focus-visible:border-border"
+                className="h-10 w-full appearance-none rounded-radius-xl border border-sidebar-org-border bg-sidebar-org pl-11 pr-9 text-small font-semibold text-sidebar-row-text outline-none scheme-light focus-visible:border-sidebar-row-accent dark:scheme-dark"
+                style={organizationCardShadow}
                 aria-label="Switch organization"
               >
                 {organizations.map((organization) => (
@@ -243,37 +278,60 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
                   </option>
                 ))}
               </select>
-            )}
-          </>
-        )}
-        {/* Mobile close */}
-        <button
-          type="button"
-          onClick={onMobileClose}
-          className={cn(
-            'flex items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:hidden',
-            collapsed && 'hidden',
+              <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-org-chevron" />
+            </div>
           )}
-          aria-label="Close sidebar"
-        >
-          <X className="size-5" />
-        </button>
-        {/* Desktop collapse */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className={cn(
-            'hidden items-center justify-center rounded-radius-md p-xs text-muted hover:bg-surface-container-lowest/50 lg:flex',
-            collapsed && 'mt-0',
+        </div>
+      ) : (
+        <div className="flex shrink-0 flex-col gap-sm">
+          <div className="flex h-4 items-center justify-center">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="hidden items-center justify-center rounded-radius-md p-xs text-sidebar-row-text hover:bg-sidebar-row/80 lg:flex"
+              aria-label="Expand sidebar"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onMobileClose}
+              className="flex items-center justify-center rounded-radius-md p-xs text-sidebar-row-muted hover:bg-sidebar-row/80 lg:hidden"
+              aria-label="Close sidebar"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          {organizations.length <= 1 ? (
+            <div
+              className="h-10 w-full rounded-radius-xl border border-sidebar-org-border bg-sidebar-org px-[8px] py-1.75"
+              style={organizationCardShadow}
+            />
+          ) : (
+            <div
+              className="relative flex h-10 w-full items-center justify-center rounded-radius-xl border border-sidebar-org-border bg-sidebar-org"
+              style={organizationCardShadow}
+            >
+              <select
+                value={activeOrg?.id ?? ''}
+                onChange={(event) => setActiveOrganizationId(event.target.value)}
+                className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-radius-xl border border-transparent bg-transparent text-transparent opacity-0 outline-none scheme-light focus:border-sidebar-org-border focus:bg-sidebar-org focus:px-[8px] focus:pr-[24px] focus:text-sidebar-row-text focus:opacity-100 focus-visible:border-sidebar-row-accent dark:scheme-dark"
+                aria-label="Switch organization"
+              >
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronsUpDown className="pointer-events-none size-4 text-sidebar-org-chevron peer-focus:hidden" />
+            </div>
           )}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* New Project button */}
-      <div className={cn('px-sm pt-md', collapsed && 'px-xs')}>
+      <div className={cn(collapsed ? 'pt-0' : 'pt-md')}>
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger>
@@ -281,7 +339,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
                 type="button"
                 onClick={() => setCreateProjectOpen(true)}
                 aria-label="New project"
-                className="flex w-full items-center justify-center rounded-radius-lg p-sm text-white bg-linear-to-br from-brand-primary to-brand-primary-container shadow-1 hover:shadow-2 hover:scale-[1.02] active:scale-[0.98] transition-all duration-normal"
+                className="flex h-8 w-full items-center justify-center rounded-radius-md bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover"
               >
                 <Plus className="size-4" />
               </button>
@@ -294,18 +352,20 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
           <Button
             variant="primary"
             size="sm"
-            className="w-full text-white"
+            className="h-8 w-full rounded-radius-lg bg-brand-primary text-small font-semibold text-white shadow-none hover:scale-100 hover:bg-brand-primary-hover hover:shadow-none active:scale-100"
             onClick={() => setCreateProjectOpen(true)}
           >
-            <Plus className="size-4" />
             New project
           </Button>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-sm py-md" aria-label="Main navigation">
-        <ul className="flex flex-col gap-xs">
+      <nav
+        className={cn('flex-1 overflow-y-auto', collapsed ? 'py-0' : 'py-md')}
+        aria-label="Main navigation"
+      >
+        <ul className="flex flex-col gap-1.5">
           {NAV_ITEMS.map((item) => (
             <li key={item.path}>
               <SidebarNavItem
@@ -317,7 +377,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
               {/* Recent projects — shown indented under "Projects" */}
               {item.path === '/projects' && recentProjects.length > 0 && (
                 <ul
-                  className={cn('mt-xs flex flex-col gap-xs', collapsed ? 'items-center' : 'pl-md')}
+                  className={cn(
+                    'mt-1.5 flex flex-col gap-1.5',
+                    collapsed ? 'items-center' : 'pl-sm',
+                  )}
                 >
                   {recentProjects.map((p) => {
                     const isActive = currentPath.startsWith(`/projects/${p.id}`);
@@ -328,16 +391,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
                         onClick={() => handleNavigate(`/projects/${p.id}/board`)}
                         aria-current={isActive ? 'page' : undefined}
                         className={cn(
-                          'flex w-full items-center gap-xs rounded-radius-md px-sm py-xs text-body transition-colors',
+                          'flex w-full items-center gap-sm rounded-radius-lg px-2.5 py-sm text-body transition-colors',
                           isActive
-                            ? 'bg-brand-primary/10 text-brand-primary font-medium dark:bg-brand-primary/20'
-                            : 'text-secondary hover:bg-surface-container-lowest/50 hover:text-foreground',
-                          collapsed && 'justify-center px-0',
+                            ? 'text-sidebar-row-accent'
+                            : 'text-sidebar-row-muted hover:text-sidebar-row-text',
+                          collapsed && 'justify-center p-sm',
                         )}
                       >
                         <span
                           className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: p.color ?? '#6B7280' }}
+                          style={{ backgroundColor: p.color ?? 'var(--sidebar-row-muted)' }}
                           aria-hidden
                         />
                         {!collapsed && <span className="truncate text-label">{p.name}</span>}
@@ -364,8 +427,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
         </ul>
       </nav>
 
-      {/* Bottom: shortcuts hint + sign-out */}
-      <div className={cn('shrink-0 border-t border-border/30 p-sm', collapsed && 'p-xs')}>
+      {/* Bottom: sign-out */}
+      <div className={cn('shrink-0', collapsed ? 'pt-0' : 'pt-md')}>
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger>
@@ -373,9 +436,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
                 type="button"
                 onClick={handleLogout}
                 aria-label="Sign out"
-                className="flex w-full items-center justify-center rounded-radius-md p-xs text-foreground hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
+                className="flex h-8 w-full items-center justify-center rounded-radius-md bg-sidebar-row p-sm text-sidebar-row-text transition-colors hover:bg-sidebar-row-active"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-3.5 text-sidebar-row-muted" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="left-full ml-2 top-1/2 -translate-y-1/2">
@@ -383,29 +446,17 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
             </TooltipContent>
           </Tooltip>
         ) : (
-          <div className="flex items-center justify-between gap-sm">
-            <button
-              type="button"
-              onClick={onOpenCommandPalette}
-              className="flex items-center gap-xs text-foreground hover:text-brand-primary transition-colors"
-            >
-              <Keyboard className="size-3.5 shrink-0" />
-              <span className="text-label">Quick Actions</span>
-            </button>
-            <Tooltip>
-              <TooltipTrigger>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  aria-label="Sign out"
-                  className="flex items-center justify-center rounded-radius-md p-xs text-foreground hover:bg-surface-container-lowest/50 hover:text-danger transition-colors"
-                >
-                  <LogOut className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="bottom-full mb-1 right-0">Sign out</TooltipContent>
-            </Tooltip>
-          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Sign out"
+            className="flex w-full items-center justify-between rounded-radius-lg px-2.5 py-sm text-sidebar-row-text transition-colors hover:bg-sidebar-row-active"
+          >
+            <span className="flex items-center gap-sm">
+              <LogOut className="size-4 text-sidebar-row-muted" />
+              <span className="text-body">Logout</span>
+            </span>
+          </button>
         )}
       </div>
     </div>
@@ -426,7 +477,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose, onOpenCommandPalett
             onClick={onMobileClose}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-60 shadow-4">{sidebarContent}</aside>
+          <aside
+            className={cn(
+              'absolute inset-y-0 left-0 flex shadow-4',
+              collapsed ? 'w-sidebar-collapsed' : 'w-60',
+            )}
+          >
+            {sidebarContent}
+          </aside>
         </div>
       )}
 
