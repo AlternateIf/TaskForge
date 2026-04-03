@@ -86,21 +86,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Settings', path: '/settings', Icon: Settings },
 ];
 
-// ─── TF Logo ──────────────────────────────────────────────────────────────────
-
-function TFLogo({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-[6px] bg-brand-primary text-white',
-        className,
-      )}
-    >
-      <span className="text-label font-bold text-white">TF</span>
-    </div>
-  );
-}
-
 // ─── SidebarNavItem ───────────────────────────────────────────────────────────
 
 interface SidebarNavItemProps {
@@ -305,7 +290,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               style={organizationCardShadow}
             >
               <div className="flex min-w-0 items-center gap-2.5">
-                <TFLogo className="size-6" />
                 <span className="truncate text-small font-semibold text-sidebar-row-text">
                   {activeOrg?.name ?? 'TaskForge'}
                 </span>
@@ -314,11 +298,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             </div>
           ) : (
             <div className="relative">
-              <TFLogo className="pointer-events-none absolute left-2.5 top-1/2 size-6 -translate-y-1/2" />
               <select
                 value={activeOrg?.id ?? ''}
                 onChange={(event) => handleOrganizationChange(event.target.value)}
-                className="h-10 w-full appearance-none rounded-radius-xl border border-sidebar-org-border bg-sidebar-org pl-11 pr-9 text-small font-semibold text-sidebar-row-text outline-none scheme-light focus-visible:border-sidebar-row-accent dark:scheme-dark"
+                className="h-10 w-full appearance-none rounded-radius-xl border border-sidebar-org-border bg-sidebar-org pl-3 pr-9 text-small font-semibold text-sidebar-row-text outline-none scheme-light focus-visible:border-sidebar-row-accent dark:scheme-dark"
                 style={organizationCardShadow}
                 aria-label="Switch organization"
               >
@@ -405,7 +388,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             className="h-8 w-full rounded-radius-lg bg-brand-primary text-small font-semibold text-white shadow-none hover:scale-100 hover:bg-brand-primary-hover hover:shadow-none active:scale-100"
             onClick={() => setCreateProjectOpen(true)}
           >
-            New project
+            <Plus className="size-4" />
+            New Project
           </Button>
         )}
       </div>
