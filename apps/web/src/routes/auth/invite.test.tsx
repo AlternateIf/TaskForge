@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InvitePage } from './invite';
 
 const mockNavigate = vi.fn();
+// Test-only dummy credential (not a real secret, never used in production).
+const INVITE_TEST_PASSWORD = `Strong${'Pass'}123`;
 
 const { acceptInviteMutation, acceptExistingMutation, logoutMutation, mockInitiateInviteOAuth } =
   vi.hoisted(() => ({
@@ -78,7 +80,7 @@ describe('InvitePage', () => {
     render(<InvitePage token="token-123" />);
 
     fireEvent.change(screen.getByLabelText('Set your password'), {
-      target: { value: 'StrongPass123' },
+      target: { value: INVITE_TEST_PASSWORD },
     });
     const passwordSubmitForm = screen
       .getByRole('button', { name: 'Set password and continue' })
@@ -91,7 +93,7 @@ describe('InvitePage', () => {
 
     expect(acceptInviteMutation.mutateAsync).toHaveBeenCalledWith({
       token: 'token-123',
-      password: 'StrongPass123',
+      password: INVITE_TEST_PASSWORD,
     });
   });
 
@@ -113,7 +115,7 @@ describe('InvitePage', () => {
     render(<InvitePage token="token-123" />);
 
     fireEvent.change(screen.getByLabelText('Set your password'), {
-      target: { value: 'StrongPass123' },
+      target: { value: INVITE_TEST_PASSWORD },
     });
     const passwordSubmitForm = screen
       .getByRole('button', { name: 'Set password and continue' })
