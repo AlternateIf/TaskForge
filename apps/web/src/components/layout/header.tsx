@@ -126,7 +126,11 @@ export function Header({
 
   const handleSearch = useCallback(
     async (query: string): Promise<SearchResults> => {
-      const results = await searchGlobal(query, currentProjectId, activeOrganizationId ?? undefined);
+      const results = await searchGlobal(
+        query,
+        currentProjectId,
+        activeOrganizationId ?? undefined,
+      );
 
       const taskResults = results.tasks.hits.map((item) => ({
         id: item.id,
@@ -240,7 +244,7 @@ export function Header({
           type="button"
           onClick={() => onOpenChange(true)}
           aria-label="Open command palette"
-          className="flex h-9 flex-1 items-center gap-sm rounded-radius-md border border-border/50 bg-surface-container-low px-sm text-muted transition-colors hover:border-border hover:bg-surface-container-lowest"
+          className="flex h-9 flex-1 items-center gap-sm rounded-radius-md border border-border/50 bg-surface-container-low px-sm text-muted transition-colors hover:border-border hover:bg-surface-container-lowest lg:grow-0 lg:shrink-0 lg:basis-[25%]"
         >
           <Search className="size-4 shrink-0" />
           <span className="flex-1 text-left text-small">Search&hellip;</span>
@@ -251,7 +255,7 @@ export function Header({
         </button>
 
         {/* Right actions */}
-        <div className="flex items-center gap-xs">
+        <div className="ml-auto flex items-center gap-xs">
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger
