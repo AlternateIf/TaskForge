@@ -109,7 +109,7 @@ export function TaskDetailContent({
   onClose,
   onOpenFullPage,
 }: TaskDetailContentProps) {
-  const { user } = useAuthStore();
+  const { user, activeOrganizationId } = useAuthStore();
 
   const { data: project } = useProject(projectId);
   const { data: task, isLoading } = useTask(taskId);
@@ -120,7 +120,7 @@ export function TaskDetailContent({
   const { data: activity = [] } = useTaskActivity(taskId);
   const { data: attachments = [] } = useAttachments(taskId);
 
-  const { data: orgMembers = [] } = useOrgMembers(user?.organizationId);
+  const { data: orgMembers = [] } = useOrgMembers(activeOrganizationId ?? user?.organizationId);
 
   const updateTask = useUpdateTask(taskId);
   const toggleChecklistItem = useToggleItem();

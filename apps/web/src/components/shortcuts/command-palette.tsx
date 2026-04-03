@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import {
   CheckSquare,
   Clock,
@@ -47,6 +48,7 @@ export interface CommandPaletteProps {
   onAction?: (actionId: string, label?: string) => void;
   onSearch?: (query: string) => Promise<SearchResults>;
   recentPages?: RecentPage[];
+  scopeLabel?: string;
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -211,6 +213,7 @@ export function CommandPalette({
   onAction,
   onSearch,
   recentPages = [],
+  scopeLabel,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -381,9 +384,14 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search tasks, projects, people..."
+            placeholder="Search tasks, projects in current organization..."
             className="flex-1 bg-transparent py-md text-body text-foreground outline-none placeholder:text-muted"
           />
+          {scopeLabel ? (
+            <Badge variant="primary" className="max-w-[220px] shrink-0">
+              <span className="truncate">In: {scopeLabel}</span>
+            </Badge>
+          ) : null}
         </div>
 
         {/* Results */}

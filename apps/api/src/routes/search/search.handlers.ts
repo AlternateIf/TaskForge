@@ -16,6 +16,7 @@ export async function searchHandler(
     q?: unknown;
     type?: unknown;
     projectId?: unknown;
+    organizationId?: unknown;
     limit?: unknown;
   };
 
@@ -36,6 +37,8 @@ export async function searchHandler(
       : undefined;
 
   const projectId = typeof queryInput.projectId === 'string' ? queryInput.projectId : undefined;
+  const organizationId =
+    typeof queryInput.organizationId === 'string' ? queryInput.organizationId : undefined;
 
   const rawLimit = queryInput.limit;
   let limit: number | undefined;
@@ -52,6 +55,7 @@ export async function searchHandler(
     query: q,
     types,
     projectId,
+    organizationId,
     userId: request.authUser.userId,
     limit,
   });

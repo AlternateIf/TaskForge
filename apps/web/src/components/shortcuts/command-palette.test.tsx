@@ -69,6 +69,9 @@ describe('CommandPalette rendering', () => {
     renderPalette();
     expect(screen.getByRole('dialog', { name: 'Command palette' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Search commands' })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Search tasks, projects in current organization...'),
+    ).toBeInTheDocument();
   });
 
   it('renders the Actions group by default', () => {
@@ -96,6 +99,11 @@ describe('CommandPalette rendering', () => {
   it('does not show an unbound keyboard hint for create task', () => {
     renderPalette();
     expect(screen.queryByText('N')).not.toBeInTheDocument();
+  });
+
+  it('shows organization scope badge when scopeLabel is provided', () => {
+    renderPalette({ scopeLabel: 'Acme Org' });
+    expect(screen.getByText('In: Acme Org')).toBeInTheDocument();
   });
 });
 

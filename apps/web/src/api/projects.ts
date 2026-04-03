@@ -55,15 +55,16 @@ interface ApiEnvelope<T> {
 export const projectKeys = {
   all: ['projects'] as const,
   lists: () => [...projectKeys.all, 'list'] as const,
+  byOrganization: (orgId: string) => [...projectKeys.lists(), orgId] as const,
   detail: (id: string) => [...projectKeys.all, 'detail', id] as const,
 };
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useProjects() {
-  const orgId = useAuthStore((s) => s.user?.organizationId);
+  const orgId = useAuthStore((s) => s.activeOrganizationId);
   return useQuery({
-    queryKey: projectKeys.lists(),
+    queryKey: projectKeys.byOrganization(orgId ?? ''),
     queryFn: () =>
       apiClient.get<ApiEnvelope<Project[]>>(`/organizations/${orgId}/projects`).then((r) => r.data),
     enabled: !!orgId,
@@ -83,7 +84,7 @@ export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; description?: string; color: string; icon?: string }) => {
-      const orgId = useAuthStore.getState().user?.organizationId;
+      const orgId = useAuthStore.getState().activeOrganizationId;
       return apiClient
         .post<ApiEnvelope<Project>>(`/organizations/${orgId}/projects`, data)
         .then((r) => r.data);

@@ -1,5 +1,5 @@
 import { useLogout } from '@/api/auth';
-import { useProject } from '@/api/projects';
+import { useProject, useProjects } from '@/api/projects';
 import { CreateProjectDialog } from '@/components/forms/create-project-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const COLLAPSED_KEY = 'tf:sidebar-collapsed';
-const RECENT_PROJECTS_KEY = 'tf:recent-projects';
+const RECENT_PROJECTS_KEY_PREFIX = 'tf:recent-projects';
 
 // ─── Recent projects helpers ──────────────────────────────────────────────────
 
@@ -32,17 +32,28 @@ interface RecentProject {
   color?: string | null;
 }
 
-function getRecentProjects(): RecentProject[] {
+function recentProjectsKey(orgId: string): string {
+  return `${RECENT_PROJECTS_KEY_PREFIX}:${orgId}`;
+}
+
+function parseRecentProjects(raw: string | null): RecentProject[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_PROJECTS_KEY) ?? '[]');
+    return JSON.parse(raw ?? '[]');
   } catch {
     return [];
   }
 }
 
-function recordRecentProject(project: RecentProject) {
+function getRecentProjects(orgId: string | null): RecentProject[] {
+  if (!orgId) return [];
+  return parseRecentProjects(localStorage.getItem(recentProjectsKey(orgId)));
+}
+
+function recordRecentProject(orgId: string | null, project: RecentProject) {
+  if (!orgId) return;
+
   try {
-    const existing = getRecentProjects();
+    const existing = getRecentProjects(orgId);
     const existingIndex = existing.findIndex((p) => p.id === project.id);
 
     // Keep order stable for already tracked projects; only refresh metadata if needed.
@@ -51,13 +62,13 @@ function recordRecentProject(project: RecentProject) {
       if (current.name !== project.name || current.color !== project.color) {
         const updated = [...existing];
         updated[existingIndex] = { ...current, ...project };
-        localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
+        localStorage.setItem(recentProjectsKey(orgId), JSON.stringify(updated));
       }
       return;
     }
 
     const updated = [...existing, project].slice(-3);
-    localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
+    localStorage.setItem(recentProjectsKey(orgId), JSON.stringify(updated));
   } catch {
     // ignore
   }
@@ -148,6 +159,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+  const { user, activeOrganizationId, setActiveOrganizationId } = useAuthStore();
+
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === 'true';
@@ -156,26 +169,35 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     }
   });
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
-  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(getRecentProjects);
-
-  const { user, activeOrganizationId, setActiveOrganizationId } = useAuthStore();
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(() =>
+    getRecentProjects(activeOrganizationId),
+  );
   const logout = useLogout();
   const router = useRouter();
+  const { data: currentOrgProjects = [], status: currentOrgProjectsStatus } = useProjects();
   // useRouterState is reactive — re-renders on navigation (fixes highlight bug)
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
   // Track recently visited projects
   const currentProjectId = currentPath.match(/^\/projects\/([^/]+)/)?.[1];
+  const isCurrentProjectInActiveOrg = currentOrgProjects.some(
+    (project) => project.id === currentProjectId,
+  );
   const { data: currentProject } = useProject(currentProjectId ?? '');
+
   useEffect(() => {
-    if (!currentProject) return;
-    recordRecentProject({
+    setRecentProjects(getRecentProjects(activeOrganizationId));
+  }, [activeOrganizationId]);
+
+  useEffect(() => {
+    if (!currentProject || !isCurrentProjectInActiveOrg) return;
+    recordRecentProject(activeOrganizationId, {
       id: currentProject.id,
       name: currentProject.name,
       color: currentProject.color,
     });
-    setRecentProjects(getRecentProjects());
-  }, [currentProject]);
+    setRecentProjects(getRecentProjects(activeOrganizationId));
+  }, [activeOrganizationId, currentProject, isCurrentProjectInActiveOrg]);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const organizations =
@@ -187,6 +209,21 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const activeOrg =
     organizations.find((organization) => organization.id === activeOrganizationId) ??
     organizations[0];
+
+  useEffect(() => {
+    if (!currentProjectId || currentOrgProjectsStatus !== 'success') return;
+    if (isCurrentProjectInActiveOrg) return;
+
+    void router.navigate({ to: '/projects', replace: true });
+  }, [currentProjectId, currentOrgProjectsStatus, isCurrentProjectInActiveOrg, router]);
+
+  const handleOrganizationChange = useCallback(
+    (organizationId: string) => {
+      setActiveOrganizationId(organizationId);
+      onMobileClose?.();
+    },
+    [onMobileClose, setActiveOrganizationId],
+  );
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -280,7 +317,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               <TFLogo className="pointer-events-none absolute left-2.5 top-1/2 size-6 -translate-y-1/2" />
               <select
                 value={activeOrg?.id ?? ''}
-                onChange={(event) => setActiveOrganizationId(event.target.value)}
+                onChange={(event) => handleOrganizationChange(event.target.value)}
                 className="h-10 w-full appearance-none rounded-radius-xl border border-sidebar-org-border bg-sidebar-org pl-11 pr-9 text-small font-semibold text-sidebar-row-text outline-none scheme-light focus-visible:border-sidebar-row-accent dark:scheme-dark"
                 style={organizationCardShadow}
                 aria-label="Switch organization"
@@ -327,7 +364,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             >
               <select
                 value={activeOrg?.id ?? ''}
-                onChange={(event) => setActiveOrganizationId(event.target.value)}
+                onChange={(event) => handleOrganizationChange(event.target.value)}
                 className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-radius-xl border border-transparent bg-transparent text-transparent opacity-0 outline-none scheme-light focus:border-sidebar-org-border focus:bg-sidebar-org focus:px-[8px] focus:pr-[24px] focus:text-sidebar-row-text focus:opacity-100 focus-visible:border-sidebar-row-accent dark:scheme-dark"
                 aria-label="Switch organization"
               >

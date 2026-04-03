@@ -52,6 +52,7 @@ export interface GlobalSearchResponse {
 export async function searchGlobal(
   query: string,
   projectId?: string,
+  organizationId?: string,
 ): Promise<GlobalSearchResponse> {
   const params = new URLSearchParams();
   params.set('q', query);
@@ -59,6 +60,9 @@ export async function searchGlobal(
   params.set('type', 'task,project');
   if (projectId) {
     params.set('projectId', projectId);
+  }
+  if (organizationId) {
+    params.set('organizationId', organizationId);
   }
 
   return apiClient

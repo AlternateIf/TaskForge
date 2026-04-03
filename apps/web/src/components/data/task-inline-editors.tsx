@@ -321,7 +321,7 @@ export function AssigneePicker({
     setSearch('');
   }, []);
 
-  const orgId = useAuthStore((s) => s.user?.organizationId);
+  const orgId = useAuthStore((s) => s.activeOrganizationId ?? s.user?.organizationId);
   const { data: orgMembers } = useOrgMembers(orgId);
   const searchSource = orgMembers ?? members;
 

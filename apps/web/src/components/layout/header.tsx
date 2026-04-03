@@ -63,7 +63,7 @@ export function Header({
   recentPages,
   addRecentPage,
 }: HeaderProps) {
-  const { user } = useAuthStore();
+  const { user, activeOrganizationId } = useAuthStore();
   const logout = useLogout();
   const { data: notifications = [] } = useNotifications(8);
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
@@ -82,6 +82,28 @@ export function Header({
   const resolvedCreateTaskProjectId =
     createTaskProjectId ?? currentProjectId ?? projects[0]?.id ?? null;
   const { data: createTaskProject } = useProject(resolvedCreateTaskProjectId ?? '');
+  const activeOrganizationName = useMemo(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const organizations =
+      user.organizations && user.organizations.length > 0
+        ? user.organizations
+        : user.organizationId && user.organizationName
+          ? [{ id: user.organizationId, name: user.organizationName }]
+          : [];
+
+    if (organizations.length === 0) {
+      return undefined;
+    }
+
+    const activeOrg =
+      organizations.find((organization) => organization.id === activeOrganizationId) ??
+      organizations[0];
+
+    return activeOrg?.name;
+  }, [activeOrganizationId, user]);
 
   const handleNavigate = useCallback(
     (path: string) => {
@@ -104,7 +126,7 @@ export function Header({
 
   const handleSearch = useCallback(
     async (query: string): Promise<SearchResults> => {
-      const results = await searchGlobal(query, currentProjectId);
+      const results = await searchGlobal(query, currentProjectId, activeOrganizationId ?? undefined);
 
       const taskResults = results.tasks.hits.map((item) => ({
         id: item.id,
@@ -126,7 +148,7 @@ export function Header({
         people: [],
       };
     },
-    [currentProjectId],
+    [activeOrganizationId, currentProjectId],
   );
 
   const handlePaletteAction = useCallback(
@@ -316,6 +338,7 @@ export function Header({
         open={open}
         onOpenChange={onOpenChange}
         onSearch={handleSearch}
+        scopeLabel={activeOrganizationName}
         onAction={handlePaletteAction}
         onNavigate={(path, title) => {
           handleNavigate(path);

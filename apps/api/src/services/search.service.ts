@@ -353,6 +353,7 @@ export interface SearchOptions {
   query: string;
   types?: string[];
   projectId?: string;
+  organizationId?: string;
   userId: string;
   limit?: number;
 }
@@ -396,7 +397,7 @@ async function searchProjectsIndex(
 }
 
 export async function globalSearch(options: SearchOptions): Promise<SearchResults> {
-  const { query, types, projectId, userId, limit = 100 } = options;
+  const { query, types, projectId, organizationId, userId, limit = 100 } = options;
 
   if (SHOULD_BOOTSTRAP) {
     try {
@@ -408,11 +409,17 @@ export async function globalSearch(options: SearchOptions): Promise<SearchResult
 
   // Get user's accessible project IDs for permission filtering.
   // A user can access all non-deleted projects in orgs where they are a member.
+  const accessibleProjectConditions = [
+    eq(organizationMembers.userId, userId),
+    isNull(projects.deletedAt),
+    ...(organizationId ? [eq(projects.organizationId, organizationId)] : []),
+  ];
+
   const accessibleProjects = await db
     .select({ projectId: projects.id })
     .from(projects)
     .innerJoin(organizationMembers, eq(organizationMembers.organizationId, projects.organizationId))
-    .where(and(eq(organizationMembers.userId, userId), isNull(projects.deletedAt)));
+    .where(and(...accessibleProjectConditions));
   const projectIds = [...new Set(accessibleProjects.map((r) => r.projectId))];
 
   const requestedTypes = types ?? ['task', 'project'];
