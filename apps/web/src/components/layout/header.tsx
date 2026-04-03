@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter } from '@tanstack/react-router';
-import { Bell, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
+import { Bell, Menu, Moon, Search, Settings, Sun } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 interface ApiEnvelope<T> {
@@ -222,7 +222,7 @@ export function Header({
         >
           <Search className="size-4 shrink-0" />
           <span className="flex-1 text-left text-small">Search&hellip;</span>
-          <kbd className="hidden items-center gap-xs rounded px-xs py-[1px] text-label font-mono bg-surface-container-high text-muted lg:flex">
+          <kbd className="hidden items-center gap-xs rounded px-xs py-px text-label font-mono bg-surface-container-high text-muted lg:flex">
             <span>⌘</span>
             <span>K</span>
           </kbd>
@@ -239,7 +239,7 @@ export function Header({
               <Bell className="size-6" />
               {unreadCount > 0 ? (
                 <span
-                  className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-[3px] text-[9px] font-bold text-white"
+                  className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-0.75 text-[9px] font-bold text-white"
                   aria-label={`${unreadCount} unread notifications`}
                 >
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -295,10 +295,6 @@ export function Header({
                 <span className="text-label font-normal text-muted">{user?.email}</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
-                <User className="size-4" />
-                Profile
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleNavigate('/settings')}>
                 <Settings className="size-4" />
                 Settings
