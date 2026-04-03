@@ -43,7 +43,20 @@ function getRecentProjects(): RecentProject[] {
 function recordRecentProject(project: RecentProject) {
   try {
     const existing = getRecentProjects();
-    const updated = [project, ...existing.filter((p) => p.id !== project.id)].slice(0, 3);
+    const existingIndex = existing.findIndex((p) => p.id === project.id);
+
+    // Keep order stable for already tracked projects; only refresh metadata if needed.
+    if (existingIndex >= 0) {
+      const current = existing[existingIndex];
+      if (current.name !== project.name || current.color !== project.color) {
+        const updated = [...existing];
+        updated[existingIndex] = { ...current, ...project };
+        localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
+      }
+      return;
+    }
+
+    const updated = [...existing, project].slice(-3);
     localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
   } catch {
     // ignore
