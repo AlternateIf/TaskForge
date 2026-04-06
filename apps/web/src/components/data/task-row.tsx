@@ -5,6 +5,7 @@ import {
   DueDatePicker,
   LabelPicker,
   PriorityPicker,
+  StatusPicker,
 } from '@/components/data/task-inline-editors';
 import { PriorityBadge } from '@/components/priority-badge';
 import { Avatar } from '@/components/ui/avatar';
@@ -73,21 +74,26 @@ export function TaskRow({
       {/* Status */}
       <td className="hidden px-sm py-sm sm:table-cell">
         {status && (
-          <span className="inline-flex items-center gap-xs rounded px-sm py-0.5 text-label font-medium">
+          <StatusPicker taskId={task.id} statusId={task.statusId} statuses={statuses}>
             <span
-              className="size-2 rounded"
-              style={{ backgroundColor: status.color }}
-              aria-hidden
-            />
-            {status.name}
-          </span>
+              className="inline-flex items-center gap-xs rounded px-sm py-0.5 text-label font-medium"
+              style={{ backgroundColor: `${status.color}22`, color: status.color }}
+            >
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: status.color }}
+                aria-hidden
+              />
+              {status.name}
+            </span>
+          </StatusPicker>
         )}
       </td>
 
       {/* Priority */}
       <td className="hidden px-sm py-sm md:table-cell">
         <PriorityPicker taskId={task.id} priority={task.priority}>
-          <PriorityBadge priority={task.priority} showLabel={false} showDot />
+          <PriorityBadge priority={task.priority} showDot showLabel />
         </PriorityPicker>
       </td>
 

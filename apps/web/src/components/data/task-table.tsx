@@ -9,12 +9,15 @@ import {
   useInfiniteTasks,
 } from '@/api/tasks';
 import { TaskFiltersBar } from '@/components/data/task-filters';
+import { PickerPopover } from '@/components/data/task-inline-editors';
 import { TaskRow } from '@/components/data/task-row';
+import { PriorityBadge } from '@/components/priority-badge';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp, ChevronsUpDown, ClipboardList, Loader2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 type Priority = 'critical' | 'high' | 'medium' | 'low' | 'none';
 const ALL_PRIORITIES: Priority[] = ['critical', 'high', 'medium', 'low', 'none'];
@@ -125,6 +128,38 @@ function TableSkeleton() {
   );
 }
 
+// ─── Bulk Dropdown ────────────────────────────────────────────────────────────
+
+function BulkDropdown({
+  label,
+  children,
+}: {
+  label: string;
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  return (
+    <PickerPopover
+      open={open}
+      onClose={close}
+      className="min-w-40 p-xs"
+      trigger={
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex h-8 items-center gap-xs rounded-radius-md border border-border bg-surface-container-lowest px-sm text-body text-foreground transition-colors hover:border-brand-primary"
+        >
+          {label}
+          <ChevronDown className="size-3 text-muted" />
+        </button>
+      }
+    >
+      {children(close)}
+    </PickerPopover>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function TaskTable({
@@ -144,9 +179,6 @@ export function TaskTable({
     order: 'desc',
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkStatus, setBulkStatus] = useState('');
-  const [bulkPriority, setBulkPriority] = useState<Priority | ''>('');
-  const [bulkAssignee, setBulkAssignee] = useState('');
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteTasks(
     projectId,
@@ -235,58 +267,65 @@ export function TaskTable({
           </span>
           <div className="ml-auto flex flex-wrap items-center gap-sm">
             {/* Bulk status */}
-            <select
-              value={bulkStatus}
-              onChange={(e) => {
-                setBulkStatus(e.target.value);
-                if (e.target.value) applyBulkUpdate({ statusId: e.target.value });
-              }}
-              className="h-8 rounded-radius-md border border-border bg-surface-container-lowest px-sm text-body focus:outline-2 focus:outline-ring"
-              aria-label="Set status for selected"
-            >
-              <option value="">Set status…</option>
-              {statuses.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <BulkDropdown label="Set status…">
+              {(close) =>
+                statuses.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low"
+                    onClick={() => {
+                      applyBulkUpdate({ statusId: s.id });
+                      close();
+                    }}
+                  >
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: s.color }}
+                    />
+                    {s.name}
+                  </button>
+                ))
+              }
+            </BulkDropdown>
             {/* Bulk priority */}
-            <select
-              value={bulkPriority}
-              onChange={(e) => {
-                const p = e.target.value as Priority | '';
-                setBulkPriority(p);
-                if (p) applyBulkUpdate({ priority: p });
-              }}
-              className="h-8 rounded-radius-md border border-border bg-surface-container-lowest px-sm text-body focus:outline-2 focus:outline-ring"
-              aria-label="Set priority for selected"
-            >
-              <option value="">Set priority…</option>
-              {ALL_PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </option>
-              ))}
-            </select>
+            <BulkDropdown label="Set priority…">
+              {(close) =>
+                ALL_PRIORITIES.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className="flex w-full items-center rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low"
+                    onClick={() => {
+                      applyBulkUpdate({ priority: p });
+                      close();
+                    }}
+                  >
+                    <PriorityBadge priority={p} showDot showLabel />
+                  </button>
+                ))
+              }
+            </BulkDropdown>
             {/* Bulk assignee */}
             {members.length > 0 && (
-              <select
-                value={bulkAssignee}
-                onChange={(e) => {
-                  setBulkAssignee(e.target.value);
-                  if (e.target.value) applyBulkUpdate({ assigneeId: e.target.value });
-                }}
-                className="h-8 rounded-radius-md border border-border bg-surface-container-lowest px-sm text-body focus:outline-2 focus:outline-ring"
-                aria-label="Set assignee for selected"
-              >
-                <option value="">Assign to…</option>
-                {members.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.displayName}
-                  </option>
-                ))}
-              </select>
+              <BulkDropdown label="Assign to…">
+                {(close) =>
+                  members.map((m) => (
+                    <button
+                      key={m.userId}
+                      type="button"
+                      className="flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low"
+                      onClick={() => {
+                        applyBulkUpdate({ assigneeId: m.userId });
+                        close();
+                      }}
+                    >
+                      <Avatar name={m.displayName} userId={m.userId} size="sm" />
+                      <span className="line-clamp-1 text-left">{m.displayName}</span>
+                    </button>
+                  ))
+                }
+              </BulkDropdown>
             )}
             <Button
               variant="ghost"

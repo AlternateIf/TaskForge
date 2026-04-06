@@ -83,7 +83,7 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
 
       {/* Task table */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-screen-xl p-lg">
+        <div className="p-lg">
           <TaskTable
             projectId={projectId}
             statuses={project?.statuses ?? []}

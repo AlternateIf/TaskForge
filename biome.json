@@ -27,7 +27,7 @@
   },
   "overrides": [
     {
-      "include": ["apps/web/src/components/shortcuts/command-palette.tsx"],
+      "include": ["**/shortcuts/command-palette.tsx"],
       "linter": {
         "rules": {
           "a11y": {

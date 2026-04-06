@@ -1,5 +1,5 @@
 import { useOrgMembers } from '@/api/organizations';
-import type { ProjectMember } from '@/api/projects';
+import type { ProjectMember, WorkflowStatus } from '@/api/projects';
 import { type Priority, useUpdateTask } from '@/api/tasks';
 import { PriorityBadge } from '@/components/priority-badge';
 import { Avatar } from '@/components/ui/avatar';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 // ─── Shared popover shell ─────────────────────────────────────────────────────
 
-function PickerPopover({
+export function PickerPopover({
   open,
   onClose,
   trigger,
@@ -77,6 +77,70 @@ function PickerPopover({
           document.body,
         )}
     </div>
+  );
+}
+
+// ─── Status Picker ────────────────────────────────────────────────────────────
+
+export function StatusPicker({
+  taskId,
+  statusId,
+  statuses,
+  children,
+}: {
+  taskId: string;
+  statusId: string;
+  statuses: WorkflowStatus[];
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const update = useUpdateTask(taskId);
+  const close = useCallback(() => setOpen(false), []);
+
+  return (
+    <PickerPopover
+      open={open}
+      onClose={close}
+      className="min-w-40 p-xs"
+      trigger={
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((o) => !o);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Change status"
+        >
+          {children}
+        </button>
+      }
+    >
+      {statuses.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          className={cn(
+            'flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low',
+            s.id === statusId && 'bg-surface-container-low',
+          )}
+          onClick={() => {
+            update.mutate(
+              { statusId: s.id },
+              {
+                onError: (error) => {
+                  toast.error(error.message || 'Failed to update status');
+                },
+              },
+            );
+            close();
+          }}
+        >
+          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+          {s.name}
+        </button>
+      ))}
+    </PickerPopover>
   );
 }
 
