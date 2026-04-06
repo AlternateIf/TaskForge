@@ -10,6 +10,7 @@ export interface ProjectMember {
   avatarUrl?: string;
   initials: string;
   role: 'owner' | 'admin' | 'member' | 'viewer';
+  taskCount?: number;
 }
 
 export interface WorkflowStatus {
@@ -136,12 +137,26 @@ export function useUpdateProjectLabels(projectId: string) {
 export function useAddProjectMember(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { userId: string; role: ProjectMember['role'] }) =>
+    mutationFn: (data: { userId: string }) =>
       apiClient
-        .post<ApiEnvelope<Project>>(`/projects/${projectId}/members`, data)
+        .post<ApiEnvelope<Project>>(`/projects/${projectId}/members`, {
+          ...data,
+          role: 'member',
+        })
         .then((r) => r.data),
     onSuccess: (updated) => {
       queryClient.setQueryData(projectKeys.detail(projectId), updated);
+    },
+  });
+}
+
+export function useDeleteProject(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.delete(`/projects/${projectId}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+      void queryClient.removeQueries({ queryKey: projectKeys.detail(projectId) });
     },
   });
 }

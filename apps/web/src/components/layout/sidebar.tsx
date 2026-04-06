@@ -32,8 +32,8 @@ interface RecentProject {
   color?: string | null;
 }
 
-function recentProjectsKey(orgId: string): string {
-  return `${RECENT_PROJECTS_KEY_PREFIX}:${orgId}`;
+function recentProjectsKey(userId: string, orgId: string): string {
+  return `${RECENT_PROJECTS_KEY_PREFIX}:${userId}:${orgId}`;
 }
 
 function parseRecentProjects(raw: string | null): RecentProject[] {
@@ -44,16 +44,16 @@ function parseRecentProjects(raw: string | null): RecentProject[] {
   }
 }
 
-function getRecentProjects(orgId: string | null): RecentProject[] {
-  if (!orgId) return [];
-  return parseRecentProjects(localStorage.getItem(recentProjectsKey(orgId)));
+function getRecentProjects(userId: string | null, orgId: string | null): RecentProject[] {
+  if (!userId || !orgId) return [];
+  return parseRecentProjects(localStorage.getItem(recentProjectsKey(userId, orgId)));
 }
 
-function recordRecentProject(orgId: string | null, project: RecentProject) {
-  if (!orgId) return;
+function recordRecentProject(userId: string | null, orgId: string | null, project: RecentProject) {
+  if (!userId || !orgId) return;
 
   try {
-    const existing = getRecentProjects(orgId);
+    const existing = getRecentProjects(userId, orgId);
     const existingIndex = existing.findIndex((p) => p.id === project.id);
 
     // Keep order stable for already tracked projects; only refresh metadata if needed.
@@ -62,13 +62,13 @@ function recordRecentProject(orgId: string | null, project: RecentProject) {
       if (current.name !== project.name || current.color !== project.color) {
         const updated = [...existing];
         updated[existingIndex] = { ...current, ...project };
-        localStorage.setItem(recentProjectsKey(orgId), JSON.stringify(updated));
+        localStorage.setItem(recentProjectsKey(userId, orgId), JSON.stringify(updated));
       }
       return;
     }
 
     const updated = [...existing, project].slice(-3);
-    localStorage.setItem(recentProjectsKey(orgId), JSON.stringify(updated));
+    localStorage.setItem(recentProjectsKey(userId, orgId), JSON.stringify(updated));
   } catch {
     // ignore
   }
@@ -155,7 +155,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   });
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(() =>
-    getRecentProjects(activeOrganizationId),
+    getRecentProjects(user?.id ?? null, activeOrganizationId),
   );
   const logout = useLogout();
   const router = useRouter();
@@ -171,18 +171,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { data: currentProject } = useProject(currentProjectId ?? '');
 
   useEffect(() => {
-    setRecentProjects(getRecentProjects(activeOrganizationId));
-  }, [activeOrganizationId]);
+    setRecentProjects(getRecentProjects(user?.id ?? null, activeOrganizationId));
+  }, [user?.id, activeOrganizationId]);
 
   useEffect(() => {
     if (!currentProject || !isCurrentProjectInActiveOrg) return;
-    recordRecentProject(activeOrganizationId, {
+    recordRecentProject(user?.id ?? null, activeOrganizationId, {
       id: currentProject.id,
       name: currentProject.name,
       color: currentProject.color,
     });
-    setRecentProjects(getRecentProjects(activeOrganizationId));
-  }, [activeOrganizationId, currentProject, isCurrentProjectInActiveOrg]);
+    setRecentProjects(getRecentProjects(user?.id ?? null, activeOrganizationId));
+  }, [activeOrganizationId, currentProject, isCurrentProjectInActiveOrg, user?.id]);
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const organizations =
