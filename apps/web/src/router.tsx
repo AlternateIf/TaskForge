@@ -16,6 +16,7 @@ import { ProjectsPage } from '@/routes/projects';
 import { ProjectIndexPage } from '@/routes/projects/[projectId]';
 import { ProjectBoardPage } from '@/routes/projects/[projectId]/board';
 import { ProjectListPage } from '@/routes/projects/[projectId]/list';
+import { validateProjectViewSearch } from '@/routes/projects/[projectId]/project-search-params';
 import { ProjectSettingsPage } from '@/routes/projects/[projectId]/settings';
 import { ProjectTaskDetailPage } from '@/routes/projects/[projectId]/tasks/[taskId]';
 import { SettingsPage } from '@/routes/settings';
@@ -88,9 +89,7 @@ const projectIndexRoute = createRoute({
 const projectBoardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/projects/$projectId/board',
-  validateSearch: (search: Record<string, unknown>) => ({
-    task: typeof search.task === 'string' ? search.task : undefined,
-  }),
+  validateSearch: validateProjectViewSearch,
   component: function ProjectBoardWrapper() {
     const { projectId } = useParams({ strict: false }) as { projectId: string };
     return <ProjectBoardPage projectId={projectId} />;
@@ -100,9 +99,7 @@ const projectBoardRoute = createRoute({
 const projectListRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/projects/$projectId/list',
-  validateSearch: (search: Record<string, unknown>) => ({
-    task: typeof search.task === 'string' ? search.task : undefined,
-  }),
+  validateSearch: validateProjectViewSearch,
   component: function ProjectListWrapper() {
     const { projectId } = useParams({ strict: false }) as { projectId: string };
     return <ProjectListPage projectId={projectId} />;

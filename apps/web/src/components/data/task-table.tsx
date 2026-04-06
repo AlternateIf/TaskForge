@@ -25,6 +25,8 @@ interface TaskTableProps {
   members: ProjectMember[];
   labels: Label[];
   onTaskClick: (taskId: string) => void;
+  filters?: TaskFilters;
+  onFiltersChange?: (filters: TaskFilters) => void;
 }
 
 interface ColumnDef {
@@ -125,8 +127,18 @@ function TableSkeleton() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function TaskTable({ projectId, statuses, members, labels, onTaskClick }: TaskTableProps) {
-  const [filters, setFilters] = useState<TaskFilters>({});
+export function TaskTable({
+  projectId,
+  statuses,
+  members,
+  labels,
+  onTaskClick,
+  filters: externalFilters,
+  onFiltersChange: externalOnFiltersChange,
+}: TaskTableProps) {
+  const [internalFilters, setInternalFilters] = useState<TaskFilters>({});
+  const filters = externalFilters ?? internalFilters;
+  const setFilters = externalOnFiltersChange ?? setInternalFilters;
   const [sort, setSort] = useState<{ field: SortField; order: SortOrder }>({
     field: 'createdAt',
     order: 'desc',
@@ -194,15 +206,17 @@ export function TaskTable({ projectId, statuses, members, labels, onTaskClick }:
 
   return (
     <div className="flex flex-col gap-md">
-      <TaskFiltersBar
-        filters={filters}
-        onFiltersChange={setFilters}
-        sort={sort}
-        onSortChange={setSort}
-        statuses={statuses}
-        members={members}
-        labels={labels}
-      />
+      {!externalFilters && (
+        <TaskFiltersBar
+          filters={filters}
+          onFiltersChange={setFilters}
+          sort={sort}
+          onSortChange={setSort}
+          statuses={statuses}
+          members={members}
+          labels={labels}
+        />
+      )}
 
       {/* Bulk action toolbar */}
       {selectedIds.size > 0 && (
@@ -288,7 +302,7 @@ export function TaskTable({ projectId, statuses, members, labels, onTaskClick }:
 
       {/* Table */}
       <div className="overflow-x-auto rounded-radius-lg border border-border">
-        <table className="w-full min-w-[600px] border-collapse">
+        <table className="w-full min-w-150 border-collapse">
           <thead>
             <tr className="border-b border-border bg-surface-container-low">
               <th className="w-10 px-md py-sm">

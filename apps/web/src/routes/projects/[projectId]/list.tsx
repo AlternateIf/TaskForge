@@ -1,13 +1,13 @@
 import { useProject } from '@/api/projects';
+import { ProjectToolbar } from '@/components/data/project-toolbar';
 import { TaskDetailPanel } from '@/components/data/task-detail-panel';
 import { TaskTable } from '@/components/data/task-table';
 import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { cn } from '@/lib/utils';
+import { useProjectFilters } from '@/hooks/use-project-filters';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Kanban, LayoutList, Plus, Settings } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ProjectListPageProps {
@@ -18,6 +18,10 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
   const { data: project, isLoading } = useProject(projectId);
   const navigate = useNavigate();
   const search = useSearch({ from: '/_authenticated/projects/$projectId/list' });
+  const { filters, setFilters } = useProjectFilters(
+    '/_authenticated/projects/$projectId/list',
+    projectId,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [panelTaskId, setPanelTaskId] = useState<string | null>(null);
   const hasHandledInitialSearch = useRef(false);
@@ -39,19 +43,6 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
 
     setPanelTaskId(search.task ?? null);
   }, [navigate, projectId, search.task]);
-
-  function switchToBoard() {
-    localStorage.setItem(`tf:project:${projectId}:view`, 'board');
-    void navigate({
-      to: '/projects/$projectId/board',
-      params: { projectId },
-      search: { task: undefined },
-    });
-  }
-
-  function navigateToSettings() {
-    void navigate({ to: '/projects/$projectId/settings', params: { projectId } });
-  }
 
   function openTaskPanel(taskId: string) {
     setPanelTaskId(taskId);
@@ -80,86 +71,48 @@ export function ProjectListPage({ projectId }: ProjectListPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-screen-xl p-lg">
-      {/* Project header */}
-      <div className="mb-lg flex flex-wrap items-center gap-sm">
-        {isLoading ? (
-          <>
-            <div className="flex items-center gap-sm">
-              <Skeleton className="size-3 rounded-full" />
-              <Skeleton className="h-7 w-40 rounded" />
-            </div>
-            <div className="ml-auto flex items-center gap-sm">
-              <Skeleton className="h-8 w-24 rounded" />
-              <Skeleton className="h-8 w-8 rounded" />
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-sm">
-              {project?.color && (
-                <span
-                  className="size-3 rounded-full"
-                  style={{ backgroundColor: project.color }}
-                  aria-hidden
-                />
-              )}
-              <h1 className="text-heading-1 font-bold text-foreground">{project?.name}</h1>
-            </div>
-            <div className="ml-auto flex items-center gap-sm">
-              {/* View toggle */}
-              <div className="flex rounded-radius-md border border-border bg-surface-container-low p-0.5">
-                <button
-                  type="button"
-                  aria-pressed={false}
-                  onClick={switchToBoard}
-                  className="flex items-center gap-xs rounded-radius-sm px-sm py-xs text-body text-muted transition-colors hover:text-foreground"
-                >
-                  <Kanban className="size-4" />
-                  <span className="hidden sm:inline">Board</span>
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={true}
-                  className={cn(
-                    'flex items-center gap-xs rounded-radius-sm px-sm py-xs text-body transition-colors',
-                    'bg-surface-container-lowest text-foreground shadow-1',
-                  )}
-                >
-                  <LayoutList className="size-4" />
-                  <span className="hidden sm:inline">List</span>
-                </button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={navigateToSettings}
-                aria-label="Project settings"
-              >
-                <Settings className="size-4" />
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                className="text-white"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="size-4" />
-                <span className="hidden sm:inline">New Task</span>
-              </Button>
-            </div>
-          </>
-        )}
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
+      <ProjectToolbar
+        project={project}
+        isLoading={isLoading}
+        projectId={projectId}
+        activeView="list"
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
+      {/* Task table */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-screen-xl p-lg">
+          <TaskTable
+            projectId={projectId}
+            statuses={project?.statuses ?? []}
+            members={project?.members ?? []}
+            labels={project?.labels ?? []}
+            onTaskClick={openTaskPanel}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+        </div>
       </div>
 
-      {/* Task table with built-in filters, sorting, bulk actions */}
-      <TaskTable
-        projectId={projectId}
-        statuses={project?.statuses ?? []}
-        members={project?.members ?? []}
-        labels={project?.labels ?? []}
-        onTaskClick={openTaskPanel}
-      />
+      {/* Mobile FAB */}
+      <button
+        type="button"
+        onClick={() => setCreateOpen(true)}
+        className="fixed bottom-20 right-lg z-20 flex size-14 items-center justify-center rounded-full bg-linear-to-br from-brand-primary to-accent text-white shadow-3 transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:hidden"
+        aria-label="Create new task"
+      >
+        <Plus className="size-6" />
+      </button>
+
+      {/* Desktop create button */}
+      <div className="fixed bottom-lg right-lg hidden md:block">
+        <Button variant="primary" onClick={() => setCreateOpen(true)} className="shadow-3">
+          <Plus className="size-4" />
+          New Task
+        </Button>
+      </div>
 
       {project && (
         <CreateTaskDialog

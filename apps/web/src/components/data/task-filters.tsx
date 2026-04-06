@@ -235,7 +235,7 @@ export function TaskFiltersBar({
                         className="rounded-radius-sm accent-brand-primary"
                       />
                       <span
-                        className="inline-flex items-center gap-xs rounded-full px-sm py-0.5 text-label font-medium"
+                        className="inline-flex items-center gap-xs rounded px-sm py-0.5 text-label font-medium"
                         style={{ backgroundColor: `${l.color}22`, color: l.color }}
                       >
                         {l.name}
