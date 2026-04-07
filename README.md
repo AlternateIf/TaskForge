@@ -129,24 +129,32 @@ pnpm --filter @taskforge/api dev:worker
 
 ## Seeded Login Users
 
-The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these identities:
+The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these identities.
 
-- Shared password (all password-enabled seeded users): `Taskforge123!`
-- Interactive login users:
-  - `owner@acme.taskforge.local` (`Super Admin` + `Acme Owner`, MFA enabled)
-  - `admin@acme.taskforge.local` (`Global Admin`, `Acme Admin`, `Globex Member`)
-  - `member@acme.taskforge.local` (`Acme Member`, `Globex Viewer`)
-  - `owner@globex.taskforge.local` (`Globex Owner`, MFA enabled)
-  - `admin@globex.taskforge.local` (`Globex Admin`)
-  - `member@globex.taskforge.local` (`Globex Member`, `Acme Viewer`, seeded GitHub OAuth)
-  - `qa@taskforge.local` (`Acme Admin`, `Globex Admin`)
-  - `viewer@acme.taskforge.local` (`Acme Viewer`)
-  - `contractor@globex.taskforge.local` (`Globex Viewer`)
-  - `support@taskforge.local` (`Global Auditor`, `Acme Support`, `Globex Support`)
-- Non-interactive seeded identity:
-  - `integration.bot@taskforge.local` (no password hash; used for automation/integration fixtures)
+Shared password (all password-enabled users): `Taskforge123!`
+Organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operations`
 
-See [`.junie/setup.md`](.junie/setup.md) for the full setup-oriented matrix.
+| Email | Global Role | Acme Role | Globex Role | Auth Notes |
+|---|---|---|---|---|
+| `owner@acme.taskforge.local` | Super Admin | Acme Owner | — | MFA enabled |
+| `admin@acme.taskforge.local` | Global Admin | Acme Admin | Globex Member | — |
+| `member@acme.taskforge.local` | — | Acme Member ¹ | Globex Viewer | — |
+| `owner@globex.taskforge.local` | — | — | Globex Owner | MFA enabled |
+| `admin@globex.taskforge.local` | — | — | Globex Admin | — |
+| `member@globex.taskforge.local` | — | Acme Viewer ² | Globex Member | GitHub OAuth linked |
+| `qa@taskforge.local` | — | Acme Admin | Globex Admin | — |
+| `viewer@acme.taskforge.local` | — | Acme Viewer ³ | — | — |
+| `contractor@globex.taskforge.local` | — | — | Globex Viewer ⁴ | — |
+| `support@taskforge.local` | Global Auditor | Acme Support | Globex Support | — |
+| `integration.bot@taskforge.local` | direct: `organization.create` ⁵ | Acme Viewer | — | No password — not for interactive login |
+
+¹ + direct grant: `invitation.read` in Acme
+² + direct grant: `invitation.create` in Acme
+³ + direct grant: `membership.update` in Acme
+⁴ + direct grant: `invitation.read` in Globex
+⁵ `organization.create.global` granted directly, no global role assigned
+
+See [`.junie/setup.md`](.junie/setup.md) for the full role-permission breakdown.
 
 ## Documentation
 

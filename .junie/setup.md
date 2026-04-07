@@ -97,28 +97,43 @@ This starts both the API and web dev servers via Turborepo:
 These identities are created by `NODE_ENV=development pnpm test-seed` and `pnpm --filter db seed`.
 
 - Shared password (all password-enabled seeded users): `Taskforge123!`
-- Fixture organizations: `Acme Product Group` and `Globex Operations`
+- Fixture organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operations`
 
-### Interactive login users (web/API)
+### User matrix
 
-| Email | Used/Setup For | Seeded Roles / Scope | Auth Notes |
-|---|---|---|---|
-| `owner@acme.taskforge.local` | Full governance baseline in dev fixtures | `Super Admin` (global), `Acme Owner` | Password login, MFA enabled |
-| `admin@acme.taskforge.local` | Org admin workflows and cross-org membership checks | `Global Admin`, `Acme Admin`, `Globex Member` | Password login |
-| `member@acme.taskforge.local` | Standard member task/comment flows + cross-org viewer access | `Acme Member`, `Globex Viewer` | Password login |
-| `owner@globex.taskforge.local` | Globex owner governance and MFA-required org checks | `Globex Owner` | Password login, MFA enabled |
-| `admin@globex.taskforge.local` | Globex org administration flows | `Globex Admin` | Password login |
-| `member@globex.taskforge.local` | Member-level work execution and viewer behavior in Acme | `Globex Member`, `Acme Viewer` | Password login, seeded GitHub OAuth account |
-| `qa@taskforge.local` | Cross-tenant QA smoke tests | `Acme Admin`, `Globex Admin` | Password login |
-| `viewer@acme.taskforge.local` | Read-only org governance and project/task visibility | `Acme Viewer` | Password login |
-| `contractor@globex.taskforge.local` | Restricted Globex read-only/contractor scenario testing | `Globex Viewer` | Password login |
-| `support@taskforge.local` | Support and audit workflows across organizations | `Global Auditor`, `Acme Support`, `Globex Support` | Password login |
+| Email | Global Role | Acme Role | Globex Role | Direct Grants | Auth |
+|---|---|---|---|---|---|
+| `owner@acme.taskforge.local` | Super Admin | Acme Owner | — | — | Password + MFA |
+| `admin@acme.taskforge.local` | Global Admin | Acme Admin | Globex Member | — | Password |
+| `member@acme.taskforge.local` | — | Acme Member | Globex Viewer | `invitation.read` (Acme) | Password |
+| `owner@globex.taskforge.local` | — | — | Globex Owner | — | Password + MFA |
+| `admin@globex.taskforge.local` | — | — | Globex Admin | — | Password |
+| `member@globex.taskforge.local` | — | Acme Viewer | Globex Member | `invitation.create` (Acme) | Password + GitHub OAuth |
+| `qa@taskforge.local` | — | Acme Admin | Globex Admin | — | Password |
+| `viewer@acme.taskforge.local` | — | Acme Viewer | — | `membership.update` (Acme) | Password |
+| `contractor@globex.taskforge.local` | — | — | Globex Viewer | `invitation.read` (Globex) | Password |
+| `support@taskforge.local` | Global Auditor | Acme Support | Globex Support | — | Password |
+| `integration.bot@taskforge.local` | — | Acme Viewer | — | `organization.create.global` | No password — not for interactive login |
 
-### Non-interactive seeded identity
+### Role permissions reference
 
-| Email | Used/Setup For | Seeded Roles / Scope | Auth Notes |
-|---|---|---|---|
-| `integration.bot@taskforge.local` | Automation/integration identity for permission and API flow fixtures | `Acme Viewer` + direct global permission (`organization.create.global`) | No password hash; not intended for interactive login |
+#### Global roles
+
+| Role | Permissions |
+|---|---|
+| **Super Admin** | All global and organization-scope permissions |
+| **Global Admin** | `organization.create.global`; `global_role_assignment` create/read/update/delete |
+| **Global Auditor** | `global_role_assignment.read` |
+
+#### Organization-scoped roles (Acme and Globex roles follow the same permission set)
+
+| Role | Permissions |
+|---|---|
+| **Owner** | Full org governance: all org settings, auth settings, feature flags, invitations, memberships, roles, permissions, projects, tasks, comments, attachments, notifications (full CRUD) |
+| **Admin** | Org read/update; settings, auth settings, feature flags read/update; invitations (full CRUD); memberships read/update; roles/permissions read; projects, tasks, comments, attachments, notifications (full CRUD) |
+| **Member** | Org read; membership read; project read; tasks create/read/update; comments create/read/update; attachments create/read; notification read |
+| **Viewer** | Org read; membership, invitation, role, permission read; project, task, comment, attachment, notification read only |
+| **Support** | Org, settings, auth settings, feature flags read; invitations read/update; memberships read/update; roles/permissions read; projects, tasks, comments read/update; attachments, notifications read |
 
 ---
 
