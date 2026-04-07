@@ -1,7 +1,7 @@
 # MVP-031: Auto-Create GitHub Issues for New Feature Files
 
 ## Description
-A GitHub Actions workflow that automatically creates a GitHub Issue whenever a new feature markdown file is pushed to `.junie/features/` on the `main` branch. The issue includes the feature title, a shortened description, a link to the markdown file, and acceptance criteria if present.
+A GitHub Actions workflow that automatically creates a GitHub Issue whenever a new feature markdown file is pushed to `.ai/features/` on the `main` branch. The issue includes the feature title, a shortened description, a link to the markdown file, and acceptance criteria if present.
 
 ## Personas
 - **Niko (SCM Integrator)**: Bidirectional traceability between feature specs and GitHub Issues
@@ -22,11 +22,11 @@ A GitHub Actions workflow that automatically creates a GitHub Issue whenever a n
 
 ### Workflow details
 
-**Trigger**: `push` to `main` branch, path filter `.junie/features/**/*.md`
+**Trigger**: `push` to `main` branch, path filter `.ai/features/**/*.md`
 
 **Detection logic**:
 1. Use `git diff --name-only --diff-filter=A HEAD~1 HEAD` to find only **newly added** files (not modified)
-2. Filter to `.junie/features/**/*.md` paths
+2. Filter to `.ai/features/**/*.md` paths
 3. Skip if no new feature files detected
 
 **For each new feature file**:
@@ -55,9 +55,9 @@ A GitHub Actions workflow that automatically creates a GitHub Issue whenever a n
      *Auto-generated from `path/to/feature.md`*
      ```
    - Labels: `feature` + phase label based on folder:
-     - `.junie/features/mvp/` → `mvp`
-     - `.junie/features/phase2/` → `phase-2`
-     - `.junie/features/phase3/` → `phase-3`
+     - `.ai/features/mvp/` → `mvp`
+     - `.ai/features/phase2/` → `phase-2`
+     - `.ai/features/phase3/` → `phase-3`
 
 ### Label setup
 The workflow should create missing labels on first run using `gh label create` with `--force` (idempotent).
@@ -73,7 +73,7 @@ The workflow should create missing labels on first run using `gh label create` w
 The workflow needs `issues: write` and `contents: read` permissions.
 
 ## Acceptance Criteria
-- [x] Pushing a new `.md` file to `.junie/features/mvp/` on `main` creates a GitHub Issue
+- [x] Pushing a new `.md` file to `.ai/features/mvp/` on `main` creates a GitHub Issue
 - [x] Issue title contains the feature ID and name extracted from the `# heading`
 - [x] Issue body includes a shortened description and link to the feature file
 - [x] Issue body includes acceptance criteria section when present in the feature file

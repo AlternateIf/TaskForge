@@ -32,4 +32,4 @@ Features are numbered MVP-001 through MVP-029. Dependencies are explicit in each
 
 ## Feature File Location
 
-All features documented in `.junie/features/mvp/` with filenames `MVP-NNN-short-name.md`.
+All features documented in `.ai/features/mvp/` with filenames `MVP-NNN-short-name.md`.

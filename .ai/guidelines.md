@@ -3,7 +3,7 @@
 This file is the entry router. Keep it small and load additional context intentionally.
 
 ## 1) Start Here (Always)
-1. Read the target feature file first (`.junie/features/...`) or the active meeting note (`.junie/meetings/...`).
+1. Read the target feature file first (`.ai/features/...`) or the active meeting note (`.ai/meetings/...`).
 2. Choose mode:
 - **Planning Mode**: persona meetings, sprint planning, feature discovery/spec updates.
 - **Implementation Mode**: coding, bug fixes, tests, refactors.
@@ -38,7 +38,7 @@ This file is the entry router. Keep it small and load additional context intenti
 
 ## 4) Feature Workflow (Required)
 When implementing any MVP/Phase feature:
-1. **Pre-implementation persona meeting first** (capture decisions in `.junie/meetings/...`).
+1. **Pre-implementation persona meeting first** (capture decisions in `.ai/meetings/...`).
    - For new feature specs, start from `features/FEATURE_TEMPLATE.md`.
 2. **Update the target feature markdown before/during implementation** with agreed scope/acceptance details.
 3. Implement and test.

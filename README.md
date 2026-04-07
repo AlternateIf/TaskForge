@@ -27,7 +27,7 @@ TaskForge/
 │   ├── shared/              # Shared schemas/types/constants
 │   └── email-templates/     # react-email templates
 ├── docker/                  # Local infrastructure + observability
-└── .junie/                  # Product/process docs, roadmap, feature specs, personas
+└── .ai/                  # Product/process docs, roadmap, feature specs, personas
 ```
 
 ## Tech Stack
@@ -155,20 +155,20 @@ Organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operation
 ⁴ + direct grant: `invitation.read` in Globex
 ⁵ `organization.create.global` granted directly, no global role assigned
 
-See [`.junie/setup.md`](.junie/setup.md) for the full role-permission breakdown.
+See [`.ai/setup.md`](.ai/setup.md) for the full role-permission breakdown.
 
 ## Documentation
 
-Primary documentation lives in [`.junie/`](.junie/guidelines.md).
+Primary documentation lives in [`.ai/`](.ai/guidelines.md).
 
 Start points:
-- [Guidelines](.junie/guidelines.md) — context loading rules + feature workflow
-- [Requirements (router)](.junie/requirements.md) — entry to MVP/future requirement docs
-- [Roadmap](.junie/roadmap.md) — MVP, Phase 2, Phase 3 planning
-- [Data Model (router)](.junie/data-model.md) — entry to MVP/future schema docs
-- [API Conventions](.junie/api-conventions.md) — endpoint standards and contracts
-- [Project Structure](.junie/project-structure.md) — codebase layout conventions
-- [Setup](.junie/setup.md) — setup, commands, troubleshooting
+- [Guidelines](.ai/guidelines.md) — context loading rules + feature workflow
+- [Requirements (router)](.ai/requirements.md) — entry to MVP/future requirement docs
+- [Roadmap](.ai/roadmap.md) — MVP, Phase 2, Phase 3 planning
+- [Data Model (router)](.ai/data-model.md) — entry to MVP/future schema docs
+- [API Conventions](.ai/api-conventions.md) — endpoint standards and contracts
+- [Project Structure](.ai/project-structure.md) — codebase layout conventions
+- [Setup](.ai/setup.md) — setup, commands, troubleshooting
 
 ## License
 

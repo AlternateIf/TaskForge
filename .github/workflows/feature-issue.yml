@@ -1,10 +1,11 @@
 name: Feature Issue Creator
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.junie/features/**/*.md'
+  workflow_dispatch: # temporarily disabled — re-enable push trigger after folder rename commit
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - '.ai/features/**/*.md'
 
 permissions:
   contents: read
@@ -27,9 +28,9 @@ jobs:
           # Handle initial commit (all-zero SHA)
           if echo "$BEFORE" | grep -qE '^0+$'; then
             echo "Initial push detected — listing all feature files"
-            NEW_FILES=$(git ls-files '.junie/features/**/*.md')
+            NEW_FILES=$(git ls-files '.ai/features/**/*.md')
           else
-            NEW_FILES=$(git diff --name-only --diff-filter=A "$BEFORE" HEAD -- '.junie/features/**/*.md')
+            NEW_FILES=$(git diff --name-only --diff-filter=A "$BEFORE" HEAD -- '.ai/features/**/*.md')
           fi
 
           if [ -z "$NEW_FILES" ]; then
@@ -111,9 +112,9 @@ jobs:
             # Determine phase label from folder path
             phase_label=""
             case "$filepath" in
-              *.junie/features/mvp/*) phase_label="mvp" ;;
-              *.junie/features/phase2/*) phase_label="phase-2" ;;
-              *.junie/features/phase3/*) phase_label="phase-3" ;;
+              *.ai/features/mvp/*) phase_label="mvp" ;;
+              *.ai/features/phase2/*) phase_label="phase-2" ;;
+              *.ai/features/phase3/*) phase_label="phase-3" ;;
             esac
 
             labels="feature"

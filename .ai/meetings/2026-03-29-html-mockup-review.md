@@ -59,7 +59,7 @@
 
 **Ava**: This is exactly what we need to fix. We need ONE canonical token set. Light mode tokens go in the Tailwind config. Dark mode tokens go in CSS custom properties that swap when `dark` class is applied. No hardcoded hex values in component markup. The styleguide already defines this.
 
-**Decision**: Implementation will use a single unified token system from `.junie/styleguide.md`. All color references in components will use semantic token names (`bg-background`, `text-on-surface`, etc.), never hardcoded hex values. Dark mode will use CSS custom properties that swap under the `.dark` class. This is MVP-041's responsibility.
+**Decision**: Implementation will use a single unified token system from `.ai/styleguide.md`. All color references in components will use semantic token names (`bg-background`, `text-on-surface`, etc.), never hardcoded hex values. Dark mode will use CSS custom properties that swap under the `.dark` class. This is MVP-041's responsibility.
 
 ---
 
