@@ -16,6 +16,12 @@
     "clean": "turbo clean",
     "test-seed": "bash ./scripts/test-seed.sh"
   },
+  "pnpm": {
+    "overrides": {
+      "vite": ">=8.0.5",
+      "esbuild": ">=0.25.0"
+    }
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "turbo": "^2.3.3",
