@@ -112,7 +112,7 @@ If any dependency is unreachable, returns 503:
 
 ### Success envelope
 
-```json
+```jsonc
 {
   "data": { ... },
   "meta": { ... }
@@ -125,7 +125,7 @@ If any dependency is unreachable, returns 503:
 
 ### Pagination (cursor-based)
 
-```json
+```jsonc
 {
   "data": [ ... ],
   "meta": {
@@ -366,7 +366,7 @@ SSE:       GET /api/v1/events/stream (Authorization header)
 ### Subscription model
 Clients subscribe to channels after connecting:
 
-```json
+```jsonc
 // Subscribe
 { "type": "subscribe", "channel": "project:proj_123" }
 { "type": "subscribe", "channel": "task:task_456" }
@@ -391,7 +391,7 @@ Clients subscribe to channels after connecting:
 ```
 
 ### Presence
-```json
+```jsonc
 // Presence event
 {
   "type": "presence",

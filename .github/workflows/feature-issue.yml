@@ -1,11 +1,10 @@
 name: Feature Issue Creator
 
 on:
-  workflow_dispatch: # temporarily disabled — re-enable push trigger after folder rename commit
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - '.ai/features/**/*.md'
+  push:
+    branches: [main]
+    paths:
+      - '.ai/features/**/*.md'
 
 permissions:
   contents: read
