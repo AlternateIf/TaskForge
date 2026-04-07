@@ -132,6 +132,7 @@ pnpm --filter @taskforge/api dev:worker
 The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these identities.
 
 Shared password (all password-enabled users): `Taskforge123!`
+Shared TOTP secret (MFA users): `JBSWY3DPEHPK3PXP` — add to any authenticator app
 Organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operations`
 
 | Email | Global Role | Acme Role | Globex Role | Auth Notes |
@@ -141,7 +142,7 @@ Organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operation
 | `member@acme.taskforge.local` | — | Acme Member ¹ | Globex Viewer | — |
 | `owner@globex.taskforge.local` | — | — | Globex Owner | MFA enabled |
 | `admin@globex.taskforge.local` | — | — | Globex Admin | — |
-| `member@globex.taskforge.local` | — | Acme Viewer ² | Globex Member | GitHub OAuth linked |
+| `member@globex.taskforge.local` | — | Acme Viewer ² | Globex Member | Password (GitHub OAuth is DB fixture only) |
 | `qa@taskforge.local` | — | Acme Admin | Globex Admin | — |
 | `viewer@acme.taskforge.local` | — | Acme Viewer ³ | — | — |
 | `contractor@globex.taskforge.local` | — | — | Globex Viewer ⁴ | — |

@@ -97,6 +97,9 @@ This starts both the API and web dev servers via Turborepo:
 These identities are created by `NODE_ENV=development pnpm test-seed` and `pnpm --filter db seed`.
 
 - Shared password (all password-enabled seeded users): `Taskforge123!`
+- Shared TOTP secret (MFA-enabled users — `owner@acme`, `owner@globex`): `JBSWY3DPEHPK3PXP`
+  - Add to any authenticator app (Google Authenticator, Authy, 1Password, etc.) or use the URI:
+    `otpauth://totp/TaskForge?secret=JBSWY3DPEHPK3PXP&issuer=TaskForge&algorithm=SHA1&digits=6&period=30`
 - Fixture organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operations`
 
 ### User matrix
@@ -108,7 +111,7 @@ These identities are created by `NODE_ENV=development pnpm test-seed` and `pnpm 
 | `member@acme.taskforge.local` | — | Acme Member | Globex Viewer | `invitation.read` (Acme) | Password |
 | `owner@globex.taskforge.local` | — | — | Globex Owner | — | Password + MFA |
 | `admin@globex.taskforge.local` | — | — | Globex Admin | — | Password |
-| `member@globex.taskforge.local` | — | Acme Viewer | Globex Member | `invitation.create` (Acme) | Password + GitHub OAuth |
+| `member@globex.taskforge.local` | — | Acme Viewer | Globex Member | `invitation.create` (Acme) | Password (GitHub OAuth is a DB fixture only — use password to log in locally) |
 | `qa@taskforge.local` | — | Acme Admin | Globex Admin | — | Password |
 | `viewer@acme.taskforge.local` | — | Acme Viewer | — | `membership.update` (Acme) | Password |
 | `contractor@globex.taskforge.local` | — | — | Globex Viewer | `invitation.read` (Globex) | Password |

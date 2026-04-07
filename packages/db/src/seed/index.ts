@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { db, pool } from '../client.js';
 import * as schema from '../schema/index.js';
 
@@ -12,6 +13,22 @@ interface PermissionCatalogEntry {
 
 const KNOWN_PASSWORD = 'Taskforge123!';
 const KNOWN_PASSWORD_HASH = '$2b$12$NP8SI4Y.jSLTo2eJuqHEQOve7AzKxIiWPOX18lD2YaHMPcvzPicbu';
+
+// Shared TOTP secret for seeded MFA-enabled users.
+// Both owner@acme and owner@globex use this same base32 secret in dev.
+// Add it to any TOTP app (Google Authenticator, Authy, etc.) to log in.
+// otpauth://totp/TaskForge?secret=JBSWY3DPEHPK3PXP&issuer=TaskForge&algorithm=SHA1&digits=6&period=30
+const SEED_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+
+function encryptMfaSecret(plaintext: string): string {
+  const encryptionKey = process.env.MFA_ENCRYPTION_KEY ?? 'dev-mfa-key-change-in-production-32ch';
+  const key = crypto.createHash('sha256').update(encryptionKey).digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted.toString('base64')}`;
+}
 
 const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
 
@@ -247,6 +264,7 @@ async function seed(): Promise<void> {
       passwordHash: KNOWN_PASSWORD_HASH,
       displayName: 'Alex Acme',
       mfaEnabled: true,
+      mfaSecret: encryptMfaSecret(SEED_TOTP_SECRET),
       emailVerifiedAt: at(1),
       lastLoginAt: at(500),
       createdAt: at(0),
@@ -280,6 +298,7 @@ async function seed(): Promise<void> {
       passwordHash: KNOWN_PASSWORD_HASH,
       displayName: 'Jordan Globex',
       mfaEnabled: true,
+      mfaSecret: encryptMfaSecret(SEED_TOTP_SECRET),
       emailVerifiedAt: at(4),
       lastLoginAt: at(470),
       createdAt: at(0),
