@@ -1,26 +1,41 @@
 import { useAuthStore } from '@/stores/auth.store';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsPage } from './index';
 
 vi.mock('@/api/governance', () => {
   const mutation = { mutate: vi.fn(), isPending: false };
   return {
-    useSentInvitations: () => ({ isLoading: false, data: [] }),
-    useCreateInvitation: () => mutation,
-    useResendInvitation: () => mutation,
-    useRevokeInvitation: () => mutation,
-    useOrganizations: () => ({ data: [] }),
+    useOrganizations: () => ({ isLoading: false, data: [] }),
     useCreateOrganization: () => mutation,
-    useDeleteOrganization: () => mutation,
-    useRoles: () => ({ data: [] }),
-    useCreateRole: () => mutation,
-    useDeleteRole: () => mutation,
-    usePermissionAssignments: () => ({ data: [] }),
-    useCreatePermissionAssignment: () => mutation,
-    useDeletePermissionAssignment: () => mutation,
   };
 });
+
+vi.mock('@/api/users', () => {
+  const mutation = { mutate: vi.fn(), isPending: false };
+  const query = { isLoading: false, data: null };
+  return {
+    useUpdateProfile: () => mutation,
+    useUploadAvatar: () => mutation,
+    useRemoveAvatar: () => mutation,
+    useRequestEmailChange: () => mutation,
+    useSecurityOverview: () => query,
+    useListSessions: () => ({ isLoading: false, data: [] }),
+    useRevokeSession: () => mutation,
+    useRevokeOtherSessions: () => mutation,
+  };
+});
+
+vi.mock('@/api/auth', () => ({
+  useChangePassword: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
 
 function setUserPermissions(permissions: string[]) {
   useAuthStore.setState({
@@ -49,32 +64,37 @@ describe('SettingsPage', () => {
     });
   });
 
-  it('always renders profile section', () => {
+  it('renders the Settings page heading', () => {
     setUserPermissions([]);
-    render(<SettingsPage />);
-    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument();
+    render(<SettingsPage />, { wrapper });
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
   });
 
-  it('renders governance sections in fixed order when permissions allow', () => {
-    setUserPermissions([
-      'invitation.read.org',
-      'organization.read.org',
-      'role.read.org',
-      'permission.read.org',
-    ]);
-    render(<SettingsPage />);
-
-    const headings = screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
-    expect(headings).toEqual(['Profile', 'Invitations', 'Organizations', 'Roles', 'Permissions']);
+  it('shows Profile, Security, and Organizations tabs', () => {
+    setUserPermissions([]);
+    render(<SettingsPage />, { wrapper });
+    expect(screen.getByRole('tab', { name: 'Profile' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Security' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Organizations' })).toBeInTheDocument();
   });
 
-  it('omits unauthorized sections while preserving visible section order', () => {
-    setUserPermissions(['invitation.read.org', 'role.read.org']);
-    render(<SettingsPage />);
+  it('shows Profile content by default', () => {
+    setUserPermissions([]);
+    render(<SettingsPage />, { wrapper });
+    expect(screen.getByText('Profile Information')).toBeInTheDocument();
+  });
 
-    const headings = screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
-    expect(headings).toEqual(['Profile', 'Invitations', 'Roles']);
-    expect(screen.queryByRole('heading', { name: 'Organizations' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Permissions' })).not.toBeInTheDocument();
+  it('switches to Security tab', async () => {
+    setUserPermissions([]);
+    render(<SettingsPage />, { wrapper });
+    await userEvent.click(screen.getByRole('tab', { name: 'Security' }));
+    expect(screen.getByText('Change Password')).toBeInTheDocument();
+  });
+
+  it('switches to Organizations tab', async () => {
+    setUserPermissions([]);
+    render(<SettingsPage />, { wrapper });
+    await userEvent.click(screen.getByRole('tab', { name: 'Organizations' }));
+    expect(screen.getByText('Your Organizations')).toBeInTheDocument();
   });
 });
