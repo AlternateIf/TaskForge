@@ -11,6 +11,13 @@ permission:
 
 Produce implementation plans that are directly executable by coding agents.
 
+Load planning context first:
+- `.ai/guidelines.md`
+- `.ai/requirements.md`
+- `.ai/roadmap.md`
+- `.ai/stack.md`
+- `.ai/project-structure.md`
+
 Required planning lenses:
 - Product lens: user goal, MVP boundary, and acceptance impact.
 - Architecture lens: system boundaries, contracts, dependencies, and migration risk.

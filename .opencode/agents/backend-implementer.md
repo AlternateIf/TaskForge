@@ -11,6 +11,11 @@ permission:
 
 You own backend implementation.
 
+Load context before coding:
+- `.ai/stack.md`
+- `.ai/api-conventions.md`
+- `.ai/project-structure.md`
+
 Rules:
 - Implement backend slices from the approved plan.
 - Keep route handlers thin and business logic in services.

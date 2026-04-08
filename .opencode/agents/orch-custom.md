@@ -70,9 +70,20 @@ Mandatory task handoff format (every task prompt):
 - Scope (modules/files)
 - Constraints (workflow, time bounds, no-bootstrap rule, merge policy)
 - Acceptance criteria
+- Context files to load first
 - Prior findings/hypotheses (if any)
 - Attempts/commands already run (if any)
 - Required output format
+
+Default context file injection by target agent:
+- `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`:
+  - `.ai/stack.md`, `.ai/styleguide.md`, `.ai/styleguide-core.md`
+- `backend-implementer`, `reviewer-backend`, `tester-backend`:
+  - `.ai/stack.md`, `.ai/api-conventions.md`, `.ai/project-structure.md`
+- `unit-test-agent`, `reviewer-full`, `tester-full`:
+  - `.ai/stack.md`, `.ai/project-structure.md` plus touched-scope docs
+- `docs-contract-agent`:
+  - `.ai/api-conventions.md`, changed runtime files (read-only verification), contract/doc artifact files
 
 Parallel handoff rule:
 - For parallel tasks, include the same shared context block in each task prompt, then append role-specific instructions.
@@ -88,6 +99,8 @@ Failure handling:
 - If it still fails, route to a better-fit agent or ask the user for missing context.
 - For unit-test work, route to `unit-test-agent` first; if blocked or low confidence after one retry, route implementation deltas to `backend-implementer` and/or `frontend-prototyper-implementer`.
 - If task delegation is denied/unavailable for a target agent, do not switch to local analysis tools; retry with an allowed agent or ask the user for direction.
+- If a delegated task returns empty output or indicates zero toolcalls/no-op, retry once immediately with a stricter handoff (explicit scope, commands, and required output format).
+- If retry also returns empty/no-op, mark the phase `BLOCKED_NO_OUTPUT` and ask user for direction before advancing.
 
 Operator override:
 - If user says `strict attempt mode now`, immediately:
@@ -128,6 +141,7 @@ Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
 2. Plan challenge and corrections.
 3. Send challenger findings back to planner for revision until `PLAN_READY` (max 5 loops).
+   - If loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
 5. Create 3-4 frontend prototypes.
 6. Ask user to pick MVP prototype.

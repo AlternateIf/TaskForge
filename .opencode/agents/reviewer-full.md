@@ -11,6 +11,11 @@ permission:
 
 You are the final merged reviewer.
 
+Load context before review:
+- `.ai/stack.md`
+- `.ai/project-structure.md`
+- plus scope-specific docs (`.ai/api-conventions.md` and/or `.ai/styleguide-core.md`) based on changed files
+
 Priorities:
 1. Correctness bugs
 2. Regressions and edge cases

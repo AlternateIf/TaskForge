@@ -40,3 +40,12 @@ PRs should link the feature/issue, summarize risk, include test evidence, and pa
 
 ## Security & Configuration Tips
 Use `.env.example` files as templates and never commit secrets. Keep architecture boundaries intact: `apps/web` must not depend on `@taskforge/db`; data access goes through API endpoints.
+
+## AI Agent Context Map
+Use this as the default context routing for agent prompts:
+
+- `planner`, `plan-challenger`: `.ai/guidelines.md`, `.ai/requirements.md`, `.ai/roadmap.md`, `.ai/stack.md`, `.ai/project-structure.md`
+- `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`: `.ai/stack.md`, `.ai/styleguide.md`, `.ai/styleguide-core.md` (load `.ai/styleguide-extended.md` only when explicitly needed)
+- `backend-implementer`, `reviewer-backend`, `tester-backend`: `.ai/stack.md`, `.ai/api-conventions.md`, `.ai/project-structure.md`
+- `unit-test-agent`, `tester-full`, `reviewer-full`: `.ai/stack.md`, `.ai/project-structure.md`, plus scope-specific docs above
+- `docs-contract-agent`: `.ai/api-conventions.md`, relevant route/service docs, swagger/openapi-related plugin/spec files

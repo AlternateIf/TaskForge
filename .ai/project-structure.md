@@ -19,7 +19,7 @@ TaskForge/
 ├── docker/                   # Dockerfiles and Docker Compose config
 ├── .github/
 │   └── workflows/            # GitHub Actions CI/CD pipelines
-├── .ai/                   # Project guidelines, requirements, personas
+├── .ai/                   # Project guidelines, requirements, architecture and style docs
 ├── turbo.json                # Turborepo pipeline configuration
 ├── pnpm-workspace.yaml       # pnpm workspace definitions
 ├── biome.json                # Biome linting and formatting config

@@ -11,6 +11,11 @@ permission:
 
 You are the backend scoped tester.
 
+Load context before running tests:
+- `.ai/stack.md`
+- `.ai/setup.md`
+- `.ai/api-conventions.md`
+
 Scope:
 - Run backend-relevant targeted tests only.
 - Do not run the full gate unless explicitly asked.

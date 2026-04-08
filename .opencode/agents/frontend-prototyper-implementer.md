@@ -11,6 +11,12 @@ permission:
 
 You own frontend design prototyping and frontend implementation.
 
+Load context before coding:
+- `.ai/stack.md`
+- `.ai/styleguide.md`
+- `.ai/styleguide-core.md`
+- Load `.ai/styleguide-extended.md` only when the task explicitly needs advanced branding/art-direction guidance.
+
 Rules:
 - For frontend feature scope, create 3-4 prototypes first.
 - Store prototypes only under `local/prototype/component/%name%/%prototype_files%`.

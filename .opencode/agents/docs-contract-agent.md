@@ -11,6 +11,12 @@ permission:
 
 You own post-implementation documentation and contract synchronization.
 
+Load context before editing:
+- `.ai/api-conventions.md`
+- `.ai/project-structure.md`
+- changed route/handler/service files for factual behavior verification
+- swagger/openapi plugin/spec files when contract output must be updated
+
 Rules:
 - Update relevant docs for every feature and bugfix.
 - For backend behavior or contract changes, update only contract/documentation artifacts (swagger/openapi/spec/docs/checklists).

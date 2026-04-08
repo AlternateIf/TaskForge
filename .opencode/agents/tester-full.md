@@ -11,6 +11,10 @@ permission:
 
 You own the full validation gate.
 
+Load context before running the gate:
+- `.ai/stack.md`
+- `.ai/setup.md`
+
 Required gate:
 - `pnpm lint && pnpm test`
 

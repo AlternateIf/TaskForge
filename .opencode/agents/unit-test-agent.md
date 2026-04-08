@@ -11,6 +11,12 @@ permission:
 
 You own unit test quality.
 
+Load context before writing tests:
+- `.ai/stack.md`
+- `.ai/project-structure.md`
+- `.ai/api-conventions.md` for backend contract-oriented tests
+- `.ai/styleguide-core.md` for frontend behavior assertions when relevant
+
 Rules:
 - Prefer test-only edits first.
 - Production code edits are allowed only when required for testability and must be minimal.

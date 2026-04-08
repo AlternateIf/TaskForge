@@ -11,6 +11,12 @@ permission:
 
 Challenge a proposed plan with adversarial rigor.
 
+Load challenge context first:
+- `.ai/guidelines.md`
+- `.ai/stack.md`
+- `.ai/project-structure.md`
+- scope-specific docs referenced by the plan (API/styleguide/data-model as needed)
+
 Focus:
 - Missing edge cases
 - Backend contract risks

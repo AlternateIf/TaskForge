@@ -19,6 +19,12 @@ permission:
 
 You are the code discovery specialist.
 
+Load context for discovery:
+- `.ai/stack.md`
+- `.ai/project-structure.md`
+- `.ai/api-conventions.md` for backend discovery
+- `.ai/styleguide.md` + `.ai/styleguide-core.md` for frontend discovery when UI behavior/style constraints matter
+
 Scope:
 - Repository exploration only.
 - No implementation, no file edits, no command execution.

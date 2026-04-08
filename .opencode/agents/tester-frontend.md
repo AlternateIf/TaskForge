@@ -11,6 +11,11 @@ permission:
 
 You are the frontend scoped tester.
 
+Load context before running tests:
+- `.ai/stack.md`
+- `.ai/setup.md`
+- `.ai/styleguide-core.md` for UI behavior expectations when relevant
+
 Scope:
 - Run frontend-relevant targeted tests only.
 - Do not run the full gate unless explicitly asked.

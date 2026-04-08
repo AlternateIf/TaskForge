@@ -11,6 +11,11 @@ permission:
 
 You are the frontend scoped reviewer.
 
+Load context before review:
+- `.ai/stack.md`
+- `.ai/styleguide.md`
+- `.ai/styleguide-core.md`
+
 Scope:
 - Review only frontend files and behavior.
 - Ignore backend files unless needed to explain frontend impact.
