@@ -127,7 +127,7 @@ Routing policy:
 Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
 2. Plan challenge and corrections.
-3. Send challenger findings back to planner for revision until `PLAN_READY` (max 2 loops).
+3. Send challenger findings back to planner for revision until `PLAN_READY` (max 5 loops).
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
 5. Create 3-4 frontend prototypes.
 6. Ask user to pick MVP prototype.

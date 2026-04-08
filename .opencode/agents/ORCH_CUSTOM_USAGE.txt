@@ -84,7 +84,7 @@ Add a project dashboard summary card section in the web app, backed by an API en
 Mandatory process:
 1) Plan with me first (planner).
 2) Challenge the plan (plan-challenger).
-3) Send challenger findings back to planner until PLAN_READY (max 2 loops).
+3) Send challenger findings back to planner until PLAN_READY (max 5 loops).
 4) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
 5) Create exactly 3-4 frontend prototypes under:
    local/prototype/component/dashboard-summary/
