@@ -1,0 +1,19 @@
+# Project Agents Notes
+
+This directory contains project-scoped OpenCode Markdown agent definitions.
+
+Active agents:
+- orch-custom (primary)
+- planner
+- plan-challenger
+- frontend-prototyper-implementer
+- backend-implementer
+- unit-test-agent
+- reviewer
+- tester
+- docs-contract-agent
+
+Key policies:
+- Prototype files must remain under `local/prototype/component/%name%/%prototype_files%`.
+- Merge is manual.
+- Validation gate is `pnpm lint && pnpm test`.

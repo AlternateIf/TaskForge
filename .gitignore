@@ -6,6 +6,7 @@ dist/
 
 # Local data & scripts
 local/
+local/prototype/component/
 
 # Turbo
 .turbo/
