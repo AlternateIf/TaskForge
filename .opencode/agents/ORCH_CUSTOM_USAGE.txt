@@ -33,7 +33,7 @@ Prompt:
 Planning-only. Review auth risks and draft docs update notes in parallel.
 
 Expected:
-- Parallel reviewer + docs-contract-agent tasks.
+- Parallel reviewer-frontend/reviewer-backend (as applicable) + docs-contract-agent tasks.
 
 ------------------------------------------------------------
 4B) Bounded Bugfix Flow
@@ -91,10 +91,10 @@ Mandatory process:
 6) Stop and ask me to choose MVP prototype.
 7) Implement chosen MVP and backend support in parallel where independent.
 8) Check plan coverage against acceptance criteria.
-9) Run frontend/backend reviews in parallel (reviewer scoped), then merge findings.
-10) Run frontend/backend targeted tests in parallel (tester scoped), then run full gate once:
+9) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
+10) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:
    pnpm lint && pnpm test
-11) Update docs; if backend contract changed, update swagger/openapi artifacts too.
+11) Update docs via `docs-contract-agent`; if backend contract changed, update swagger/openapi artifacts there too.
 12) Manual merge only.
 
 Boundaries:
@@ -113,7 +113,7 @@ Include service logic, route wiring, and swagger/openapi updates.
 Process requirements:
 1) Plan + plan challenge.
 2) Implement backend changes.
-3) Update swagger/openapi and related backend contract artifacts for any behavior/contract changes.
+3) Update swagger/openapi and related backend contract artifacts via `docs-contract-agent` for any behavior/contract changes.
 4) Run backend-focused review and tests first, then full gate.
 5) Run pnpm lint && pnpm test.
 6) Manual merge only.

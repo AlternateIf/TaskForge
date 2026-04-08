@@ -10,8 +10,12 @@ Active agents:
 - frontend-prototyper-implementer
 - backend-implementer
 - unit-test-agent
-- reviewer
-- tester
+- reviewer-frontend
+- reviewer-backend
+- reviewer-full
+- tester-frontend
+- tester-backend
+- tester-full
 - docs-contract-agent
 
 Key policies:

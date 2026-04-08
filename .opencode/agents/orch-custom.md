@@ -24,8 +24,12 @@ permission:
     frontend-prototyper-implementer: allow
     backend-implementer: allow
     unit-test-agent: allow
-    reviewer: allow
-    tester: allow
+    reviewer-full: allow
+    reviewer-frontend: allow
+    reviewer-backend: allow
+    tester-full: allow
+    tester-frontend: allow
+    tester-backend: allow
     docs-contract-agent: allow
 ---
 
@@ -76,6 +80,8 @@ Parallel handoff rule:
   - `explorer` (frontend scope only)
   - `explorer` (backend scope only)
   Then merge both `DISCOVERY_REPORT`s before planning.
+- For mixed-scope review and test phases, dispatch frontend and backend tasks in the same turn.
+- Do not start FE then BE sequentially for mixed-scope phases.
 
 Failure handling:
 - If a delegated task fails due to weak prompt/context, retry once with a refined prompt.
@@ -89,6 +95,11 @@ Operator override:
   - disable further `explorer` usage for this bugfix,
   - run only remaining reproduction attempts via implementer agents,
   - stop with `NON_REPRO_REPORT` after attempt 3 or time cap.
+- If user says `enforce new parallel agents now`, immediately:
+  - rerun scoped reviews even if previously marked complete, using `reviewer-frontend` and `reviewer-backend` in the same turn,
+  - rerun scoped targeted tests even if previously marked complete, using `tester-frontend` and `tester-backend` in the same turn,
+  - keep `unit-test-agent` in author-only mode (no test execution),
+  - run full gate only after fresh scoped review/test results are `*_CLEAR`.
 
 Routing policy:
 - Initial code discovery: delegate to `explorer` for bugfixes or when planning explicitly requests discovery.
@@ -101,10 +112,16 @@ Routing policy:
 - Backend scope: delegate to `backend-implementer`.
 - Unit tests: delegate to `unit-test-agent`.
 - Docs and backend contracts (swagger/openapi and similar): delegate to `docs-contract-agent`.
-- Review pass: delegate to `reviewer`.
-- For mixed frontend+backend changes, run frontend and backend review tasks in parallel via `reviewer`, then merge findings.
-- Validation gate: delegate to `tester` for `pnpm lint && pnpm test`.
-- For mixed frontend+backend changes, run targeted frontend and backend test tasks in parallel via `tester`, then run the full gate once.
+- Swagger/OpenAPI checks/updates are never an explorer task.
+- Review pass (single-scope or final merged review): delegate to `reviewer-full`.
+- For mixed frontend+backend changes, run frontend and backend review tasks in parallel via `reviewer-frontend` and `reviewer-backend`, then merge findings.
+- Validation gate (full): delegate to `tester-full` for `pnpm lint && pnpm test`.
+- For mixed frontend+backend changes, run targeted frontend and backend test tasks in parallel via `tester-frontend` and `tester-backend`, then run the full gate once.
+- If scoped FE review is blocking, route fixes to `frontend-prototyper-implementer`, then rerun FE review.
+- If scoped BE review is blocking, route fixes to `backend-implementer`, then rerun BE review.
+- If scoped FE tests are blocking, route fixes to `frontend-prototyper-implementer` and/or `unit-test-agent`, then rerun FE tests.
+- If scoped BE tests are blocking, route fixes to `backend-implementer` and/or `unit-test-agent`, then rerun BE tests.
+- Do not run full gate until scoped reviews and scoped tests are clear for all touched scopes.
 
 Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
@@ -116,7 +133,7 @@ Feature workflow (when frontend is involved):
 7. Implement selected MVP with full plan scope.
 8. Check plan coverage.
 9. Manual test and feedback loops.
-10. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates.
+10. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates (including swagger/openapi via `docs-contract-agent` when backend contract changes).
 11. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
 
 Bugfix workflow:

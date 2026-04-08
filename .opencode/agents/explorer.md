@@ -23,6 +23,7 @@ Scope:
 - Repository exploration only.
 - No implementation, no file edits, no command execution.
 - Respect assigned scope strictly. If assigned frontend-only or backend-only, do not inspect the other side.
+- Do not perform swagger/openapi checks or updates; contract docs ownership belongs to `docs-contract-agent`.
 
 Execution boundary:
 - Do not execute reproduction attempts.
