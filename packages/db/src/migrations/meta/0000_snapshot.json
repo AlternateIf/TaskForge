@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "590b124c-c195-4058-bb31-0dc5bcaf8c41",
+  "id": "0ef94ee6-697e-4663-9720-acc18387f593",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "oauth_accounts": {
@@ -62,7 +62,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.035'"
+          "default": "'2026-04-08 19:22:22.659'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -70,7 +70,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.035'"
+          "default": "'2026-04-08 19:22:22.659'"
         }
       },
       "indexes": {
@@ -167,7 +167,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.036'"
+          "default": "'2026-04-08 19:22:22.659'"
         }
       },
       "indexes": {
@@ -250,6 +250,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "pending_email": {
+          "name": "pending_email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "mfa_enabled": {
           "name": "mfa_enabled",
           "type": "boolean",
@@ -293,7 +300,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.035'"
+          "default": "'2026-04-08 19:22:22.659'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -301,7 +308,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.035'"
+          "default": "'2026-04-08 19:22:22.659'"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -358,7 +365,7 @@
         },
         "type": {
           "name": "type",
-          "type": "enum('email_verify','password_reset')",
+          "type": "enum('email_verify','password_reset','email_change')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -390,7 +397,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.036'"
+          "default": "'2026-04-08 19:22:22.660'"
         }
       },
       "indexes": {
@@ -465,7 +472,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -486,8 +493,8 @@
         }
       },
       "foreignKeys": {
-        "inv_target_perms_target_id_fk": {
-          "name": "inv_target_perms_target_id_fk",
+        "invitation_target_permissions_invitation_target_id_invitation_targets_id_fk": {
+          "name": "invitation_target_permissions_invitation_target_id_invitation_targets_id_fk",
           "tableFrom": "invitation_target_permissions",
           "tableTo": "invitation_targets",
           "columnsFrom": [
@@ -541,7 +548,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -569,8 +576,8 @@
         }
       },
       "foreignKeys": {
-        "inv_target_roles_target_id_fk": {
-          "name": "inv_target_roles_target_id_fk",
+        "invitation_target_roles_invitation_target_id_invitation_targets_id_fk": {
+          "name": "invitation_target_roles_invitation_target_id_invitation_targets_id_fk",
           "tableFrom": "invitation_target_roles",
           "tableTo": "invitation_targets",
           "columnsFrom": [
@@ -637,7 +644,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -797,7 +804,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -805,7 +812,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -967,7 +974,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -975,7 +982,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {},
@@ -1049,7 +1056,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "created_at": {
           "name": "created_at",
@@ -1057,7 +1064,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1065,7 +1072,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -1195,7 +1202,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.691'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1203,7 +1210,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.691'"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -1277,7 +1284,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1285,7 +1292,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -1483,7 +1490,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1491,7 +1498,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -1636,7 +1643,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1644,7 +1651,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.042'"
+          "default": "'2026-04-08 19:22:22.692'"
         }
       },
       "indexes": {
@@ -1719,7 +1726,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.694'"
         }
       },
       "indexes": {
@@ -1794,7 +1801,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.693'"
         }
       },
       "indexes": {
@@ -1925,7 +1932,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.693'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -1933,7 +1940,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.693'"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -2060,7 +2067,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.694'"
         }
       },
       "indexes": {
@@ -2136,7 +2143,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.694'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -2144,7 +2151,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.044'"
+          "default": "'2026-04-08 19:22:22.694'"
         }
       },
       "indexes": {
@@ -2242,7 +2249,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -2250,7 +2257,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         }
       },
       "indexes": {
@@ -2339,7 +2346,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         }
       },
       "indexes": {
@@ -2414,7 +2421,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         }
       },
       "indexes": {
@@ -2699,7 +2706,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -2707,7 +2714,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.046'"
+          "default": "'2026-04-08 19:22:22.695'"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -2843,7 +2850,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.047'"
+          "default": "'2026-04-08 19:22:22.697'"
         }
       },
       "indexes": {
@@ -2960,7 +2967,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.047'"
+          "default": "'2026-04-08 19:22:22.697'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -2968,7 +2975,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.047'"
+          "default": "'2026-04-08 19:22:22.697'"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -3093,7 +3100,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.049'"
+          "default": "'2026-04-08 19:22:22.698'"
         }
       },
       "indexes": {
@@ -3211,7 +3218,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.050'"
+          "default": "'2026-04-08 19:22:22.699'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -3219,7 +3226,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.050'"
+          "default": "'2026-04-08 19:22:22.699'"
         }
       },
       "indexes": {
@@ -3322,7 +3329,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.050'"
+          "default": "'2026-04-08 19:22:22.699'"
         }
       },
       "indexes": {
@@ -3450,7 +3457,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.051'"
+          "default": "'2026-04-08 19:22:22.701'"
         }
       },
       "indexes": {
@@ -3547,7 +3554,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.053'"
+          "default": "'2026-04-08 19:22:22.702'"
         },
         "updated_at": {
           "name": "updated_at",
@@ -3555,7 +3562,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'2026-04-02 15:21:42.053'"
+          "default": "'2026-04-08 19:22:22.702'"
         }
       },
       "indexes": {

@@ -26,3 +26,10 @@ Responsibilities:
 - Propose the minimal fix path.
 - Re-run relevant checks after fixes.
 - Distinguish infrastructure/tooling failures from real code regressions.
+- When assigned a scoped run (`frontend` or `backend`), run only relevant targeted tests and return `TARGETED_TEST_REPORT`.
+- When assigned `full-gate`, run the required full gate and return `FULL_GATE_REPORT`.
+
+Scope boundary:
+- Do not perform broad root-cause investigation or feature-level exploration.
+- Do not run environment bootstrap (docker/startup/seed) unless explicitly requested.
+- If gate execution is blocked by environment issues, return `TEST_GATE_BLOCKED` with the minimal unblock command list.

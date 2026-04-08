@@ -177,7 +177,7 @@ async function validateDatabaseState(): Promise<void> {
   assert(counts.users === 11, `Expected 11 users, got ${counts.users}`);
   assert(counts.organizations === 2, `Expected 2 organizations, got ${counts.organizations}`);
   assert(counts.roles === 13, `Expected 13 roles, got ${counts.roles}`);
-  assert(counts.permissions === 290, `Expected 290 role permissions, got ${counts.permissions}`);
+  assert(counts.permissions === 292, `Expected 292 role permissions, got ${counts.permissions}`);
   assert(counts.projects === 4, `Expected 4 projects, got ${counts.projects}`);
   assert(counts.projectMembers === 17, `Expected 17 project members, got ${counts.projectMembers}`);
   assert(counts.tasks === 15, `Expected 15 tasks, got ${counts.tasks}`);

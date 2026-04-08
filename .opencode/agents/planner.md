@@ -33,3 +33,4 @@ Planning requirements:
 - Keep merge as manual.
 - Include required validation gate: `pnpm lint && pnpm test`.
 - Call out unknowns that require user input before implementation starts.
+- For bugfixes, step 1 must include the first concrete reproduction command(s) and success/failure signal.

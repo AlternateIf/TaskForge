@@ -92,13 +92,26 @@ export default fp(
 
       // If the token carries a session ID, verify the session still exists in the DB.
       // This makes session revocation effective immediately.
+      // If the DB query fails (connection pool exhaustion, timeout, etc.), log the error
+      // but do NOT deny access — the JWT itself is already verified and valid.
+      // A transient DB failure should not cause 401 errors for valid tokens.
       if (payload.sid) {
-        const session = await db
-          .select({ id: sessions.id })
-          .from(sessions)
-          .where(and(eq(sessions.id, payload.sid), gt(sessions.expiresAt, new Date())))
-          .limit(1);
-        if (session.length === 0) {
+        let sessionValid = true;
+        try {
+          const session = await db
+            .select({ id: sessions.id })
+            .from(sessions)
+            .where(and(eq(sessions.id, payload.sid), gt(sessions.expiresAt, new Date())))
+            .limit(1);
+          sessionValid = session.length > 0;
+        } catch (err) {
+          // DB/infrastructure error — log and defer to JWT validity.
+          request.log.error(
+            { err, sid: payload.sid },
+            'Session lookup failed during authentication — deferring to JWT validity',
+          );
+        }
+        if (!sessionValid) {
           throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid or expired token');
         }
       }

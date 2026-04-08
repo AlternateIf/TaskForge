@@ -5,6 +5,7 @@ This directory contains project-scoped OpenCode Markdown agent definitions.
 Active agents:
 - orch-custom (primary)
 - planner
+- explorer
 - plan-challenger
 - frontend-prototyper-implementer
 - backend-implementer
@@ -17,3 +18,6 @@ Key policies:
 - Prototype files must remain under `local/prototype/component/%name%/%prototype_files%`.
 - Merge is manual.
 - Validation gate is `pnpm lint && pnpm test`.
+
+Usage templates:
+- See `ORCH_CUSTOM_USAGE.txt` for copy-paste prompts (4A/4B/4C/4D/4E).

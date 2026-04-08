@@ -7,6 +7,8 @@ import { and, eq, gt, isNull, ne } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { sendEmail } from './email.service.js';
 
+type DbExecutor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>;
+
 const BCRYPT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = 15 * 60; // 15 minutes in seconds
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
@@ -66,33 +68,37 @@ export async function registerUser(
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
   const now = new Date();
 
-  await db.insert(users).values({
-    id,
-    email: input.email,
-    passwordHash,
-    displayName: input.displayName,
-    createdAt: now,
-    updatedAt: now,
-  });
+  const { user, tokens } = await db.transaction(async (tx) => {
+    await tx.insert(users).values({
+      id,
+      email: input.email,
+      passwordHash,
+      displayName: input.displayName,
+      createdAt: now,
+      updatedAt: now,
+    });
 
-  const user = (await db.select().from(users).where(eq(users.id, id)).limit(1))[0];
+    const user = (await tx.select().from(users).where(eq(users.id, id)).limit(1))[0];
 
-  // Create email verification token
-  const verifyToken = generateToken();
-  await db.insert(verificationTokens).values({
-    id: crypto.randomUUID(),
-    userId: id,
-    type: 'email_verify',
-    tokenHash: hashToken(verifyToken),
-    expiresAt: new Date(Date.now() + EMAIL_VERIFY_EXPIRY_HOURS * 60 * 60 * 1000),
-    createdAt: now,
+    // Create email verification token
+    const verifyToken = generateToken();
+    await tx.insert(verificationTokens).values({
+      id: crypto.randomUUID(),
+      userId: id,
+      type: 'email_verify',
+      tokenHash: hashToken(verifyToken),
+      expiresAt: new Date(Date.now() + EMAIL_VERIFY_EXPIRY_HOURS * 60 * 60 * 1000),
+      createdAt: now,
+    });
+
+    // Auto-login after registration
+    const tokens = await createSession(user, jwtSign, ip, userAgent, tx);
+
+    return { user, tokens };
   });
 
   // TODO: Send verification email (MVP-018 adds RabbitMQ email queue)
   console.log(`[EMAIL] Verification email would be sent to ${input.email}`);
-
-  // Auto-login after registration
-  const tokens = await createSession(user, jwtSign, ip, userAgent);
 
   return { user, tokens };
 }
@@ -176,7 +182,9 @@ export async function createSession(
   jwtSign: (payload: JwtPayload, options: { expiresIn: number }) => string,
   ip?: string,
   userAgent?: string,
+  tx?: DbExecutor,
 ): Promise<TokenPair> {
+  const executor = tx ?? db;
   const refreshTokenRaw = generateToken();
   const sessionId = crypto.randomUUID();
 
@@ -185,7 +193,7 @@ export async function createSession(
     { expiresIn: ACCESS_TOKEN_EXPIRY },
   );
 
-  await db.insert(sessions).values({
+  await executor.insert(sessions).values({
     id: sessionId,
     userId: user.id,
     tokenHash: hashToken(refreshTokenRaw),

@@ -6,8 +6,8 @@ CREATE TABLE `oauth_accounts` (
 	`access_token` text,
 	`refresh_token` text,
 	`expires_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.035',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.035',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.659',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.659',
 	CONSTRAINT `oauth_accounts_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -18,7 +18,7 @@ CREATE TABLE `sessions` (
 	`ip_address` varchar(45),
 	`user_agent` text,
 	`expires_at` datetime NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.036',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.659',
 	CONSTRAINT `sessions_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -28,13 +28,14 @@ CREATE TABLE `users` (
 	`password_hash` varchar(255),
 	`display_name` varchar(255) NOT NULL,
 	`avatar_url` text,
+	`pending_email` varchar(255),
 	`mfa_enabled` boolean NOT NULL DEFAULT false,
 	`mfa_secret` varchar(255),
 	`must_change_password` boolean NOT NULL DEFAULT false,
 	`email_verified_at` datetime,
 	`last_login_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.035',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.035',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.659',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.659',
 	`deleted_at` datetime,
 	CONSTRAINT `users_id` PRIMARY KEY(`id`),
 	CONSTRAINT `users_email_unique` UNIQUE(`email`)
@@ -43,11 +44,11 @@ CREATE TABLE `users` (
 CREATE TABLE `verification_tokens` (
 	`id` varchar(36) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
-	`type` enum('email_verify','password_reset') NOT NULL,
+	`type` enum('email_verify','password_reset','email_change') NOT NULL,
 	`token_hash` varchar(255) NOT NULL,
 	`expires_at` datetime NOT NULL,
 	`used_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.036',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.660',
 	CONSTRAINT `verification_tokens_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -55,7 +56,7 @@ CREATE TABLE `invitation_target_permissions` (
 	`id` varchar(36) NOT NULL,
 	`invitation_target_id` varchar(36) NOT NULL,
 	`permission_key` varchar(191) NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `invitation_target_permissions_id` PRIMARY KEY(`id`),
 	CONSTRAINT `invitation_target_permissions_target_key_uidx` UNIQUE(`invitation_target_id`,`permission_key`)
 );
@@ -64,7 +65,7 @@ CREATE TABLE `invitation_target_roles` (
 	`id` varchar(36) NOT NULL,
 	`invitation_target_id` varchar(36) NOT NULL,
 	`role_id` varchar(36) NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `invitation_target_roles_id` PRIMARY KEY(`id`),
 	CONSTRAINT `invitation_target_roles_target_role_uidx` UNIQUE(`invitation_target_id`,`role_id`)
 );
@@ -73,7 +74,7 @@ CREATE TABLE `invitation_targets` (
 	`id` varchar(36) NOT NULL,
 	`invitation_id` varchar(36) NOT NULL,
 	`organization_id` varchar(36) NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `invitation_targets_id` PRIMARY KEY(`id`),
 	CONSTRAINT `invitation_targets_invitation_org_uidx` UNIQUE(`invitation_id`,`organization_id`)
 );
@@ -91,8 +92,8 @@ CREATE TABLE `invitations` (
 	`accepted_at` datetime,
 	`revoked_at` datetime,
 	`consumed_by_user_id` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `invitations_id` PRIMARY KEY(`id`),
 	CONSTRAINT `invitations_token_hash_uidx` UNIQUE(`token_hash`)
 );
@@ -107,8 +108,8 @@ CREATE TABLE `organization_auth_settings` (
 	`mfa_enforced_at` datetime,
 	`mfa_grace_period_days` int NOT NULL DEFAULT 7,
 	`allowed_email_domains` json,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `organization_auth_settings_id` PRIMARY KEY(`id`),
 	CONSTRAINT `organization_auth_settings_organization_id_unique` UNIQUE(`organization_id`)
 );
@@ -118,9 +119,9 @@ CREATE TABLE `organization_members` (
 	`organization_id` varchar(36) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
 	`role_id` varchar(36),
-	`joined_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`joined_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `organization_members_id` PRIMARY KEY(`id`),
 	CONSTRAINT `org_members_org_user_uidx` UNIQUE(`organization_id`,`user_id`)
 );
@@ -132,8 +133,8 @@ CREATE TABLE `organizations` (
 	`logo_url` text,
 	`settings` json,
 	`trial_expires_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.691',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.691',
 	`deleted_at` datetime,
 	CONSTRAINT `organizations_id` PRIMARY KEY(`id`),
 	CONSTRAINT `organizations_slug_unique` UNIQUE(`slug`)
@@ -145,8 +146,8 @@ CREATE TABLE `permission_assignments` (
 	`organization_id` varchar(36),
 	`permission_key` varchar(191) NOT NULL,
 	`assigned_by_user_id` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `permission_assignments_id` PRIMARY KEY(`id`),
 	CONSTRAINT `permission_assignments_user_key_org_uidx` UNIQUE(`user_id`,`permission_key`,`organization_id`)
 );
@@ -166,8 +167,8 @@ CREATE TABLE `role_assignments` (
 	`role_id` varchar(36) NOT NULL,
 	`organization_id` varchar(36),
 	`assigned_by_user_id` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `role_assignments_id` PRIMARY KEY(`id`),
 	CONSTRAINT `role_assignments_user_role_org_uidx` UNIQUE(`user_id`,`role_id`,`organization_id`)
 );
@@ -178,8 +179,8 @@ CREATE TABLE `roles` (
 	`name` varchar(100) NOT NULL,
 	`description` text,
 	`is_system` boolean NOT NULL DEFAULT false,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.042',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.692',
 	CONSTRAINT `roles_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -188,7 +189,7 @@ CREATE TABLE `labels` (
 	`project_id` varchar(36) NOT NULL,
 	`name` varchar(100) NOT NULL,
 	`color` varchar(7),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.694',
 	CONSTRAINT `labels_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -197,7 +198,7 @@ CREATE TABLE `project_members` (
 	`project_id` varchar(36) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
 	`role_id` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.693',
 	CONSTRAINT `project_members_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -211,8 +212,8 @@ CREATE TABLE `projects` (
 	`icon` varchar(50),
 	`status` enum('active','archived','deleted') NOT NULL DEFAULT 'active',
 	`created_by` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.693',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.693',
 	`deleted_at` datetime,
 	CONSTRAINT `projects_id` PRIMARY KEY(`id`)
 );
@@ -225,7 +226,7 @@ CREATE TABLE `workflow_statuses` (
 	`position` int NOT NULL DEFAULT 0,
 	`is_initial` boolean NOT NULL DEFAULT false,
 	`is_final` boolean NOT NULL DEFAULT false,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.694',
 	CONSTRAINT `workflow_statuses_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -234,8 +235,8 @@ CREATE TABLE `workflows` (
 	`project_id` varchar(36) NOT NULL,
 	`name` varchar(100) NOT NULL,
 	`is_default` boolean NOT NULL DEFAULT false,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.044',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.694',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.694',
 	CONSTRAINT `workflows_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -247,8 +248,8 @@ CREATE TABLE `checklist_items` (
 	`position` int NOT NULL DEFAULT 0,
 	`completed_by` varchar(36),
 	`completed_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
 	CONSTRAINT `checklist_items_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -257,7 +258,7 @@ CREATE TABLE `checklists` (
 	`task_id` varchar(36) NOT NULL,
 	`title` varchar(255) NOT NULL,
 	`position` int NOT NULL DEFAULT 0,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
 	CONSTRAINT `checklists_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -266,7 +267,7 @@ CREATE TABLE `task_dependencies` (
 	`task_id` varchar(36) NOT NULL,
 	`depends_on_task_id` varchar(36) NOT NULL,
 	`type` enum('blocks','blocked_by') NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
 	CONSTRAINT `task_dependencies_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -294,8 +295,8 @@ CREATE TABLE `tasks` (
 	`start_date` datetime,
 	`estimated_hours` decimal(8,2),
 	`position` int NOT NULL DEFAULT 0,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.046',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.695',
 	`deleted_at` datetime,
 	CONSTRAINT `tasks_id` PRIMARY KEY(`id`)
 );
@@ -304,7 +305,7 @@ CREATE TABLE `comment_mentions` (
 	`id` varchar(36) NOT NULL,
 	`comment_id` varchar(36) NOT NULL,
 	`user_id` varchar(36) NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.047',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.697',
 	CONSTRAINT `comment_mentions_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -316,8 +317,8 @@ CREATE TABLE `comments` (
 	`body` text NOT NULL,
 	`visibility` varchar(10) NOT NULL DEFAULT 'public',
 	`parent_comment_id` varchar(36),
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.047',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.047',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.697',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.697',
 	`deleted_at` datetime,
 	CONSTRAINT `comments_id` PRIMARY KEY(`id`)
 );
@@ -331,7 +332,7 @@ CREATE TABLE `activity_log` (
 	`entity_id` varchar(36) NOT NULL,
 	`action` varchar(100) NOT NULL,
 	`changes` json,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.049',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.698',
 	CONSTRAINT `activity_log_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -341,8 +342,8 @@ CREATE TABLE `notification_preferences` (
 	`event_type` varchar(100) NOT NULL,
 	`channel` varchar(50) NOT NULL,
 	`enabled` boolean NOT NULL DEFAULT true,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.050',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.050',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.699',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.699',
 	CONSTRAINT `notification_preferences_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -355,7 +356,7 @@ CREATE TABLE `notifications` (
 	`entity_type` varchar(50),
 	`entity_id` varchar(36),
 	`read_at` datetime,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.050',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.699',
 	CONSTRAINT `notifications_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -370,7 +371,7 @@ CREATE TABLE `attachments` (
 	`storage_path` varchar(1000) NOT NULL,
 	`version` int NOT NULL DEFAULT 1,
 	`scan_status` enum('pending','clean','infected','skipped') NOT NULL DEFAULT 'pending',
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.051',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.701',
 	CONSTRAINT `attachments_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint
@@ -381,8 +382,8 @@ CREATE TABLE `saved_filters` (
 	`name` varchar(255) NOT NULL,
 	`entity_type` varchar(50) NOT NULL,
 	`filters` json NOT NULL,
-	`created_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.053',
-	`updated_at` datetime NOT NULL DEFAULT '2026-04-02 15:21:42.053',
+	`created_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.702',
+	`updated_at` datetime NOT NULL DEFAULT '2026-04-08 19:22:22.702',
 	CONSTRAINT `saved_filters_id` PRIMARY KEY(`id`)
 );
 --> statement-breakpoint

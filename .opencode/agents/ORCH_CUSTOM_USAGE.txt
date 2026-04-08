@@ -1,0 +1,134 @@
+ORCH-CUSTOM: HOW TO USE
+
+Purpose
+- Copy-paste prompt templates for validating and running the orchestration workflows.
+- Keep this file close to the agent definitions for quick iteration.
+
+Recommended Run Order
+1) 4A (routing smoke tests)
+2) 4B (bounded bugfix flow)
+3) 4C (feature flow with frontend prototypes)
+4) 4D (backend-only feature flow)
+5) 4E (validation gate only)
+
+------------------------------------------------------------
+4A) Routing Smoke Tests (no code changes)
+
+4A.1 Ambiguity test
+Prompt:
+It's broken. Planning-only, no file edits.
+
+Expected:
+- orch-custom asks targeted clarifying questions (max 3), or routes to planner.
+
+4A.2 Explicit-agent test
+Prompt:
+Use unit-test-agent only. Planning-only. Propose tests for auth token refresh flow.
+
+Expected:
+- Direct delegation to unit-test-agent.
+
+4A.3 Parallel delegation test
+Prompt:
+Planning-only. Review auth risks and draft docs update notes in parallel.
+
+Expected:
+- Parallel reviewer + docs-contract-agent tasks.
+
+------------------------------------------------------------
+4B) Bounded Bugfix Flow
+
+Prompt:
+Bugfix workflow. Delegate-only mode.
+
+Issue: login occasionally returns 401 after successful registration.
+Scope: apps/api auth + apps/web auth.
+
+Mandatory rules:
+- Delegate-only: do not use local read/grep/glob/list/symbol tools in orch-custom.
+- First response must dispatch at least one task (or ask max 3 targeted clarifying questions).
+- Start concrete reproduction within 10 minutes.
+- Before first repro attempt: max 12 file reads and max 15 search/grep calls (by subagents).
+- Reproduction cap: max 15 minutes OR max 3 attempts.
+- Do not run environment bootstrap (docker/startup/seed) unless health check fails; then ask first.
+- If not reproducible, STOP and return NON_REPRO_REPORT with:
+  1) exact attempts made (commands, inputs, timestamps),
+  2) likely hypotheses,
+  3) instrumentation/logging additions,
+  4) smallest safe hardening patch option.
+  Then ask for my approval before continuing.
+
+After successful repro:
+follow process exactly:
+reproduce -> minimal fix -> test -> unit tests if needed -> review -> docs/contracts if backend behavior changed -> pnpm lint && pnpm test.
+
+Parallelization:
+- Dispatch independent tasks in the same turn.
+- Do not serialize independent delegations.
+
+Merge policy:
+- Manual merge only.
+
+Operator override (when needed):
+strict attempt mode now: no explorer tasks, run remaining repro attempts only via backend-implementer/frontend-prototyper-implementer, then stop with NON_REPRO_REPORT.
+
+------------------------------------------------------------
+4C) Feature Flow (Frontend + Backend + Prototypes)
+
+Prompt:
+Feature workflow with frontend + backend. Delegate-only mode.
+
+Rough spec:
+Add a project dashboard summary card section in the web app, backed by an API endpoint that returns project activity summary data.
+
+Mandatory process:
+1) Plan with me first (planner).
+2) Challenge the plan (plan-challenger).
+3) Run frontend and backend discovery in parallel (explorer, scoped separately), then merge findings.
+4) Create exactly 3-4 frontend prototypes under:
+   local/prototype/component/dashboard-summary/
+5) Stop and ask me to choose MVP prototype.
+6) Implement chosen MVP and backend support in parallel where independent.
+7) Check plan coverage against acceptance criteria.
+8) Run frontend/backend reviews in parallel (reviewer scoped), then merge findings.
+9) Run frontend/backend targeted tests in parallel (tester scoped), then run full gate once:
+   pnpm lint && pnpm test
+10) Update docs; if backend contract changed, update swagger/openapi artifacts too.
+11) Manual merge only.
+
+Boundaries:
+- No local tool work in orch-custom; delegate all execution.
+- No environment bootstrap (docker/startup/seed) unless health check fails, then ask first.
+- If blocked, return concise blocker + required decision.
+
+------------------------------------------------------------
+4D) Backend-Only Feature Flow
+
+Prompt:
+Backend-only feature.
+Add endpoint to return project activity summary.
+Include service logic, route wiring, and swagger/openapi updates.
+
+Process requirements:
+1) Plan + plan challenge.
+2) Implement backend changes.
+3) Update swagger/openapi and related backend contract artifacts for any behavior/contract changes.
+4) Run backend-focused review and tests first, then full gate.
+5) Run pnpm lint && pnpm test.
+6) Manual merge only.
+
+------------------------------------------------------------
+4E) Validation Gate Only
+
+Prompt:
+Run validation gate only for current branch:
+1) targeted frontend/backend tests in parallel where applicable,
+2) then full gate pnpm lint && pnpm test.
+Return concise failure triage and minimal fix path.
+
+------------------------------------------------------------
+Useful Control Messages
+
+- strict attempt mode now
+- Do option 2 only (check recent auth-related commits), do not apply hardening patch without repro, then stop.
+

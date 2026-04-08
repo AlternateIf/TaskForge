@@ -1,7 +1,7 @@
 ---
 description: Updates docs and contract artifacts so implementation and published behavior stay aligned
 mode: subagent
-model: ollama-cloud/glm-5.1
+model: ollama-cloud/minimax-m2.5
 temperature: 0.1
 permission:
   edit: allow

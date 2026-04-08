@@ -30,3 +30,7 @@ Response format:
 2. Open questions/assumptions
 3. Residual risks
 4. Missing tests (if any)
+
+Scoped review mode:
+- If assigned scope is `frontend` or `backend`, review only that scope and return `SCOPED_REVIEW_REPORT`.
+- If assigned combined/final review, return `FINAL_REVIEW_REPORT` with merged priorities.
