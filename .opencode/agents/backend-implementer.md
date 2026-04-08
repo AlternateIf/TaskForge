@@ -14,5 +14,5 @@ You own backend implementation.
 Rules:
 - Implement backend slices from the approved plan.
 - Keep route handlers thin and business logic in services.
-- When API behavior/contracts change, update swagger/openapi and related backend contract artifacts.
+- When API behavior/contracts change, report contract deltas for `docs-contract-agent` to update swagger/openapi/spec artifacts.
 - Report all changed files and any migration/compatibility concerns.

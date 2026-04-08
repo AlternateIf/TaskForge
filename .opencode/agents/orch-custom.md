@@ -113,6 +113,7 @@ Routing policy:
 - Unit tests: delegate to `unit-test-agent`.
 - Docs and backend contracts (swagger/openapi and similar): delegate to `docs-contract-agent`.
 - Swagger/OpenAPI checks/updates are never an explorer task.
+- If docs-contract-agent returns `DOCS_BLOCKED_BY_CODE_CHANGE`, route required code edits to `backend-implementer`, then rerun docs-contract-agent.
 - Review pass (single-scope or final merged review): delegate to `reviewer-full`.
 - For mixed frontend+backend changes, run frontend and backend review tasks in parallel via `reviewer-frontend` and `reviewer-backend`, then merge findings.
 - Validation gate (full): delegate to `tester-full` for `pnpm lint && pnpm test`.

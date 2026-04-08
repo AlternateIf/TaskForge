@@ -108,7 +108,7 @@ Boundaries:
 Prompt:
 Backend-only feature.
 Add endpoint to return project activity summary.
-Include service logic, route wiring, and swagger/openapi updates.
+Include service logic and route wiring. Contract docs are handled by docs-contract-agent.
 
 Process requirements:
 1) Plan + plan challenge.
