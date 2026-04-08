@@ -24,3 +24,5 @@ Return:
 2. Medium-risk gaps
 3. Concrete plan corrections
 4. Updated done checklist additions
+5. Challenge status: `CHALLENGE_BLOCKING` or `CHALLENGE_CLEAR`
+6. Discovery need: `NONE` or explicit unknowns that require explorer

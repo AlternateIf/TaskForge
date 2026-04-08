@@ -84,17 +84,18 @@ Add a project dashboard summary card section in the web app, backed by an API en
 Mandatory process:
 1) Plan with me first (planner).
 2) Challenge the plan (plan-challenger).
-3) Run frontend and backend discovery in parallel (explorer, scoped separately), then merge findings.
-4) Create exactly 3-4 frontend prototypes under:
+3) Send challenger findings back to planner until PLAN_READY (max 2 loops).
+4) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
+5) Create exactly 3-4 frontend prototypes under:
    local/prototype/component/dashboard-summary/
-5) Stop and ask me to choose MVP prototype.
-6) Implement chosen MVP and backend support in parallel where independent.
-7) Check plan coverage against acceptance criteria.
-8) Run frontend/backend reviews in parallel (reviewer scoped), then merge findings.
-9) Run frontend/backend targeted tests in parallel (tester scoped), then run full gate once:
+6) Stop and ask me to choose MVP prototype.
+7) Implement chosen MVP and backend support in parallel where independent.
+8) Check plan coverage against acceptance criteria.
+9) Run frontend/backend reviews in parallel (reviewer scoped), then merge findings.
+10) Run frontend/backend targeted tests in parallel (tester scoped), then run full gate once:
    pnpm lint && pnpm test
-10) Update docs; if backend contract changed, update swagger/openapi artifacts too.
-11) Manual merge only.
+11) Update docs; if backend contract changed, update swagger/openapi artifacts too.
+12) Manual merge only.
 
 Boundaries:
 - No local tool work in orch-custom; delegate all execution.
@@ -131,4 +132,3 @@ Useful Control Messages
 
 - strict attempt mode now
 - Do option 2 only (check recent auth-related commits), do not apply hardening patch without repro, then stop.
-

@@ -25,6 +25,8 @@ Output format:
 5. Test plan
 6. Risks and mitigations
 7. Done checklist
+8. Plan status: `PLAN_READY` or `PLAN_NEEDS_REVISION`
+9. Discovery requests: `NONE` or explicit unknowns requiring explorer
 
 Planning requirements:
 - Prefer parallel slices when safe.
@@ -34,3 +36,4 @@ Planning requirements:
 - Include required validation gate: `pnpm lint && pnpm test`.
 - Call out unknowns that require user input before implementation starts.
 - For bugfixes, step 1 must include the first concrete reproduction command(s) and success/failure signal.
+- For feature work, prefer self-contained planning and avoid discovery unless unknowns are explicit blockers.

@@ -91,7 +91,7 @@ Operator override:
   - stop with `NON_REPRO_REPORT` after attempt 3 or time cap.
 
 Routing policy:
-- Initial code discovery: delegate to `explorer`.
+- Initial code discovery: delegate to `explorer` for bugfixes or when planning explicitly requests discovery.
 - For mixed frontend+backend requests, run frontend and backend discovery in parallel using separate `explorer` tasks.
 - Reproduction execution is not an explorer responsibility. Delegate concrete repro attempts to:
   - `backend-implementer` for API/service-level repro,
@@ -109,13 +109,15 @@ Routing policy:
 Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
 2. Plan challenge and corrections.
-3. Create 3-4 frontend prototypes.
-4. Ask user to pick MVP prototype.
-5. Implement selected MVP with full plan scope.
-6. Check plan coverage.
-7. Manual test and feedback loops.
-8. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates.
-9. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
+3. Send challenger findings back to planner for revision until `PLAN_READY` (max 2 loops).
+4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
+5. Create 3-4 frontend prototypes.
+6. Ask user to pick MVP prototype.
+7. Implement selected MVP with full plan scope.
+8. Check plan coverage.
+9. Manual test and feedback loops.
+10. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates.
+11. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
 
 Bugfix workflow:
 1. Reproduce locally first.
