@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
   authConfigHandler,
+  confirmEmailChangeHandler,
   forgotPasswordHandler,
   loginHandler,
   logoutHandler,
@@ -83,5 +84,15 @@ export async function authRoutes(fastify: FastifyInstance) {
       },
     },
     verifyEmailHandler,
+  );
+
+  fastify.post(
+    '/api/v1/auth/confirm-email-change',
+    {
+      preHandler: async (request) => {
+        request.body = verifyEmailSchema.parse(request.body); // same shape: { token }
+      },
+    },
+    confirmEmailChangeHandler,
   );
 }

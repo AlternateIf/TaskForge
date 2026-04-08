@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/layout/app-shell';
+import { ConfirmEmailChangePage } from '@/routes/auth/confirm-email-change';
 import { ForcePasswordPage } from '@/routes/auth/force-password';
 import { ForgotPasswordPage } from '@/routes/auth/forgot-password';
 import { InvitePage } from '@/routes/auth/invite';
@@ -217,6 +218,15 @@ const resetPasswordRoute = createRoute({
   component: ResetPasswordPage,
 });
 
+const confirmEmailChangeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/confirm-email-change',
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: typeof search.token === 'string' ? search.token : '',
+  }),
+  component: ConfirmEmailChangePage,
+});
+
 const oauthCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/oauth-callback',
@@ -267,6 +277,7 @@ const routeTree = rootRoute.addChildren([
   mfaRoute,
   forgotPasswordRoute,
   resetPasswordRoute,
+  confirmEmailChangeRoute,
   oauthCallbackRoute,
   inviteRoute,
   termsRoute,

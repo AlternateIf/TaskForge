@@ -148,3 +148,13 @@ export async function verifyEmailHandler(
   await authService.verifyEmail(request.body.token);
   return reply.status(200).send(success({ message: 'Email verified' }));
 }
+
+export async function confirmEmailChangeHandler(
+  request: FastifyRequest<{ Body: { token: string } }>,
+  reply: FastifyReply,
+) {
+  await authService.confirmEmailChange(request.body.token);
+  return reply
+    .status(200)
+    .send(success({ message: 'Email address updated. Please sign in again.' }));
+}

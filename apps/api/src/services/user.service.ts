@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   db,
   organizationMembers,
@@ -11,8 +13,20 @@ import {
 } from '@taskforge/db';
 import { GOVERNANCE_PERMISSION_KEYS, ROLE_NAMES } from '@taskforge/shared';
 import type { UpdateProfileInput, UserOutput } from '@taskforge/shared';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, count, eq, gt, isNull, ne, or } from 'drizzle-orm';
+import { fileTypeFromBuffer } from 'file-type';
 import { AppError, ErrorCode } from '../utils/errors.js';
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
+const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const AVATAR_ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const AVATAR_MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
 
 export function toUserOutput(
   user: typeof users.$inferSelect,
@@ -180,4 +194,226 @@ async function getUserPermissionKeys(userId: string, orgId?: string): Promise<st
     );
 
   return [...new Set([...tupleKeys, ...directRows.map((row) => row.permissionKey)])];
+}
+
+// ─── Session listing ───────────────────────────────────────────────────────────
+
+export interface SessionRow {
+  id: string;
+  isCurrent: boolean;
+  ipAddress: string | null;
+  browser: string;
+  os: string;
+  deviceType: 'desktop' | 'mobile';
+  createdAt: string;
+  expiresAt: string;
+}
+
+function parseUserAgent(ua: string | null): Pick<SessionRow, 'browser' | 'os' | 'deviceType'> {
+  if (!ua) return { browser: 'Unknown', os: 'Unknown', deviceType: 'desktop' };
+
+  const isMobile = /Mobile|Android|iPhone|iPod/i.test(ua);
+
+  let browser = 'Unknown';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/OPR\/|Opera\//i.test(ua)) browser = 'Opera';
+  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua)) browser = 'Safari';
+
+  let os = 'Unknown';
+  if (/Windows NT/i.test(ua)) os = 'Windows';
+  else if (/Mac OS X/i.test(ua) && !/iPhone|iPad/i.test(ua)) os = 'macOS';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPhone/i.test(ua)) os = 'iOS';
+  else if (/iPad/i.test(ua)) os = 'iPadOS';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  return { browser, os, deviceType: isMobile ? 'mobile' : 'desktop' };
+}
+
+export async function listSessions(
+  userId: string,
+  currentSessionId: string,
+): Promise<SessionRow[]> {
+  const now = new Date();
+  const rows = await db
+    .select({
+      id: sessions.id,
+      ipAddress: sessions.ipAddress,
+      userAgent: sessions.userAgent,
+      createdAt: sessions.createdAt,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now)));
+
+  return rows
+    .sort((a, b) => {
+      if (a.id === currentSessionId) return -1;
+      if (b.id === currentSessionId) return 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    })
+    .map((row) => ({
+      id: row.id,
+      isCurrent: row.id === currentSessionId,
+      ipAddress: row.ipAddress ?? null,
+      createdAt: row.createdAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+      ...parseUserAgent(row.userAgent),
+    }));
+}
+
+export async function revokeSession(userId: string, sessionId: string): Promise<void> {
+  const now = new Date();
+  const existing = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(
+      and(eq(sessions.id, sessionId), eq(sessions.userId, userId), gt(sessions.expiresAt, now)),
+    )
+    .limit(1);
+  if (existing.length === 0) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'Session not found');
+  }
+  await db.delete(sessions).where(eq(sessions.id, sessionId));
+}
+
+// ─── Security overview ─────────────────────────────────────────────────────────
+
+export interface SecurityOverview {
+  mfaEnabled: boolean;
+  lastLoginAt: string | null;
+  activeSessions: number;
+}
+
+export async function getSecurityOverview(userId: string): Promise<SecurityOverview> {
+  const user = (
+    await db
+      .select({ mfaEnabled: users.mfaEnabled, lastLoginAt: users.lastLoginAt })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1)
+  )[0];
+
+  if (!user) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'User not found');
+  }
+
+  const now = new Date();
+  const [sessionCount] = await db
+    .select({ count: count() })
+    .from(sessions)
+    .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now)));
+
+  return {
+    mfaEnabled: user.mfaEnabled,
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    activeSessions: sessionCount?.count ?? 0,
+  };
+}
+
+export async function revokeOtherSessions(
+  userId: string,
+  currentSessionId: string,
+): Promise<{ revoked: number }> {
+  const now = new Date();
+  const result = await db.delete(sessions).where(
+    and(
+      eq(sessions.userId, userId),
+      gt(sessions.expiresAt, now),
+      ne(sessions.id, currentSessionId), // keep the current session
+    ),
+  );
+  return { revoked: (result as unknown as { rowsAffected: number }).rowsAffected ?? 0 };
+}
+
+// ─── Avatar ────────────────────────────────────────────────────────────────────
+
+async function clearAvatarFiles(userId: string): Promise<void> {
+  const dir = path.join(AVATAR_DIR, userId);
+  try {
+    const files = await fs.promises.readdir(dir);
+    await Promise.all(files.map((f) => fs.promises.unlink(path.join(dir, f))));
+  } catch {
+    // Directory doesn't exist yet — nothing to clear
+  }
+}
+
+export async function uploadAvatar(
+  userId: string,
+  fileBuffer: Buffer,
+  declaredMime: string,
+): Promise<UserOutput> {
+  if (fileBuffer.length > AVATAR_MAX_BYTES) {
+    throw new AppError(413, ErrorCode.FILE_TOO_LARGE, 'Avatar must be 5 MB or smaller');
+  }
+
+  if (!AVATAR_ALLOWED_MIMES.has(declaredMime)) {
+    throw new AppError(
+      415,
+      ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+      'Only JPEG, PNG, GIF, and WebP images are allowed',
+    );
+  }
+
+  // Verify actual file content via magic bytes
+  const detected = await fileTypeFromBuffer(fileBuffer);
+  if (!detected || !AVATAR_ALLOWED_MIMES.has(detected.mime)) {
+    throw new AppError(
+      415,
+      ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+      'File content does not match an allowed image type',
+    );
+  }
+
+  const ext = AVATAR_MIME_TO_EXT[detected.mime];
+  const dir = path.join(AVATAR_DIR, userId);
+
+  await clearAvatarFiles(userId);
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(path.join(dir, `avatar${ext}`), fileBuffer);
+
+  // Store a versioned relative URL so the browser always fetches the new image
+  const avatarUrl = `/api/v1/users/avatars/${userId}?v=${Date.now()}`;
+  await db.update(users).set({ avatarUrl, updatedAt: new Date() }).where(eq(users.id, userId));
+
+  return getUserById(userId);
+}
+
+export async function removeAvatar(userId: string): Promise<UserOutput> {
+  await clearAvatarFiles(userId);
+  await db
+    .update(users)
+    .set({ avatarUrl: null, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+  return getUserById(userId);
+}
+
+export async function getAvatarFilePath(
+  userId: string,
+): Promise<{ filePath: string; mimeType: string } | null> {
+  const dir = path.join(AVATAR_DIR, userId);
+  let files: string[];
+  try {
+    files = await fs.promises.readdir(dir);
+  } catch {
+    return null;
+  }
+
+  const filename = files.find((f) => f.startsWith('avatar'));
+  if (!filename) return null;
+
+  const extMimes: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  };
+  const ext = path.extname(filename).toLowerCase();
+  return {
+    filePath: path.join(dir, filename),
+    mimeType: extMimes[ext] ?? 'image/jpeg',
+  };
 }

@@ -31,7 +31,7 @@ import { bulkRoutes } from './routes/tasks/bulk.routes.js';
 import { dependencyRoutes } from './routes/tasks/dependencies.routes.js';
 import { subtaskRoutes } from './routes/tasks/subtasks.routes.js';
 import { taskRoutes } from './routes/tasks/tasks.routes.js';
-import { userRoutes } from './routes/users/users.routes.js';
+import { userPublicRoutes, userRoutes } from './routes/users/users.routes.js';
 import { bootstrapSuperAdmin } from './services/auth.service.js';
 import { initIndexes } from './services/search.service.js';
 import { loggerConfig } from './utils/logger.js';
@@ -83,6 +83,7 @@ export async function buildServer() {
   await fastify.register(savedFilterRoutes);
   await fastify.register(notificationRoutes);
   await fastify.register(userRoutes);
+  await fastify.register(userPublicRoutes);
   await fastify.register(realtimeGateway);
   await fastify.register(sseRoutes);
 

@@ -227,7 +227,15 @@ function MemberCombobox({
 
 // ─── General settings tab ─────────────────────────────────────────────────────
 
-function GeneralTab({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+function GeneralTab({
+  projectId,
+  canEdit,
+  onColorChange,
+}: {
+  projectId: string;
+  canEdit: boolean;
+  onColorChange: (color: string) => void;
+}) {
   const { data: project } = useProject(projectId);
   const update = useUpdateProject(projectId);
   const deleteProject = useDeleteProject(projectId);
@@ -239,11 +247,13 @@ function GeneralTab({ projectId, canEdit }: { projectId: string; canEdit: boolea
   const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm'>('idle');
   const [deleteInput, setDeleteInput] = useState('');
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: onColorChange is stable; omitting it prevents infinite loops
   useEffect(() => {
     if (project) {
       setName(project.name);
       setDescription(project.description ?? '');
       setColor(project.color ?? '#3B82F6');
+      onColorChange(project.color ?? '#3B82F6');
     }
   }, [project]);
 
@@ -318,7 +328,13 @@ function GeneralTab({ projectId, canEdit }: { projectId: string; canEdit: boolea
           <div className="rounded-radius-xl border border-border bg-surface-container-lowest p-xl">
             <h2 className="mb-lg text-heading-3 font-semibold text-foreground">Project Color</h2>
             {canEdit ? (
-              <ColorPicker value={color} onChange={setColor} />
+              <ColorPicker
+                value={color}
+                onChange={(c) => {
+                  setColor(c);
+                  onColorChange(c);
+                }}
+              />
             ) : (
               <div className="flex items-center gap-sm">
                 <div
@@ -781,6 +797,9 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
   );
   const tabs = useMemo(() => ALL_TABS.filter((t) => !t.requiresEdit || canEdit), [canEdit]);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [liveColor, setLiveColor] = useState<string | null>(null);
+
+  const dotColor = liveColor ?? project?.color ?? '#94a3b8';
 
   useDocumentTitle(project?.name ? `${project.name} — Settings` : 'Settings');
 
@@ -796,7 +815,17 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
         Back to {project?.name ?? 'Project'}
       </button>
 
-      <h1 className="mb-lg text-heading-1 font-bold text-foreground">Project Settings</h1>
+      <div className="mb-lg flex items-center gap-sm">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-radius-lg bg-brand-primary/10">
+          <span className="size-3 rounded-full" style={{ backgroundColor: dotColor }} />
+        </div>
+        <div>
+          <h1 className="text-[1.375rem] font-bold leading-snug text-foreground">
+            {project?.name ?? 'Project'} — Settings
+          </h1>
+          <p className="text-small text-secondary">Manage workflow, labels, and team members</p>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div
@@ -826,7 +855,9 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
 
       {/* Tab panels */}
       <div id={`tab-panel-${activeTab}`} role="tabpanel" aria-labelledby={activeTab}>
-        {activeTab === 'general' && <GeneralTab projectId={projectId} canEdit={canEdit} />}
+        {activeTab === 'general' && (
+          <GeneralTab projectId={projectId} canEdit={canEdit} onColorChange={setLiveColor} />
+        )}
         {activeTab === 'workflow' && <WorkflowTab projectId={projectId} canEdit={canEdit} />}
         {activeTab === 'labels' && <LabelsTab projectId={projectId} canEdit={canEdit} />}
         {activeTab === 'members' && <MembersTab projectId={projectId} />}

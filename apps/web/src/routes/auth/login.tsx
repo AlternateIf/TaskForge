@@ -27,8 +27,9 @@ export function LoginPage() {
     e.preventDefault();
     try {
       const res = await login.mutateAsync({ email, password });
-      const { requiresMfa, mfaToken } = res.data;
-      if (requiresMfa && mfaToken) {
+      const mfaRequired = res.data.mfaRequired ?? res.data.requiresMfa ?? false;
+      const { mfaToken } = res.data;
+      if (mfaRequired && mfaToken) {
         void navigate({ to: '/auth/mfa', search: { token: mfaToken } });
       } else {
         void navigate({ to: redirectTo });

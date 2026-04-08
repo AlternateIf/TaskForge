@@ -1,3 +1,5 @@
+import { db, sessions } from '@taskforge/db';
+import { and, eq, gt } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -81,12 +83,27 @@ export default fp(
       }
 
       const token = authHeader.slice(7);
+      let payload: ReturnType<typeof verify>;
       try {
-        const payload = verify(token);
-        request.authUser = { userId: payload.sub, email: payload.email, sessionId: payload.sid };
+        payload = verify(token);
       } catch {
         throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid or expired token');
       }
+
+      // If the token carries a session ID, verify the session still exists in the DB.
+      // This makes session revocation effective immediately.
+      if (payload.sid) {
+        const session = await db
+          .select({ id: sessions.id })
+          .from(sessions)
+          .where(and(eq(sessions.id, payload.sid), gt(sessions.expiresAt, new Date())))
+          .limit(1);
+        if (session.length === 0) {
+          throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid or expired token');
+        }
+      }
+
+      request.authUser = { userId: payload.sub, email: payload.email, sessionId: payload.sid };
     });
   },
   { name: 'auth' },

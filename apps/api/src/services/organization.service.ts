@@ -1,7 +1,14 @@
 import crypto from 'node:crypto';
-import { db, organizationMembers, organizations, roles, users } from '@taskforge/db';
+import {
+  db,
+  organizationMembers,
+  organizations,
+  roleAssignments,
+  roles,
+  users,
+} from '@taskforge/db';
 import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '@taskforge/shared';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { isEmailDomainAllowed } from './org-auth-settings.service.js';
@@ -106,7 +113,12 @@ export async function createOrganization(
   return { organization: toOrganizationOutput(org), roles: [] };
 }
 
-export async function listUserOrganizations(userId: string): Promise<OrganizationOutput[]> {
+export interface OrganizationListItem extends OrganizationOutput {
+  memberCount: number;
+  userRole: string | null;
+}
+
+export async function listUserOrganizations(userId: string): Promise<OrganizationListItem[]> {
   const memberships = await db
     .select({ organizationId: organizationMembers.organizationId })
     .from(organizationMembers)
@@ -115,12 +127,34 @@ export async function listUserOrganizations(userId: string): Promise<Organizatio
   if (memberships.length === 0) return [];
 
   const orgIds = memberships.map((m) => m.organizationId);
-  const orgs = await db
-    .select()
-    .from(organizations)
-    .where(and(isNull(organizations.deletedAt), inArray(organizations.id, orgIds)));
 
-  return orgs.map(toOrganizationOutput);
+  const [orgs, memberCounts, userRoles] = await Promise.all([
+    db
+      .select()
+      .from(organizations)
+      .where(and(isNull(organizations.deletedAt), inArray(organizations.id, orgIds))),
+    db
+      .select({ organizationId: organizationMembers.organizationId, count: count() })
+      .from(organizationMembers)
+      .where(inArray(organizationMembers.organizationId, orgIds))
+      .groupBy(organizationMembers.organizationId),
+    db
+      .select({ organizationId: roleAssignments.organizationId, roleName: roles.name })
+      .from(roleAssignments)
+      .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+      .where(
+        and(eq(roleAssignments.userId, userId), inArray(roleAssignments.organizationId, orgIds)),
+      ),
+  ]);
+
+  const countMap = new Map(memberCounts.map((r) => [r.organizationId, r.count]));
+  const roleMap = new Map(userRoles.map((r) => [r.organizationId, r.roleName]));
+
+  return orgs.map((org) => ({
+    ...toOrganizationOutput(org),
+    memberCount: countMap.get(org.id) ?? 0,
+    userRole: roleMap.get(org.id) ?? null,
+  }));
 }
 
 export async function getOrganization(orgId: string, userId: string): Promise<OrganizationOutput> {

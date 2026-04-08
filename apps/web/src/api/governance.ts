@@ -19,6 +19,8 @@ export interface OrganizationSummary {
   name: string;
   slug: string;
   logoUrl: string | null;
+  memberCount: number;
+  userRole: string | null;
 }
 
 export interface RoleRow {

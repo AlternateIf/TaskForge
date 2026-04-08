@@ -17,6 +17,7 @@ export const users = mysqlTable(
     passwordHash: varchar('password_hash', { length: 255 }),
     displayName: varchar('display_name', { length: 255 }).notNull(),
     avatarUrl: text('avatar_url'),
+    pendingEmail: varchar('pending_email', { length: 255 }),
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
     mfaSecret: varchar('mfa_secret', { length: 255 }),
     mustChangePassword: boolean('must_change_password').notNull().default(false),
@@ -76,7 +77,7 @@ export const verificationTokens = mysqlTable(
     userId: varchar('user_id', { length: 36 })
       .notNull()
       .references(() => users.id),
-    type: mysqlEnum('type', ['email_verify', 'password_reset']).notNull(),
+    type: mysqlEnum('type', ['email_verify', 'password_reset', 'email_change']).notNull(),
     tokenHash: varchar('token_hash', { length: 255 }).notNull(),
     expiresAt: datetime('expires_at').notNull(),
     usedAt: datetime('used_at'),

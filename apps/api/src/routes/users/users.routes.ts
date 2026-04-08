@@ -2,16 +2,32 @@ import type { FastifyInstance } from 'fastify';
 import {
   changePasswordHandler,
   deleteMeHandler,
+  getAvatarHandler,
   getMeHandler,
+  getSecurityOverviewHandler,
+  listSessionsHandler,
+  removeAvatarHandler,
+  requestEmailChangeHandler,
+  revokeOtherSessionsHandler,
+  revokeSessionHandler,
   updateMeHandler,
+  uploadAvatarHandler,
 } from './users.handlers.js';
 import { changePasswordSchema, updateProfileSchema } from './users.schemas.js';
 
 export async function userRoutes(fastify: FastifyInstance) {
-  // All user routes require authentication
+  // All routes in this plugin require authentication
   fastify.addHook('preHandler', fastify.authenticate);
 
   fastify.get('/api/v1/users/me', {}, getMeHandler);
+  fastify.get('/api/v1/users/me/security', {}, getSecurityOverviewHandler);
+  fastify.get('/api/v1/users/me/sessions', {}, listSessionsHandler);
+  fastify.delete('/api/v1/users/me/sessions', {}, revokeOtherSessionsHandler);
+  fastify.delete<{ Params: { sessionId: string } }>(
+    '/api/v1/users/me/sessions/:sessionId',
+    {},
+    revokeSessionHandler,
+  );
 
   fastify.patch(
     '/api/v1/users/me',
@@ -25,6 +41,8 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   fastify.delete('/api/v1/users/me', {}, deleteMeHandler);
 
+  fastify.post('/api/v1/users/me/email', {}, requestEmailChangeHandler);
+
   fastify.patch(
     '/api/v1/users/me/password',
     {
@@ -33,5 +51,18 @@ export async function userRoutes(fastify: FastifyInstance) {
       },
     },
     changePasswordHandler,
+  );
+
+  // Avatar upload & remove (authenticated, multipart for upload)
+  fastify.post('/api/v1/users/me/avatar', {}, uploadAvatarHandler);
+  fastify.delete('/api/v1/users/me/avatar', {}, removeAvatarHandler);
+}
+
+/** Public routes — no authentication required (avatar images are served publicly by userId). */
+export async function userPublicRoutes(fastify: FastifyInstance) {
+  fastify.get<{ Params: { userId: string } }>(
+    '/api/v1/users/avatars/:userId',
+    {},
+    getAvatarHandler,
   );
 }

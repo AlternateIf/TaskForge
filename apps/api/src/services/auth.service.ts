@@ -5,6 +5,7 @@ import type { RegisterInput } from '@taskforge/shared';
 import bcrypt from 'bcrypt';
 import { and, eq, gt, isNull, ne } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { sendEmail } from './email.service.js';
 
 const BCRYPT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = 15 * 60; // 15 minutes in seconds
@@ -268,6 +269,17 @@ export async function changePassword(
     .delete(sessions)
     .where(and(eq(sessions.userId, userId), ne(sessions.id, currentSessionId)));
 
+  // Send security notification (fire-and-forget — don't block the response)
+  sendEmail({
+    to: user.email,
+    subject: 'Your TaskForge password was changed',
+    html: `<p>Hi ${user.displayName ?? user.email},</p>
+<p>Your password was just changed. All other active sessions have been signed out.</p>
+<p>If you didn't make this change, please contact your administrator immediately.</p>`,
+  }).catch(() => {
+    // Email failure is non-fatal
+  });
+
   return { message: 'Password changed. All other sessions have been signed out.' };
 }
 
@@ -453,6 +465,118 @@ export async function resetPassword(token: string, newPassword: string): Promise
 
   // Invalidate all sessions
   await db.delete(sessions).where(eq(sessions.userId, record.userId));
+}
+
+const EMAIL_CHANGE_EXPIRY_HOURS = 24;
+const APP_URL = process.env.APP_URL ?? 'http://localhost:5173';
+
+export async function requestEmailChange(
+  userId: string,
+  newEmail: string,
+  currentPassword: string,
+): Promise<void> {
+  const user = (
+    await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1)
+  )[0];
+
+  if (!user) throw new AppError(404, ErrorCode.NOT_FOUND, 'User not found');
+
+  if (!user.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Current password is incorrect');
+  }
+
+  const taken = (
+    await db.select({ id: users.id }).from(users).where(eq(users.email, newEmail)).limit(1)
+  )[0];
+  if (taken) throw new AppError(409, ErrorCode.CONFLICT, 'This email is already in use');
+
+  const token = generateToken();
+  const now = new Date();
+
+  await db
+    .update(users)
+    .set({ pendingEmail: newEmail, updatedAt: now })
+    .where(eq(users.id, userId));
+
+  await db.insert(verificationTokens).values({
+    id: crypto.randomUUID(),
+    userId,
+    type: 'email_change',
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + EMAIL_CHANGE_EXPIRY_HOURS * 60 * 60 * 1000),
+    createdAt: now,
+  });
+
+  const confirmUrl = `${APP_URL}/auth/confirm-email-change?token=${token}`;
+  await sendEmail({
+    to: newEmail,
+    subject: 'Confirm your new email address — TaskForge',
+    html: `
+      <p>Hi ${user.displayName},</p>
+      <p>We received a request to change your TaskForge email address to this one.</p>
+      <p><a href="${confirmUrl}">Click here to confirm your new email address</a></p>
+      <p>This link expires in 24 hours. If you didn't request this, you can safely ignore this email.</p>
+    `,
+  });
+}
+
+export async function confirmEmailChange(token: string): Promise<void> {
+  const tokenHash = hashToken(token);
+
+  const record = (
+    await db
+      .select()
+      .from(verificationTokens)
+      .where(
+        and(
+          eq(verificationTokens.tokenHash, tokenHash),
+          eq(verificationTokens.type, 'email_change'),
+          isNull(verificationTokens.usedAt),
+          gt(verificationTokens.expiresAt, new Date()),
+        ),
+      )
+      .limit(1)
+  )[0];
+
+  if (!record)
+    throw new AppError(400, ErrorCode.BAD_REQUEST, 'Invalid or expired confirmation link');
+
+  const user = (await db.select().from(users).where(eq(users.id, record.userId)).limit(1))[0];
+
+  if (!user?.pendingEmail)
+    throw new AppError(400, ErrorCode.BAD_REQUEST, 'No pending email change found');
+
+  const oldEmail = user.email;
+  const newEmail = user.pendingEmail;
+  const now = new Date();
+
+  await db
+    .update(users)
+    .set({ email: newEmail, pendingEmail: null, updatedAt: now })
+    .where(eq(users.id, record.userId));
+
+  await db
+    .update(verificationTokens)
+    .set({ usedAt: now })
+    .where(eq(verificationTokens.id, record.id));
+
+  // Invalidate all sessions — user must sign in again with new email
+  await db.delete(sessions).where(eq(sessions.userId, record.userId));
+
+  // Notify old address (fire-and-forget)
+  sendEmail({
+    to: oldEmail,
+    subject: 'Your TaskForge email address has been changed',
+    html: `
+      <p>Hi ${user.displayName},</p>
+      <p>Your TaskForge email address has been changed to <strong>${newEmail}</strong>.</p>
+      <p>If you did not make this change, contact support immediately.</p>
+    `,
+  }).catch(() => {});
 }
 
 export async function verifyEmail(token: string): Promise<void> {

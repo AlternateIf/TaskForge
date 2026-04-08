@@ -156,7 +156,7 @@ export const apiClient = {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 15_000,
       retry: (failureCount, error) => {
         const apiError = error as ApiError;
         // Don't retry auth errors or not-found
