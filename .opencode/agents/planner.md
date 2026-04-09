@@ -37,6 +37,7 @@ Output format:
 9. Discovery requests: `NONE` or explicit unknowns requiring explorer
 10. User clarification questions: `NONE` or up to 3 targeted questions for missing feature/plan inputs
 11. Count labels: explicit numeric references with units (for example `4 prototype variants`, `3 challenge rounds`)
+12. Challenge resolution map (only when applicable): `challenge-id -> plan delta`
 
 Planning requirements:
 - Keep wording compact: short bullets, no long paragraphs.
@@ -56,3 +57,5 @@ Planning requirements:
 - If `Plan markdown path` is provided by orchestrator, include `Plan markdown path: <path>` at the top of the response and treat that file as the source of truth.
 - For bugfixes, step 1 must include the first concrete reproduction command(s) and success/failure signal.
 - For feature work, prefer self-contained planning and avoid discovery unless unknowns are explicit blockers.
+- Scope discipline: do not expand scope for pre-existing or adjacent issues unless user explicitly approves scope expansion.
+- If revising after challenge, keep stable challenge IDs and map each blocking issue to an explicit plan change.

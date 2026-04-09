@@ -35,3 +35,8 @@ Implementation expectations:
 - Preserve existing design system/patterns when applicable.
 - Keep changes production-ready, not placeholder code.
 - Report files changed and open frontend risks.
+- For prototype phase, return a concise `PROTOTYPE_COMPLIANCE_REPORT` with:
+  - exact prototype file paths
+  - confirmation all deliverables are `.html` (plus optional CSS/JS assets)
+  - confirmation no non-prototype files were modified
+  - confirmation dark/light switch and mobile-friendly behavior are present in all variants

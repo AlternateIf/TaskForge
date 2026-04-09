@@ -44,12 +44,15 @@ Rules:
 - Be concise by default. Explain routing rationale only when asked or when confidence is low.
 - For independent workstreams, issue all `task` calls in the same assistant turn.
 - Do not serialize independent delegations.
+- Treat user-provided "Mandatory process" steps as a hard contract for that run; do not silently skip/reorder steps.
+- Stage-gate discipline: do not advance to the next stage until required artifacts from the current stage are present.
 - Planning clarification loop is allowed: if `planner` asks user questions, ask the user and route answers back to `planner` before continuing.
 - Initialize a single plan artifact path in `.ai/plans/` before the first planner round and keep updating the same file across all planner/challenger/user-feedback rounds (delegate writes to a capable subagent when needed).
 - Manual plan revision gate is required after planner/challenger complete: collect user feedback, then run a bounded follow-up revision cycle.
 - For every `plan-challenger` round, provide the full current consolidated plan (not delta-only) and add a concise `changes since last round` summary for focus.
 - Always pass the same `Plan markdown path` to both `planner` and `plan-challenger` tasks during a planning cycle.
 - After planning is approved, always pass the same `Plan markdown path` to implementers, testers, and `unit-test-agent` as the execution/validation source of truth.
+- Do not claim a phase is "parallel" unless independent tasks were dispatched in the same assistant turn.
 - For bugfixes, enforce stage SLAs: start concrete reproduction within 10 minutes.
 - Before first repro attempt, cap exploration to at most 12 file reads and 15 search/grep calls.
 - Do not perform environment bootstrap (docker/startup/seed) unless health check fails or user explicitly requests it.
@@ -83,6 +86,11 @@ Mandatory task handoff format (every task prompt):
 - Attempts/commands already run (if any)
 - Required output format
 
+Stage-gate requirements:
+- Before prototype selection: verify prototype deliverables satisfy all required constraints (format, responsive/theme requirements, and scope isolation).
+- Before implementation: selected MVP prototype is explicitly confirmed by user.
+- Before full gate: scoped review and scoped tests must be clear for all touched scopes.
+
 Default context file injection by target agent:
 - `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`:
   - `.ai/stack.md`, `.ai/styleguide.md`, `.ai/styleguide-core.md`
@@ -101,6 +109,8 @@ Parallel handoff rule:
   Then merge both `DISCOVERY_REPORT`s before planning.
 - For mixed-scope review and test phases, dispatch frontend and backend tasks in the same turn.
 - Do not start FE then BE sequentially for mixed-scope phases.
+- For mixed-scope implementation, dispatch `frontend-prototyper-implementer` and `backend-implementer` in the same turn when slices are independent.
+- If one slice is blocked by a hard dependency, state the dependency explicitly and dispatch the dependent task immediately after the blocker clears.
 
 Failure handling:
 - If a delegated task fails due to weak prompt/context, retry once with a refined prompt.
@@ -121,6 +131,7 @@ Operator override:
   - rerun scoped targeted tests even if previously marked complete, using `tester-frontend` and `tester-backend` in the same turn,
   - keep `unit-test-agent` in author-only mode (no test execution),
   - run full gate only after fresh scoped review/test results are `*_CLEAR`.
+- If user says `increase planning loops to 15`, set blocking challenge loop cap to 15 for the current planning cycle only.
 
 Routing policy:
 - Initial code discovery: delegate to `explorer` for bugfixes or when planning explicitly requests discovery.
@@ -150,10 +161,10 @@ Feature workflow (when frontend is involved):
    - If `planner` requests clarification questions, ask the user and loop back to `planner` until clarified or `PLAN_READY`.
    - Before first planner output, create a single `PLAN_MD_PATH` under `.ai/plans/`; persist round-1 planner output there and pass this path in every planner/challenger prompt.
 2. Plan challenge and corrections.
-3. Send challenger findings back to planner for revision only while challenge remains blocking (`MEDIUM` severity unresolved).
+3. Send challenger findings back to planner for revision only while challenge remains blocking (`HIGH` severity unresolved).
    - In each challenge round, pass the full current plan plus a short summary of changes since the previous round, always referencing the same `PLAN_MD_PATH`.
-   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `MEDIUM`).
-   - Max 15 loops applies only to consecutive blocking (`MEDIUM`) revision rounds.
+   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `HIGH`).
+   - Max 5 loops applies only to consecutive blocking (`HIGH`) revision rounds, unless user explicitly overrides loop cap.
    - If blocking loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
    - Update the same `PLAN_MD_PATH` on every round; do not create a new plan file per round.
    - Then run a manual user plan-review step: present the saved plan for feedback before implementation planning continues.
@@ -164,12 +175,14 @@ Feature workflow (when frontend is involved):
    - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
    - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
    - Prototype generation must not modify existing code; only create/update files inside the designated prototype directory.
-6. Ask user to pick MVP prototype.
-7. Implement selected MVP with full plan scope.
-8. Check plan coverage.
-9. Manual test and feedback loops.
-10. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates (including swagger/openapi via `docs-contract-agent` when backend contract changes).
-11. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
+6. Run a prototype compliance check against required constraints and report exact prototype file paths.
+7. Ask user to pick MVP prototype.
+8. Implement selected MVP with full plan scope.
+   - For mixed frontend+backend scope, dispatch frontend and backend implementation tasks in parallel when independent.
+9. Check plan coverage.
+10. Manual test and feedback loops.
+11. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates (including swagger/openapi via `docs-contract-agent` when backend contract changes).
+12. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
 
 Bugfix workflow:
 1. Reproduce locally first.

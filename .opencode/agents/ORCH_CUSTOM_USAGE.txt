@@ -41,8 +41,11 @@ Expected:
 Prompt:
 Bugfix workflow. Delegate-only mode.
 
-Issue: login occasionally returns 401 after successful registration.
-Scope: apps/api auth + apps/web auth.
+Issue: http://localhost:5173/api/v1/auth/mfa/setup delivers a 400 Bad Request when opening the MFA modal in the Frontend. Response says: {
+                                                                                                                                             "code": "BAD_REQUEST",
+                                                                                                                                             "message": "MFA setup is already pending. Verify the current setup or request a reset."
+                                                                                                                                         }. This leads to the setup request being fired endlessly very very fast which essentially leads to a rate limit (429)
+Scope: apps/api auth + apps/web auth probably.
 
 Mandatory rules:
 - Delegate-only: do not use local read/grep/glob/list/symbol tools in orch-custom.
@@ -89,6 +92,7 @@ Mandatory process:
    Always send challenger the full current plan from `PLAN_MD_PATH` plus a short "changes since last round" summary.
 3) Send challenger findings back to planner only while challenger has unresolved HIGH issues; stop early when highest severity is below HIGH.
    Max 5 loops applies only to those blocking HIGH-severity rounds.
+   If I explicitly ask, increase planning loop cap to 15 for the current run only.
 4) Stop for my manual plan review feedback using the same `PLAN_MD_PATH`.
 5) If I provide feedback, run planner + plan-challenger for up to 3 additional rounds to incorporate/challenge my input.
    Stop early when challenger has no HIGH issues, and keep updating the same `PLAN_MD_PATH`.
@@ -99,14 +103,15 @@ Mandatory process:
    Each prototype must include a light/dark switch and be mobile friendly (minimum 360px viewport support).
    Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX).
    Prototype generation must not change existing code; only files in the prototype directory may be edited.
-8) Stop and ask me to choose MVP prototype.
-9) Implement chosen MVP and backend support in parallel where independent.
-10) Check plan coverage against acceptance criteria.
-11) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
-12) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:
+8) Run prototype compliance check and report exact prototype file paths.
+9) Stop and ask me to choose MVP prototype.
+10) Implement chosen MVP and backend support in parallel where independent.
+11) Check plan coverage against acceptance criteria.
+12) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
+13) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:
    pnpm lint && pnpm test
-13) Update docs via `docs-contract-agent`; if backend contract changed, update swagger/openapi artifacts there too.
-14) Manual merge only.
+14) Update docs via `docs-contract-agent`; if backend contract changed, update swagger/openapi artifacts there too.
+15) Manual merge only.
 
 Boundaries:
 - No local tool work in orch-custom; delegate all execution.

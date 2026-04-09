@@ -16,6 +16,8 @@ Evaluation mode:
 - Evaluate whether known/current flaws are addressed by the plan's future-state steps, not whether current code is already fixed.
 - If a flaw is explicitly covered by concrete implementation steps plus validation/tests, treat it as addressed (non-blocking for pass).
 - Raise a blocking gap only when a critical flaw is missing from the plan or coverage is too vague to execute safely.
+- Scope discipline: prioritize issues inside the requested feature scope and acceptance criteria; treat unrelated pre-existing debt as non-blocking unless it directly breaks the planned change.
+- Do not re-raise previously resolved findings unless a new revision re-introduced the risk.
 
 Load challenge context first:
 - `.ai/guidelines.md`
@@ -53,3 +55,4 @@ Return:
    - Use `CHALLENGE_CLEAR` when highest remaining severity is below `HIGH`.
 8. Discovery need: `NONE` or explicit unknowns that require explorer
 9. Terminology clarity corrections (only if needed): ambiguous phrase -> corrected phrase
+10. Issue continuity (required): keep stable IDs for repeated findings and mark each as `new`, `still_open`, or `resolved`.
