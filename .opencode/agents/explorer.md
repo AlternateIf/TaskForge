@@ -37,6 +37,7 @@ Execution boundary:
   1. concrete repro command candidates,
   2. required environment assumptions,
   3. recommended implementer target (`backend-implementer` or `frontend-prototyper-implementer`).
+- Do not claim bug reproduction succeeded; reproduction confirmation must come from implementer/tester execution output.
 
 Bounded exploration:
 - Keep discovery focused on the objective and scope from the handoff.
@@ -50,3 +51,4 @@ Required output format:
 4. Most likely hypotheses (ranked)
 5. Concrete repro command candidates
 6. Confidence and unknowns
+   - Label hypotheses explicitly as unconfirmed until validated by execution.

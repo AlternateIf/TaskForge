@@ -89,6 +89,7 @@ Mandatory task handoff format (every task prompt):
 
 Stage-gate requirements:
 - Before prototype selection: verify prototype deliverables satisfy all required constraints (format, responsive/theme requirements, and scope isolation).
+- Before prototype selection: verify all prototype files are under `local/prototypes/%feature%/html-prototypes/` (paths like `apps/web/prototype` are non-compliant).
 - Before implementation: selected MVP prototype is explicitly confirmed by user.
 - Before bugfix implementation: require at least one concrete `REPRO_REPORT` from an implementer task, or explicit user approval to proceed without repro.
 - Before full gate: scoped review and scoped tests must be clear for all touched scopes.
@@ -175,9 +176,9 @@ Feature workflow (when frontend is involved):
    - Stop these additional rounds early when challenge status is `CHALLENGE_CLEAR`, and keep `PLAN_MD_PATH` as the single updated plan artifact.
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
 5. Create 3-4 frontend prototypes.
-   - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
-   - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
-   - Prototype generation must not modify existing code; only create/update files inside the designated prototype directory.
+  - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
+  - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
+  - Prototype generation must not modify existing code; only create/update files inside `local/prototypes/%feature%/html-prototypes/`.
 6. Run a prototype compliance check against required constraints and report exact prototype file paths.
 7. Ask user to pick MVP prototype.
 8. Implement selected MVP with full plan scope.
@@ -186,6 +187,12 @@ Feature workflow (when frontend is involved):
 10. Manual test and feedback loops.
 11. Run frontend/backend review in parallel when applicable, then unit tests and docs/contracts updates (including swagger/openapi via `docs-contract-agent` when backend contract changes).
 12. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.
+
+Feature workflow (backend-only):
+1. Plan from rough spec with user discussion.
+2. Plan challenge and corrections.
+3. If challenge is clear, proceed directly to backend implementation and tests.
+4. Do not run prototype creation, prototype compliance checks, or MVP prototype selection for backend-only scope.
 
 Bugfix workflow:
 1. Reproduce locally first.

@@ -20,7 +20,8 @@ Load context before coding:
 
 Rules:
 - For frontend feature scope, create 3-4 prototypes first.
-- Store prototypes only under `local/prototype/component/%name%/%prototype_files%`.
+- Store prototypes only under `local/prototypes/%feature%/html-prototypes/`.
+- Do not place prototype files under application paths like `apps/web/prototype` or any `apps/web/src/*` path.
 - Prototype deliverables must be plain browser-viewable HTML files (`.html`), with optional CSS/JS assets.
 - Do not deliver prototype variants as JSX/TSX component files.
 - During prototype generation, do not modify existing application/source files; create new prototype files only.
@@ -38,6 +39,7 @@ Implementation expectations:
 - Report files changed and open frontend risks.
 - For prototype phase, return a concise `PROTOTYPE_COMPLIANCE_REPORT` with:
   - exact prototype file paths
+  - confirmation all paths are under `local/prototypes/%feature%/html-prototypes/`
   - confirmation all deliverables are `.html` (plus optional CSS/JS assets)
   - confirmation no non-prototype files were modified
   - confirmation dark/light switch and mobile-friendly behavior are present in all variants
