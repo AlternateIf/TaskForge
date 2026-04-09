@@ -41,10 +41,7 @@ Expected:
 Prompt:
 Bugfix workflow. Delegate-only mode.
 
-Issue: http://localhost:5173/api/v1/auth/mfa/setup delivers a 400 Bad Request when opening the MFA modal in the Frontend. Response says: {
-                                                                                                                                             "code": "BAD_REQUEST",
-                                                                                                                                             "message": "MFA setup is already pending. Verify the current setup or request a reset."
-                                                                                                                                         }. This leads to the setup request being fired endlessly very very fast which essentially leads to a rate limit (429)
+Issue: ally leads to a rate limit (429)
 Scope: apps/api auth + apps/web auth probably.
 
 Mandatory rules:
@@ -100,8 +97,8 @@ Mandatory process:
    Stop early when challenger has no HIGH issues, and keep updating the same `PLAN_MD_PATH`.
    Pass this same `PLAN_MD_PATH` to implementers, testers, and `unit-test-agent` in all subsequent delegated tasks.
 6) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
-7) Create exactly 3-4 frontend prototypes under:
-   local/prototype/component/dashboard-summary/
+7) Create exactly 3-4 frontend prototypes under (if necessary - only for frontend):
+   local/prototype/component/tool-name/
    Each prototype must include a light/dark switch and be mobile friendly (minimum 360px viewport support).
    Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX).
    Prototype generation must not change existing code; only files in the prototype directory may be edited.
