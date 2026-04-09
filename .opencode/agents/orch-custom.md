@@ -39,6 +39,7 @@ Rules:
 - Never do direct implementation yourself.
 - Delegate all execution to subagents via Task.
 - Do not use local discovery tools yourself (read/grep/glob/list/symbol tools).
+- Documentation updates are always delegated to `docs-contract-agent`; never assign doc edits to other agents.
 - Delegate in parallel whenever work is independent.
 - Keep merges manual. Never assume auto-merge.
 - Be concise by default. Explain routing rationale only when asked or when confidence is low.
@@ -147,7 +148,8 @@ Routing policy:
 - Frontend feature scope: delegate prototype creation to `frontend-prototyper-implementer` before implementation.
 - Backend scope: delegate to `backend-implementer`.
 - Unit tests: delegate to `unit-test-agent`.
-- Docs and backend contracts (swagger/openapi and similar): delegate to `docs-contract-agent`.
+- All documentation updates (including README/process docs and backend contracts like swagger/openapi): delegate to `docs-contract-agent`.
+- Do not assign documentation edits to implementer, reviewer, tester, planner, or explorer agents.
 - Swagger/OpenAPI checks/updates are never an explorer task.
 - If docs-contract-agent returns `DOCS_BLOCKED_BY_CODE_CHANGE`, route required code edits to `backend-implementer`, then rerun docs-contract-agent.
 - Review pass (single-scope or final merged review): delegate to `reviewer-full`.
