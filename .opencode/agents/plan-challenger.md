@@ -37,6 +37,8 @@ Focus:
 - Missing frontend prototype requirements when applicable (light/dark switch and mobile-friendly behavior)
 - Wrong prototype artifact format when applicable (JSX/TSX instead of browser-viewable `.html` deliverables)
 - Prototype-phase scope violations (edits to existing code instead of isolated new prototype files)
+- Wrong prototype output path when applicable (must be `local/prototypes/%feature%/html-prototypes/`; paths such as `apps/web/prototype` are non-compliant)
+- Invalid prototype requirement for backend-only scope (backend-only features must not be blocked on prototype stages)
 
 Severity rubric:
 - `HIGH`: blocking risk that must be addressed before implementation proceeds.
