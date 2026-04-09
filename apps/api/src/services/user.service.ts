@@ -283,6 +283,9 @@ export async function revokeSession(userId: string, sessionId: string): Promise<
 
 export interface SecurityOverview {
   mfaEnabled: boolean;
+  mfaEnforcedByOrg: boolean;
+  mfaGracePeriodEndsAt: string | null;
+  mfaSetupPending: boolean;
   lastLoginAt: string | null;
   activeSessions: number;
 }
@@ -290,7 +293,11 @@ export interface SecurityOverview {
 export async function getSecurityOverview(userId: string): Promise<SecurityOverview> {
   const user = (
     await db
-      .select({ mfaEnabled: users.mfaEnabled, lastLoginAt: users.lastLoginAt })
+      .select({
+        mfaEnabled: users.mfaEnabled,
+        mfaSecret: users.mfaSecret,
+        lastLoginAt: users.lastLoginAt,
+      })
       .from(users)
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))
       .limit(1)
@@ -306,8 +313,15 @@ export async function getSecurityOverview(userId: string): Promise<SecurityOverv
     .from(sessions)
     .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now)));
 
+  // Fetch org MFA enforcement info
+  const { getMfaEnforcementInfo } = await import('./mfa.service.js');
+  const enforcementInfo = await getMfaEnforcementInfo(userId);
+
   return {
     mfaEnabled: user.mfaEnabled,
+    mfaEnforcedByOrg: enforcementInfo.enforcedByOrg,
+    mfaGracePeriodEndsAt: enforcementInfo.gracePeriodEndsAt,
+    mfaSetupPending: !user.mfaEnabled && !!user.mfaSecret,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     activeSessions: sessionCount?.count ?? 0,
   };

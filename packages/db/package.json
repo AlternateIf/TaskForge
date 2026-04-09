@@ -7,7 +7,7 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"No tests yet\"",
+    "test": "vitest run",
     "push": "drizzle-kit push",
     "migrate": "drizzle-kit migrate",
     "migrate:generate": "drizzle-kit generate",
@@ -24,6 +24,7 @@
     "@types/node": "^25.5.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.1"
   }
 }

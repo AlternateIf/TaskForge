@@ -105,7 +105,8 @@ export async function registerUser(
 
 export type LoginResult =
   | { mfaRequired: false; user: typeof users.$inferSelect; tokens: TokenPair }
-  | { mfaRequired: true; mfaToken: string };
+  | { mfaRequired: true; mfaToken: string }
+  | { mfaRequired: true; mfaToken: string; mfaSetupRequired: true };
 
 export async function loginUser(
   email: string,
@@ -170,6 +171,18 @@ export async function loginUser(
     return { mfaRequired: true, mfaToken };
   }
 
+  // Check MFA enforcement across all user orgs when no specific org was targeted
+  // (when an org is specified, enforcement is checked at session-refresh time)
+  const { evaluateMfaEnforcement } = await import('./mfa.service.js');
+  const enforcement = await evaluateMfaEnforcement(user.id);
+
+  if (enforcement.status === 'enforced' && !user.mfaEnabled) {
+    // Grace period expired and user doesn't have MFA — require setup
+    const { createMfaToken } = await import('./mfa.service.js');
+    const mfaToken = await createMfaToken(user.id);
+    return { mfaRequired: true, mfaToken, mfaSetupRequired: true };
+  }
+
   // Update last login
   await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
 
@@ -223,6 +236,20 @@ export async function refreshSession(
   const user = (await db.select().from(users).where(eq(users.id, session.userId)).limit(1))[0];
   if (!user || user.deletedAt) {
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'User not found');
+  }
+
+  // Re-check MFA enforcement: if an org enforces MFA and the user's grace period
+  // has expired without them setting up MFA, block the refresh
+  if (!user.mfaEnabled) {
+    const { evaluateMfaEnforcement } = await import('./mfa.service.js');
+    const enforcement = await evaluateMfaEnforcement(user.id);
+    if (enforcement.status === 'enforced') {
+      throw new AppError(
+        403,
+        ErrorCode.MFA_ENFORCED_BY_ORG,
+        'MFA is required by your organization. Please set up MFA before continuing.',
+      );
+    }
   }
 
   const accessToken = jwtSign(

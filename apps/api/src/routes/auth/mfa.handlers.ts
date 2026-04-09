@@ -4,7 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { JwtPayload } from '../../services/auth.service.js';
 import { createSession } from '../../services/auth.service.js';
 import * as mfaService from '../../services/mfa.service.js';
-import { getUserOrg, toUserOutput } from '../../services/user.service.js';
+import { getUserById } from '../../services/user.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { success } from '../../utils/response.js';
 
@@ -61,11 +61,11 @@ export async function mfaVerifyLoginHandler(
   const tokens = await createSession(user, jwtSign, request.ip, request.headers['user-agent']);
 
   setRefreshCookie(reply, tokens.refreshTokenRaw);
-  const org = await getUserOrg(user.id);
+  const userOutput = await getUserById(user.id);
 
   return reply.status(200).send(
     success({
-      user: toUserOutput(user, org),
+      user: userOutput,
       accessToken: tokens.accessToken,
     }),
   );
@@ -82,4 +82,30 @@ export async function mfaDisableHandler(
   await mfaService.disableMfa(request.authUser.userId, request.body.code);
 
   return reply.status(200).send(success({ message: 'MFA disabled' }));
+}
+
+export async function mfaDisablePostHandler(
+  request: FastifyRequest<{ Body: { code: string } }>,
+  reply: FastifyReply,
+) {
+  if (!request.authUser) {
+    throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+  }
+
+  await mfaService.disableMfa(request.authUser.userId, request.body.code);
+
+  return reply.status(200).send(success({ message: 'MFA disabled' }));
+}
+
+export async function mfaResetPendingHandler(
+  request: FastifyRequest<{ Body: { password: string } }>,
+  reply: FastifyReply,
+) {
+  if (!request.authUser) {
+    throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+  }
+
+  await mfaService.resetPendingMfa(request.authUser.userId, request.body.password);
+
+  return reply.status(200).send(success({ message: 'Pending MFA setup reset successfully' }));
 }

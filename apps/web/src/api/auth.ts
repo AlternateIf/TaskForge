@@ -1,6 +1,7 @@
 import { type AuthUser, useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import type { ApiError } from './client';
 import { apiClient, queryClient } from './client';
 
 // ─── Response shapes ───────────────────────────────────────────────────────────
@@ -21,6 +22,13 @@ interface MeResponse {
 
 interface MessageResponse {
   data: { message: string };
+}
+
+interface MfaSetupResponse {
+  data: {
+    secret: string;
+    uri: string;
+  };
 }
 
 interface AuthConfigResponse {
@@ -89,6 +97,76 @@ export function useVerifyMfa() {
     onSuccess: (res) => {
       const { accessToken, user } = res.data;
       setAuth(accessToken, user);
+    },
+  });
+}
+
+interface VerifyMfaSetupInput {
+  code: string;
+}
+
+interface DisableMfaInput {
+  code: string;
+}
+
+interface ResetPendingMfaInput {
+  password: string;
+}
+
+// ─── useMfaSetup ───────────────────────────────────────────────────────────────
+
+export function useMfaSetup() {
+  return useMutation({
+    mutationFn: () => apiClient.post<MfaSetupResponse>('/auth/mfa/setup').then((res) => res.data),
+  });
+}
+
+// ─── useMfaVerifySetup ─────────────────────────────────────────────────────────
+
+export function useMfaVerifySetup() {
+  return useMutation({
+    mutationFn: (input: VerifyMfaSetupInput) =>
+      apiClient.post<MessageResponse>('/auth/mfa/verify-setup', input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['security-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+// ─── useMfaDisable ─────────────────────────────────────────────────────────────
+
+export function useMfaDisable() {
+  return useMutation({
+    mutationFn: async (input: DisableMfaInput) => {
+      try {
+        return await apiClient.post<MessageResponse>('/auth/mfa/disable', input);
+      } catch (error) {
+        const apiError = error as ApiError;
+        if (apiError.status === 404) {
+          return apiClient.delete<MessageResponse>('/auth/mfa', {
+            body: JSON.stringify(input),
+          });
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['security-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+// ─── useMfaReset ───────────────────────────────────────────────────────────────
+
+export function useMfaReset() {
+  return useMutation({
+    mutationFn: (input: ResetPendingMfaInput) =>
+      apiClient.post<MessageResponse>('/auth/mfa/reset-pending', input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['security-overview'] });
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 }

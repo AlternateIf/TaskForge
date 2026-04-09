@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
-import { db, users } from '@taskforge/db';
-import { eq } from 'drizzle-orm';
+import { db, organizationAuthSettings, organizationMembers, users } from '@taskforge/db';
+import bcrypt from 'bcrypt';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import * as OTPAuth from 'otpauth';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { getRedis } from '../utils/redis.js';
@@ -82,6 +83,15 @@ export async function setupMfa(userId: string): Promise<{ secret: string; uri: s
 
   if (user.mfaEnabled) {
     throw new AppError(400, ErrorCode.BAD_REQUEST, 'MFA is already enabled');
+  }
+
+  // Prevent overwriting a pending (unverified) secret — user must verify or disable first
+  if (user.mfaSecret) {
+    throw new AppError(
+      400,
+      ErrorCode.BAD_REQUEST,
+      'MFA setup is already pending. Verify the current setup or request a reset.',
+    );
   }
 
   const { secret } = generateTotpSecret();
@@ -195,10 +205,155 @@ export async function disableMfa(userId: string, code: string): Promise<void> {
     throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Invalid TOTP code');
   }
 
+  // Check if any organization the user belongs to enforces MFA
+  // Block disable whenever any org enforces MFA, regardless of grace period status
+  const enforcement = await evaluateMfaEnforcement(userId);
+  if (enforcement.status === 'enforced' || enforcement.status === 'grace') {
+    throw new AppError(
+      403,
+      ErrorCode.MFA_ENFORCED_BY_ORG,
+      'Cannot disable MFA because it is enforced by at least one of your organizations',
+    );
+  }
+
   await db
     .update(users)
     .set({ mfaEnabled: false, mfaSecret: null, updatedAt: new Date() })
     .where(eq(users.id, userId));
 
   // Audit: MFA disabled (userId is already in the DB update for traceability)
+}
+
+export async function resetPendingMfa(userId: string, password: string): Promise<void> {
+  const user = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!user) {
+    throw new AppError(404, ErrorCode.NOT_FOUND, 'User not found');
+  }
+
+  if (!user.passwordHash) {
+    throw new AppError(
+      400,
+      ErrorCode.BAD_REQUEST,
+      'Self-service MFA reset is not available for OAuth-only users',
+    );
+  }
+
+  const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordMatch) {
+    throw new AppError(400, ErrorCode.BAD_REQUEST, 'Invalid password');
+  }
+
+  if (user.mfaEnabled) {
+    throw new AppError(
+      400,
+      ErrorCode.BAD_REQUEST,
+      'MFA is already enabled — use the disable flow instead',
+    );
+  }
+
+  if (!user.mfaSecret) {
+    throw new AppError(400, ErrorCode.BAD_REQUEST, 'No pending MFA setup to reset');
+  }
+
+  await db
+    .update(users)
+    .set({ mfaSecret: null, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+
+  // Audit: Pending MFA reset
+}
+
+// ─── MFA Enforcement Evaluator ────────────────────────────────────────────────
+
+export type MfaEnforcementStatus =
+  | { status: 'none' }
+  | { status: 'grace'; graceEndsAt: Date }
+  | { status: 'enforced'; graceEndsAt: Date | null };
+
+/**
+ * Evaluates MFA enforcement across all organizations a user belongs to.
+ * Returns the most restrictive result: if any org enforces MFA with an expired
+ * grace period, we return 'enforced'. If all enforcing orgs are still in grace,
+ * we return 'grace' with the earliest grace end date.
+ */
+export async function evaluateMfaEnforcement(userId: string): Promise<MfaEnforcementStatus> {
+  // Find all orgs this user belongs to that enforce MFA
+  const enforcingOrgs = await db
+    .select({
+      organizationId: organizationAuthSettings.organizationId,
+      mfaEnforcedAt: organizationAuthSettings.mfaEnforcedAt,
+      mfaGracePeriodDays: organizationAuthSettings.mfaGracePeriodDays,
+    })
+    .from(organizationAuthSettings)
+    .innerJoin(
+      organizationMembers,
+      eq(organizationMembers.organizationId, organizationAuthSettings.organizationId),
+    )
+    .where(
+      and(
+        eq(organizationMembers.userId, userId),
+        eq(organizationAuthSettings.mfaEnforced, true),
+        isNotNull(organizationAuthSettings.mfaEnforcedAt),
+      ),
+    );
+
+  if (enforcingOrgs.length === 0) {
+    return { status: 'none' };
+  }
+
+  const now = new Date();
+  let earliestGraceEnd: Date | null = null;
+  let anyGraceExpired = false;
+
+  for (const org of enforcingOrgs) {
+    if (!org.mfaEnforcedAt) continue;
+
+    const graceEnd = new Date(
+      org.mfaEnforcedAt.getTime() + org.mfaGracePeriodDays * 24 * 60 * 60 * 1000,
+    );
+
+    if (!earliestGraceEnd || graceEnd < earliestGraceEnd) {
+      earliestGraceEnd = graceEnd;
+    }
+
+    if (now >= graceEnd) {
+      anyGraceExpired = true;
+    }
+  }
+
+  if (anyGraceExpired) {
+    return { status: 'enforced', graceEndsAt: earliestGraceEnd };
+  }
+
+  // All enforcing orgs are still within their grace periods
+  // earliestGraceEnd is guaranteed to be set since enforcingOrgs.length > 0
+  return { status: 'grace', graceEndsAt: earliestGraceEnd ?? new Date() };
+}
+
+/**
+ * Checks whether disabling MFA is blocked by org enforcement.
+ * Returns true if any org enforces MFA (regardless of grace period).
+ */
+export async function isMfaEnforcedByAnyOrg(userId: string): Promise<boolean> {
+  const enforcement = await evaluateMfaEnforcement(userId);
+  return enforcement.status === 'enforced' || enforcement.status === 'grace';
+}
+
+/**
+ * Returns org enforcement details for a user (for the security overview).
+ */
+export async function getMfaEnforcementInfo(userId: string): Promise<{
+  enforcedByOrg: boolean;
+  gracePeriodEndsAt: string | null;
+}> {
+  const enforcement = await evaluateMfaEnforcement(userId);
+
+  if (enforcement.status === 'none') {
+    return { enforcedByOrg: false, gracePeriodEndsAt: null };
+  }
+
+  return {
+    enforcedByOrg: true,
+    gracePeriodEndsAt: enforcement.graceEndsAt?.toISOString() ?? null,
+  };
 }

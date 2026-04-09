@@ -186,6 +186,7 @@ If any dependency is unreachable, returns 503:
 | 400 | BAD_REQUEST | Malformed request |
 | 401 | UNAUTHORIZED | Missing or invalid auth token |
 | 403 | FORBIDDEN | Valid auth but insufficient permissions |
+| 403 | MFA_ENFORCED_BY_ORG | Organization enforces MFA and grace period has expired |
 | 404 | NOT_FOUND | Resource does not exist or not accessible |
 | 409 | CONFLICT | Duplicate or conflicting state (e.g., duplicate email) |
 | 413 | FILE_TOO_LARGE | Upload exceeds max file size |

@@ -25,6 +25,8 @@ import {
   tasks,
   users,
 } from '../index.js';
+import { SEED_PROFILES, type SeedCounts } from './fixture-metadata.js';
+import { type SeedProfile, resolveSeedOptions } from './options.js';
 
 interface PermissionCatalogEntry {
   resource: string;
@@ -148,6 +150,13 @@ function permissionTuple(resource: string, action: string, scope: string): strin
 }
 
 async function validateDatabaseState(): Promise<void> {
+  const options = resolveSeedOptions();
+  const profile: SeedProfile = options.profile;
+  const expected = SEED_PROFILES[profile];
+  if (!expected) {
+    fail(`Unknown seed profile '${profile}' — cannot validate.`);
+  }
+
   const counts = {
     users: await countFrom(users),
     organizations: await countFrom(organizations),
@@ -174,55 +183,88 @@ async function validateDatabaseState(): Promise<void> {
     invitationTargetPermissions: await countFrom(invitationTargetPermissions),
   };
 
-  assert(counts.users === 11, `Expected 11 users, got ${counts.users}`);
-  assert(counts.organizations === 2, `Expected 2 organizations, got ${counts.organizations}`);
-  assert(counts.roles === 13, `Expected 13 roles, got ${counts.roles}`);
-  assert(counts.permissions === 292, `Expected 292 role permissions, got ${counts.permissions}`);
-  assert(counts.projects === 4, `Expected 4 projects, got ${counts.projects}`);
-  assert(counts.projectMembers === 17, `Expected 17 project members, got ${counts.projectMembers}`);
-  assert(counts.tasks === 15, `Expected 15 tasks, got ${counts.tasks}`);
+  assert(counts.users === expected.users, `Expected ${expected.users} users, got ${counts.users}`);
   assert(
-    counts.taskDependencies === 3,
-    `Expected 3 task dependencies, got ${counts.taskDependencies}`,
+    counts.organizations === expected.organizations,
+    `Expected ${expected.organizations} organizations, got ${counts.organizations}`,
   );
-  assert(counts.taskWatchers === 8, `Expected 8 task watchers, got ${counts.taskWatchers}`);
-  assert(counts.checklists === 3, `Expected 3 checklists, got ${counts.checklists}`);
-  assert(counts.checklistItems === 5, `Expected 5 checklist items, got ${counts.checklistItems}`);
-  assert(counts.comments === 6, `Expected 6 comments, got ${counts.comments}`);
+  assert(counts.roles === expected.roles, `Expected ${expected.roles} roles, got ${counts.roles}`);
   assert(
-    counts.commentMentions === 3,
-    `Expected 3 comment mentions, got ${counts.commentMentions}`,
-  );
-  assert(counts.activityLog === 6, `Expected 6 activity entries, got ${counts.activityLog}`);
-  assert(
-    counts.notificationPreferences === 4,
-    `Expected 4 notification preferences, got ${counts.notificationPreferences}`,
-  );
-  assert(counts.notifications === 4, `Expected 4 notifications, got ${counts.notifications}`);
-  assert(
-    counts.organizationMembers === 16,
-    `Expected 16 organization memberships, got ${counts.organizationMembers}`,
+    counts.permissions === expected.permissions,
+    `Expected ${expected.permissions} role permissions, got ${counts.permissions}`,
   );
   assert(
-    counts.roleAssignments === 19,
-    `Expected 19 role assignments, got ${counts.roleAssignments}`,
+    counts.projects === expected.projects,
+    `Expected ${expected.projects} projects, got ${counts.projects}`,
   );
   assert(
-    counts.permissionAssignments === 5,
-    `Expected 5 direct permission assignments, got ${counts.permissionAssignments}`,
+    counts.projectMembers === expected.projectMembers,
+    `Expected ${expected.projectMembers} project members, got ${counts.projectMembers}`,
   );
-  assert(counts.invitations === 3, `Expected 3 invitations, got ${counts.invitations}`);
+  assert(counts.tasks === expected.tasks, `Expected ${expected.tasks} tasks, got ${counts.tasks}`);
   assert(
-    counts.invitationTargets === 2,
-    `Expected 2 invitation targets, got ${counts.invitationTargets}`,
-  );
-  assert(
-    counts.invitationTargetRoles === 2,
-    `Expected 2 invitation target roles, got ${counts.invitationTargetRoles}`,
+    counts.taskDependencies === expected.taskDependencies,
+    `Expected ${expected.taskDependencies} task dependencies, got ${counts.taskDependencies}`,
   );
   assert(
-    counts.invitationTargetPermissions === 2,
-    `Expected 2 invitation target permissions, got ${counts.invitationTargetPermissions}`,
+    counts.taskWatchers === expected.taskWatchers,
+    `Expected ${expected.taskWatchers} task watchers, got ${counts.taskWatchers}`,
+  );
+  assert(
+    counts.checklists === expected.checklists,
+    `Expected ${expected.checklists} checklists, got ${counts.checklists}`,
+  );
+  assert(
+    counts.checklistItems === expected.checklistItems,
+    `Expected ${expected.checklistItems} checklist items, got ${counts.checklistItems}`,
+  );
+  assert(
+    counts.comments === expected.comments,
+    `Expected ${expected.comments} comments, got ${counts.comments}`,
+  );
+  assert(
+    counts.commentMentions === expected.commentMentions,
+    `Expected ${expected.commentMentions} comment mentions, got ${counts.commentMentions}`,
+  );
+  assert(
+    counts.activityLog === expected.activityLog,
+    `Expected ${expected.activityLog} activity entries, got ${counts.activityLog}`,
+  );
+  assert(
+    counts.notificationPreferences === expected.notificationPreferences,
+    `Expected ${expected.notificationPreferences} notification preferences, got ${counts.notificationPreferences}`,
+  );
+  assert(
+    counts.notifications === expected.notifications,
+    `Expected ${expected.notifications} notifications, got ${counts.notifications}`,
+  );
+  assert(
+    counts.organizationMembers === expected.organizationMembers,
+    `Expected ${expected.organizationMembers} organization memberships, got ${counts.organizationMembers}`,
+  );
+  assert(
+    counts.roleAssignments === expected.roleAssignments,
+    `Expected ${expected.roleAssignments} role assignments, got ${counts.roleAssignments}`,
+  );
+  assert(
+    counts.permissionAssignments === expected.permissionAssignments,
+    `Expected ${expected.permissionAssignments} direct permission assignments, got ${counts.permissionAssignments}`,
+  );
+  assert(
+    counts.invitations === expected.invitations,
+    `Expected ${expected.invitations} invitations, got ${counts.invitations}`,
+  );
+  assert(
+    counts.invitationTargets === expected.invitationTargets,
+    `Expected ${expected.invitationTargets} invitation targets, got ${counts.invitationTargets}`,
+  );
+  assert(
+    counts.invitationTargetRoles === expected.invitationTargetRoles,
+    `Expected ${expected.invitationTargetRoles} invitation target roles, got ${counts.invitationTargetRoles}`,
+  );
+  assert(
+    counts.invitationTargetPermissions === expected.invitationTargetPermissions,
+    `Expected ${expected.invitationTargetPermissions} invitation target permissions, got ${counts.invitationTargetPermissions}`,
   );
 
   const priorityRows = await db.select({ priority: tasks.priority }).from(tasks);
@@ -491,7 +533,7 @@ async function waitForSearchDocumentCount(
   );
 }
 
-async function validateMeilisearch(): Promise<void> {
+async function validateMeilisearch(expectedCounts: SeedCounts): Promise<void> {
   const meiliUrl = process.env.MEILISEARCH_URL ?? 'http://localhost:7700';
 
   const healthResponse = await fetch(`${meiliUrl}/health`);
@@ -500,9 +542,9 @@ async function validateMeilisearch(): Promise<void> {
   const healthPayload = (await healthResponse.json()) as { status?: string };
   assert(healthPayload.status === 'available', 'Meilisearch is not available');
 
-  await waitForSearchDocumentCount(meiliUrl, 'tasks', 15);
-  await waitForSearchDocumentCount(meiliUrl, 'projects', 4);
-  await waitForSearchDocumentCount(meiliUrl, 'comments', 6);
+  await waitForSearchDocumentCount(meiliUrl, 'tasks', expectedCounts.tasks);
+  await waitForSearchDocumentCount(meiliUrl, 'projects', expectedCounts.projects);
+  await waitForSearchDocumentCount(meiliUrl, 'comments', expectedCounts.comments);
 
   const taskSearch = await fetch(`${meiliUrl}/indexes/tasks/search`, {
     method: 'POST',
@@ -536,9 +578,21 @@ async function validateMeilisearch(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const options = resolveSeedOptions();
+  const expected = SEED_PROFILES[options.profile];
+  if (!expected) {
+    fail(`Unknown seed profile '${options.profile}' — cannot validate.`);
+  }
+
   await waitForDb();
   await validateDatabaseState();
-  await validateMeilisearch();
+
+  if (options.skipReindex) {
+    console.log('[seed:validate] Skipping Meilisearch validation (SEED_SKIP_REINDEX=1).');
+  } else {
+    await validateMeilisearch(expected);
+  }
+
   console.log('[seed:validate] All validation checks passed.');
 }
 

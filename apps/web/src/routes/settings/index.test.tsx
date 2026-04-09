@@ -30,6 +30,15 @@ vi.mock('@/api/users', () => {
 
 vi.mock('@/api/auth', () => ({
   useChangePassword: () => ({ mutate: vi.fn(), isPending: false }),
+  useMfaSetup: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+  useMfaVerifySetup: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+  useMfaDisable: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
+  useMfaReset: () => ({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+    reset: vi.fn(),
+  }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

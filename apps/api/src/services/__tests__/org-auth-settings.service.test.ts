@@ -28,6 +28,10 @@ vi.mock('@taskforge/db', () => ({
     createdAt: 'organizationAuthSettings.createdAt',
     updatedAt: 'organizationAuthSettings.updatedAt',
   },
+  users: {
+    id: 'users.id',
+    mfaEnabled: 'users.mfaEnabled',
+  },
 }));
 
 vi.mock('drizzle-orm', () => ({
@@ -207,6 +211,7 @@ describe('org-auth-settings.service', () => {
     it('should set mfaEnforcedAt when MFA is first enforced', async () => {
       setupSelectChain([{ id: orgId }]); // org exists
       setupSelectChain([makeSettingsRow()]); // MFA not enforced
+      setupSelectChain([{ mfaEnabled: true }]); // actor has MFA enabled
       setupUpdateChain();
       setupSelectChain([makeSettingsRow({ mfaEnforced: true, mfaEnforcedAt: now })]);
 
@@ -214,6 +219,16 @@ describe('org-auth-settings.service', () => {
 
       // Verify the update call included mfaEnforcedAt
       expect(mockUpdate).toHaveBeenCalled();
+    });
+
+    it('should reject enabling mfaEnforced when actor does not have MFA', async () => {
+      setupSelectChain([{ id: orgId }]); // org exists
+      setupSelectChain([makeSettingsRow()]); // MFA not enforced currently
+      setupSelectChain([{ mfaEnabled: false }]); // actor does NOT have MFA
+
+      await expect(updateAuthSettings(orgId, actorId, { mfaEnforced: true })).rejects.toThrow(
+        'You must enable MFA on your own account before enforcing it for the organization',
+      );
     });
 
     it('should clear mfaEnforcedAt when MFA is disabled', async () => {

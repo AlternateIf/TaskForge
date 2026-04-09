@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, organizationAuthSettings, organizations } from '@taskforge/db';
+import { db, organizationAuthSettings, organizations, users } from '@taskforge/db';
 import type { UpdateAuthSettingsInput } from '@taskforge/shared';
 import { eq } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -86,6 +86,8 @@ export async function updateAuthSettings(
     .where(eq(organizationAuthSettings.organizationId, orgId))
     .limit(1);
 
+  const isCurrentlyEnforced = existing[0]?.mfaEnforced ?? false;
+
   // Merge input with current values (or defaults) to compute the final state
   const current = existing[0];
   const merged = {
@@ -113,6 +115,25 @@ export async function updateAuthSettings(
       ErrorCode.UNPROCESSABLE_ENTITY,
       'At least one authentication method must remain enabled',
     );
+  }
+
+  // Admin self-lockout prevention: cannot enable mfaEnforced unless the actor
+  // already has MFA enabled on their own account
+  if (merged.mfaEnforced && !isCurrentlyEnforced) {
+    const actor = (
+      await db
+        .select({ mfaEnabled: users.mfaEnabled })
+        .from(users)
+        .where(eq(users.id, actorId))
+        .limit(1)
+    )[0];
+    if (!actor?.mfaEnabled) {
+      throw new AppError(
+        422,
+        ErrorCode.UNPROCESSABLE_ENTITY,
+        'You must enable MFA on your own account before enforcing it for the organization',
+      );
+    }
   }
 
   // Normalize email domains to lowercase

@@ -53,21 +53,38 @@ export async function oauthCallbackHandler(
 
   const jwtSign = (payload: JwtPayload, opts: { expiresIn: number }) =>
     request.server.jwtSign({ ...payload }, opts.expiresIn);
-  let tokens: { accessToken: string; refreshTokenRaw: string };
-  let isNewUser = false;
+
+  let result: Awaited<ReturnType<typeof oauthService.handleOAuthCallback>>;
   try {
-    const result = await oauthService.handleOAuthCallback(
+    result = await oauthService.handleOAuthCallback(
       code,
       state,
       jwtSign,
       request.ip,
       request.headers['user-agent'],
     );
-    tokens = result.tokens;
-    isNewUser = result.isNewUser;
   } catch {
     return reply.redirect(`${frontendUrl}/auth/login?error=oauth_failed`);
   }
+
+  if ('mfaSetupRequired' in result && result.mfaSetupRequired) {
+    // MFA enforcement — user must set up MFA before continuing
+    const params = new URLSearchParams({
+      mfaSetupRequired: '1',
+      mfaToken: result.mfaToken,
+      new: result.isNewUser ? '1' : '0',
+    });
+    return reply.redirect(`${frontendUrl}/auth/oauth-callback#${params.toString()}`);
+  }
+
+  // Normal login flow — result has tokens
+  if (!('tokens' in result)) {
+    // Should never reach here, but satisfy TypeScript
+    return reply.redirect(`${frontendUrl}/auth/login?error=oauth_failed`);
+  }
+
+  const tokens = result.tokens;
+  const isNewUser = result.isNewUser;
 
   setRefreshCookie(reply, tokens.refreshTokenRaw);
 

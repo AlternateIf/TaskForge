@@ -12,6 +12,58 @@ TEST_SEED_DATABASE_URL="${TEST_SEED_DATABASE_URL:-mysql://taskforge:taskforge@lo
 DB_CMD_RETRIES="${DB_CMD_RETRIES:-8}"
 DB_CMD_RETRY_DELAY_SECONDS="${DB_CMD_RETRY_DELAY_SECONDS:-3}"
 
+# ── CLI option defaults ──────────────────────────────────────
+SEED_MODE="reset-and-seed"
+SEED_INCLUDE_SAMPLE_DATA="0"
+SEED_SKIP_REINDEX="0"
+
+usage() {
+  cat <<'HELP'
+Usage: test-seed.sh [OPTIONS]
+
+Options:
+  --reset-only         Reset infrastructure and DB schema only (no seed data)
+  --seed-only          Re-seed an existing DB without recreating infrastructure
+  --with-sample-data   Include sample fixtures in addition to core fixtures
+  --skip-reindex      Skip Meilisearch reindex and validation
+  --help               Show this help message
+HELP
+}
+
+# ── Parse CLI arguments ──────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset-only)
+      SEED_MODE="reset-only"
+      shift
+      ;;
+    --seed-only)
+      SEED_MODE="seed-only"
+      shift
+      ;;
+    --with-sample-data)
+      SEED_INCLUDE_SAMPLE_DATA="1"
+      shift
+      ;;
+    --skip-reindex)
+      SEED_SKIP_REINDEX="1"
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      abort "Unknown option: $1. Use --help for usage."
+      ;;
+  esac
+done
+
+# ── Export env vars for seed/validate subprocesses ────────────
+export SEED_MODE
+export SEED_INCLUDE_SAMPLE_DATA
+export SEED_SKIP_REINDEX
+
 log() {
   printf '[test-seed] %s\n' "$1"
 }
@@ -70,7 +122,7 @@ run_db_workspace_cmd() {
   while (( attempt <= DB_CMD_RETRIES )); do
     if (
       cd "$ROOT_DIR"
-      DATABASE_URL="$TEST_SEED_DATABASE_URL" "$@"
+      DATABASE_URL="$TEST_SEED_DATABASE_URL" SEED_MODE="$SEED_MODE" SEED_INCLUDE_SAMPLE_DATA="$SEED_INCLUDE_SAMPLE_DATA" SEED_SKIP_REINDEX="$SEED_SKIP_REINDEX" "$@"
     ); then
       return 0
     fi
@@ -85,6 +137,40 @@ run_db_workspace_cmd() {
   done
 
   return 1
+}
+
+check_db_available() {
+  local max_retries="${DB_CMD_RETRIES}"
+  local delay="${DB_CMD_RETRY_DELAY_SECONDS}"
+  local attempt=1
+
+  while (( attempt <= max_retries )); do
+    if (
+      cd "$ROOT_DIR/packages/db"
+      DATABASE_URL="$TEST_SEED_DATABASE_URL" node -e "
+        const mysql = require('mysql2/promise');
+        (async () => {
+          const conn = await mysql.createConnection(process.env.DATABASE_URL);
+          await conn.execute('SELECT 1');
+          await conn.end();
+          process.exit(0);
+        })().catch(() => process.exit(1));
+      "
+    ); then
+      log 'Database is available.'
+      return 0
+    fi
+
+    if (( attempt == max_retries )); then
+      break
+    fi
+
+    log "Database not available yet (attempt ${attempt}/${max_retries}); retrying in ${delay}s..."
+    sleep "$delay"
+    attempt=$((attempt + 1))
+  done
+
+  abort "Database is not available after ${max_retries} attempts."
 }
 
 wait_for_service() {
@@ -128,7 +214,7 @@ wait_for_service() {
 print_banner() {
   cat <<'BANNER'
 ===============================================================
-TaskForge DEV TEST-SEED RESET
+TaskForge DEV TEST-SEED
 DEV ONLY | DANGEROUS | DESTRUCTIVE
 
 This command destroys LOCAL development data and recreates a
@@ -149,6 +235,44 @@ main() {
   require_cmd docker
   require_cmd pnpm
 
+  log "Seed mode: ${SEED_MODE}"
+  log "Include sample data: ${SEED_INCLUDE_SAMPLE_DATA}"
+  log "Skip reindex: ${SEED_SKIP_REINDEX}"
+
+  # ── seed-only: fast path that skips infrastructure teardown ──
+  if [[ "$SEED_MODE" == "seed-only" ]]; then
+    check_db_available
+
+    log 'Truncating seeded tables and re-seeding (seed-only mode)...'
+    run_db_workspace_cmd "Database seed (seed-only)" pnpm --filter @taskforge/db seed ||
+      abort "Database seed (seed-only) failed after ${DB_CMD_RETRIES} attempts."
+
+    if [[ "$SEED_SKIP_REINDEX" != "1" ]]; then
+      log 'Reindexing Meilisearch from seeded DB...'
+      (
+        cd "$ROOT_DIR"
+        pnpm --filter @taskforge/api reindex:search
+      )
+    else
+      log 'Skipping Meilisearch reindex (--skip-reindex).'
+    fi
+
+    log 'Running post-seed validation checks...'
+    run_db_workspace_cmd "Seed validation" pnpm --filter @taskforge/db seed:validate ||
+      abort "Seed validation failed after ${DB_CMD_RETRIES} attempts."
+
+    cat <<'SUMMARY'
+
+[test-seed] Seed-only reset complete.
+
+Developer TODO before UI verification:
+- Clear browser cache (or force refresh) to avoid stale frontend assets.
+
+SUMMARY
+    return 0
+  fi
+
+  # ── Full reset path (reset-and-seed or reset-only) ──────────
   [[ -f "$COMPOSE_FILE" ]] || abort "Compose file not found: ${COMPOSE_FILE}"
 
   "${COMPOSE_CMD[@]}" config >/dev/null
@@ -179,15 +303,23 @@ main() {
       abort "Schema push failed after ${DB_CMD_RETRIES} attempts."
   fi
 
-  log 'Running deterministic database seed...'
-  run_db_workspace_cmd "Database seed" pnpm --filter @taskforge/db seed ||
-    abort "Database seed failed after ${DB_CMD_RETRIES} attempts."
+  if [[ "$SEED_MODE" != "reset-only" ]]; then
+    log 'Running deterministic database seed...'
+    run_db_workspace_cmd "Database seed" pnpm --filter @taskforge/db seed ||
+      abort "Database seed failed after ${DB_CMD_RETRIES} attempts."
 
-  log 'Reindexing Meilisearch from seeded DB...'
-  (
-    cd "$ROOT_DIR"
-    pnpm --filter @taskforge/api reindex:search
-  )
+    if [[ "$SEED_SKIP_REINDEX" != "1" ]]; then
+      log 'Reindexing Meilisearch from seeded DB...'
+      (
+        cd "$ROOT_DIR"
+        pnpm --filter @taskforge/api reindex:search
+      )
+    else
+      log 'Skipping Meilisearch reindex (--skip-reindex).'
+    fi
+  else
+    log 'Skipping seed (--reset-only specified).'
+  fi
 
   log 'Starting compose services after schema+seed reset...'
   "${COMPOSE_CMD[@]}" up -d
@@ -196,9 +328,13 @@ main() {
   wait_for_service "api" "$WAIT_TIMEOUT_SECONDS"
   wait_for_service "worker" "$WAIT_TIMEOUT_SECONDS"
 
-  log 'Running post-seed validation checks...'
-  run_db_workspace_cmd "Seed validation" pnpm --filter @taskforge/db seed:validate ||
-    abort "Seed validation failed after ${DB_CMD_RETRIES} attempts."
+  if [[ "$SEED_MODE" != "reset-only" ]] && [[ "$SEED_SKIP_REINDEX" != "1" ]]; then
+    log 'Running post-seed validation checks...'
+    run_db_workspace_cmd "Seed validation" pnpm --filter @taskforge/db seed:validate ||
+      abort "Seed validation failed after ${DB_CMD_RETRIES} attempts."
+  else
+    log 'Skipping seed validation (reset-only or skip-reindex mode).'
+  fi
 
   cat <<'SUMMARY'
 
@@ -207,19 +343,7 @@ main() {
 Developer TODO before UI verification:
 - Clear browser cache (or force refresh) to avoid stale frontend assets.
 
-Known dev credentials (deterministic fixtures):
-- Password for all password-enabled users: Taskforge123!
-- Users:
-  - owner@acme.taskforge.local
-  - admin@acme.taskforge.local
-  - member@acme.taskforge.local
-  - owner@globex.taskforge.local
-  - admin@globex.taskforge.local
-  - member@globex.taskforge.local
-  - qa@taskforge.local
-  - viewer@acme.taskforge.local
-  - contractor@globex.taskforge.local
-  - support@taskforge.local
+See the seed summary output above for fixture counts and dev credentials.
 
 SUMMARY
 }

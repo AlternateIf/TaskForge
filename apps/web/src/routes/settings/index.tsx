@@ -14,6 +14,7 @@ import {
   useUpdateProfile,
   useUploadAvatar,
 } from '@/api/users';
+import { MfaTwoPanelModal } from '@/components/mfa/mfa-two-panel-modal';
 import { Avatar, getAvatarColor, getInitials } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -444,6 +445,39 @@ function formatLastLogin(iso: string | null | undefined): { short: string; long:
   return { short, long };
 }
 
+function getMfaGracePeriodStatus(gracePeriodEndsAt?: string | null): {
+  remainingDays: number | null;
+  graceExpired: boolean;
+} {
+  if (!gracePeriodEndsAt) {
+    return {
+      remainingDays: null,
+      graceExpired: true,
+    };
+  }
+
+  const endsAt = new Date(gracePeriodEndsAt).getTime();
+  if (Number.isNaN(endsAt)) {
+    return {
+      remainingDays: null,
+      graceExpired: true,
+    };
+  }
+
+  const diffMs = endsAt - Date.now();
+  if (diffMs <= 0) {
+    return {
+      remainingDays: 0,
+      graceExpired: true,
+    };
+  }
+
+  return {
+    remainingDays: Math.ceil(diffMs / 86_400_000),
+    graceExpired: false,
+  };
+}
+
 function SecurityTab() {
   const changePassword = useChangePassword();
   const security = useSecurityOverview();
@@ -457,6 +491,7 @@ function SecurityTab() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [passwordChanged, setPasswordChanged] = useState(false);
+  const [mfaModalOpen, setMfaModalOpen] = useState(false);
 
   function handleChangePassword(event: React.FormEvent) {
     event.preventDefault();
@@ -487,6 +522,10 @@ function SecurityTab() {
   }
 
   const mfaEnabled = security.data?.mfaEnabled ?? false;
+  const mfaEnforcedByOrg = security.data?.mfaEnforcedByOrg ?? false;
+  const mfaGracePeriodEndsAt = security.data?.mfaGracePeriodEndsAt ?? null;
+  const graceStatus = getMfaGracePeriodStatus(mfaGracePeriodEndsAt);
+  const graceExpired = mfaEnforcedByOrg ? graceStatus.graceExpired : false;
   const lastLogin = formatLastLogin(security.data?.lastLoginAt);
   const activeSessions = security.data?.activeSessions ?? 0;
   // activeSessions tile kept from security overview; session list used for the card below
@@ -510,7 +549,7 @@ function SecurityTab() {
           <button
             type="button"
             className="mt-sm text-small font-medium text-brand-primary hover:underline"
-            onClick={() => toast.info('MFA management is coming soon.')}
+            onClick={() => setMfaModalOpen(true)}
           >
             Manage →
           </button>
@@ -732,6 +771,16 @@ function SecurityTab() {
           </div>
         </div>
       </div>
+
+      <MfaTwoPanelModal
+        open={mfaModalOpen}
+        onOpenChange={setMfaModalOpen}
+        mfaEnabled={mfaEnabled}
+        orgEnforced={mfaEnforcedByOrg}
+        mfaGracePeriodEndsAt={mfaGracePeriodEndsAt}
+        gracePeriodRemainingDays={graceStatus.remainingDays}
+        graceExpired={graceExpired}
+      />
     </div>
   );
 }

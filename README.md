@@ -113,6 +113,7 @@ pnpm --filter @taskforge/api dev:worker
 | `pnpm --filter @taskforge/api dev` | Run API only |
 | `pnpm --filter @taskforge/web dev` | Run web only |
 | `pnpm --filter @taskforge/db seed` | Seed database |
+| `pnpm test-seed` | Full dev reset + deterministic reseed (DEV ONLY) |
 
 ## Local Service URLs
 

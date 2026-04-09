@@ -1,6 +1,24 @@
-import crypto from 'node:crypto';
 import { db, pool } from '../client.js';
 import * as schema from '../schema/index.js';
+import { getAllSeededTables } from './fixture-metadata.js';
+import { resolveSeedOptions } from './options.js';
+import {
+  sampleActivityLog,
+  sampleChecklistItems,
+  sampleChecklists,
+  sampleCommentMentions,
+  sampleComments,
+  sampleLabels,
+  sampleNotifications,
+  sampleProjectMembers,
+  sampleProjects,
+  sampleTaskLabels,
+  sampleTaskWatchers,
+  sampleTasks,
+  sampleWorkflowStatuses,
+  sampleWorkflows,
+} from './sample-fixtures.js';
+import { printSeedSummary } from './summary.js';
 
 type PermissionScope = 'global' | 'organization';
 
@@ -11,24 +29,7 @@ interface PermissionCatalogEntry {
   scope: PermissionScope;
 }
 
-const KNOWN_PASSWORD = 'Taskforge123!';
 const KNOWN_PASSWORD_HASH = '$2b$12$NP8SI4Y.jSLTo2eJuqHEQOve7AzKxIiWPOX18lD2YaHMPcvzPicbu';
-
-// Shared TOTP secret for seeded MFA-enabled users.
-// Both owner@acme and owner@globex use this same base32 secret in dev.
-// Add it to any TOTP app (Google Authenticator, Authy, etc.) to log in.
-// otpauth://totp/TaskForge?secret=JBSWY3DPEHPK3PXP&issuer=TaskForge&algorithm=SHA1&digits=6&period=30
-const SEED_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
-
-function encryptMfaSecret(plaintext: string): string {
-  const encryptionKey = process.env.MFA_ENCRYPTION_KEY ?? 'dev-mfa-key-change-in-production-32ch';
-  const key = crypto.createHash('sha256').update(encryptionKey).digest();
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted.toString('base64')}`;
-}
 
 const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
 
@@ -247,12 +248,28 @@ const permissionCatalog: PermissionCatalogEntry[] = [
 ];
 
 async function seed(): Promise<void> {
+  const options = resolveSeedOptions();
+
   await waitForDb();
 
-  console.log('Seeding database with deterministic fixtures...');
+  console.log(
+    `Seeding database with deterministic fixtures (mode: ${options.mode}, profile: ${options.profile})...`,
+  );
+
+  // In seed-only mode, truncate seeded tables before inserting to allow reseed
+  if (options.mode === 'seed-only') {
+    console.log('Truncating seeded tables for reseed...');
+    const tables = getAllSeededTables();
+    await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+    for (const table of tables) {
+      await pool.query(`TRUNCATE TABLE ${table}`);
+    }
+    await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    console.log('Truncated seeded tables.');
+  }
 
   const existingUsers = await db.select().from(schema.users).limit(1);
-  if (existingUsers.length > 0) {
+  if (existingUsers.length > 0 && options.mode !== 'seed-only') {
     console.log('Database already seeded — skipping');
     return;
   }
@@ -263,8 +280,8 @@ async function seed(): Promise<void> {
       email: 'owner@acme.taskforge.local',
       passwordHash: KNOWN_PASSWORD_HASH,
       displayName: 'Alex Acme',
-      mfaEnabled: true,
-      mfaSecret: encryptMfaSecret(SEED_TOTP_SECRET),
+      mfaEnabled: false,
+      mfaSecret: null,
       emailVerifiedAt: at(1),
       lastLoginAt: at(500),
       createdAt: at(0),
@@ -297,8 +314,8 @@ async function seed(): Promise<void> {
       email: 'owner@globex.taskforge.local',
       passwordHash: KNOWN_PASSWORD_HASH,
       displayName: 'Jordan Globex',
-      mfaEnabled: true,
-      mfaSecret: encryptMfaSecret(SEED_TOTP_SECRET),
+      mfaEnabled: false,
+      mfaSecret: null,
       emailVerifiedAt: at(4),
       lastLoginAt: at(470),
       createdAt: at(0),
@@ -430,9 +447,9 @@ async function seed(): Promise<void> {
       passwordAuthEnabled: true,
       googleOauthEnabled: false,
       githubOauthEnabled: true,
-      mfaEnforced: true,
-      mfaEnforcedAt: at(16),
-      mfaGracePeriodDays: 3,
+      mfaEnforced: false,
+      mfaEnforcedAt: null,
+      mfaGracePeriodDays: 7,
       allowedEmailDomains: ['taskforge.local'],
       createdAt: at(16),
       updatedAt: at(16),
@@ -2227,52 +2244,27 @@ async function seed(): Promise<void> {
     await tx.insert(schema.notifications).values(notifications);
   });
 
-  const summary = {
-    users: users.length,
-    organizations: organizations.length,
-    roles: roles.length,
-    permissions: permissions.length,
-    roleAssignments: roleAssignments.length,
-    permissionAssignments: permissionAssignments.length,
-    invitations: invitations.length,
-    projects: projects.length,
-    projectMembers: projectMembers.length,
-    tasks: tasks.length,
-    comments: comments.length,
-    notifications: notifications.length,
-  };
-
-  console.log('Deterministic seed complete.');
-  console.log('Fixture summary:');
-  console.log(`  Users: ${summary.users}`);
-  console.log(`  Organizations: ${summary.organizations}`);
-  console.log(`  Roles: ${summary.roles}`);
-  console.log(`  Permissions: ${summary.permissions}`);
-  console.log(`  Role assignments: ${summary.roleAssignments}`);
-  console.log(`  Direct permission assignments: ${summary.permissionAssignments}`);
-  console.log(`  Invitations: ${summary.invitations}`);
-  console.log(`  Projects: ${summary.projects}`);
-  console.log(`  Project members: ${summary.projectMembers}`);
-  console.log(`  Tasks: ${summary.tasks}`);
-  console.log(`  Comments: ${summary.comments}`);
-  console.log(`  Notifications: ${summary.notifications}`);
-
-  console.log('Known dev credentials:');
-  console.log(`  Password (all password-enabled users): ${KNOWN_PASSWORD}`);
-  for (const email of [
-    'owner@acme.taskforge.local',
-    'admin@acme.taskforge.local',
-    'member@acme.taskforge.local',
-    'owner@globex.taskforge.local',
-    'admin@globex.taskforge.local',
-    'member@globex.taskforge.local',
-    'qa@taskforge.local',
-    'viewer@acme.taskforge.local',
-    'contractor@globex.taskforge.local',
-    'support@taskforge.local',
-  ]) {
-    console.log(`  - ${email}`);
+  // Insert sample fixtures if --with-sample-data is enabled
+  if (options.includeSampleData) {
+    console.log('Inserting sample fixtures...');
+    await db.insert(schema.projects).values(sampleProjects);
+    await db.insert(schema.workflows).values(sampleWorkflows);
+    await db.insert(schema.workflowStatuses).values(sampleWorkflowStatuses);
+    await db.insert(schema.projectMembers).values(sampleProjectMembers);
+    await db.insert(schema.labels).values(sampleLabels);
+    await db.insert(schema.tasks).values(sampleTasks);
+    await db.insert(schema.taskLabels).values(sampleTaskLabels);
+    await db.insert(schema.taskWatchers).values(sampleTaskWatchers);
+    await db.insert(schema.checklists).values(sampleChecklists);
+    await db.insert(schema.checklistItems).values(sampleChecklistItems);
+    await db.insert(schema.comments).values(sampleComments);
+    await db.insert(schema.commentMentions).values(sampleCommentMentions);
+    await db.insert(schema.activityLog).values(sampleActivityLog);
+    await db.insert(schema.notifications).values(sampleNotifications);
+    console.log('Sample fixtures inserted.');
   }
+
+  printSeedSummary(options.profile);
 }
 
 void seed()

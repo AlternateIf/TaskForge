@@ -14,3 +14,7 @@ export const mfaVerifyLoginSchema = z.object({
     .length(6, 'TOTP code must be exactly 6 digits')
     .regex(/^\d{6}$/, 'TOTP code must be 6 digits'),
 });
+
+export const mfaResetPendingSchema = z.object({
+  password: z.string().min(1).max(255),
+});

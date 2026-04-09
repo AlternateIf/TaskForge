@@ -72,6 +72,9 @@ export async function loginHandler(
       success({
         mfaRequired: true,
         mfaToken: result.mfaToken,
+        ...('mfaSetupRequired' in result && result.mfaSetupRequired
+          ? { mfaSetupRequired: true }
+          : {}),
       }),
     );
   }

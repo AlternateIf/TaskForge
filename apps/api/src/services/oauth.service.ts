@@ -7,6 +7,11 @@ import { createSession } from './auth.service.js';
 import type { JwtPayload, TokenPair } from './auth.service.js';
 import * as invitationService from './invitation.service.js';
 
+export interface MfaEnforcementRedirect {
+  mfaSetupRequired: true;
+  mfaToken: string;
+}
+
 const OAUTH_STATE_TTL = 600; // 10 minutes
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
@@ -454,7 +459,10 @@ export async function handleOAuthCallback(
   jwtSign: (payload: JwtPayload, options: { expiresIn: number }) => string,
   ip?: string,
   userAgent?: string,
-): Promise<{ user: typeof users.$inferSelect; tokens: TokenPair; isNewUser: boolean }> {
+): Promise<
+  | { user: typeof users.$inferSelect; tokens: TokenPair; isNewUser: boolean }
+  | ({ isNewUser: boolean } & MfaEnforcementRedirect)
+> {
   const redis = getRedis();
   const stateData = await redis.get(`oauth:state:${state}`);
 
@@ -495,6 +503,18 @@ export async function handleOAuthCallback(
       userAgent,
     );
 
+    // Check MFA enforcement for the invited user
+    if (!user.mfaEnabled) {
+      const { evaluateMfaEnforcement, createMfaToken } = await import('./mfa.service.js');
+      const enforcement = await evaluateMfaEnforcement(user.id);
+
+      if (enforcement.status === 'enforced') {
+        // Grace period expired — user must set up MFA before accessing the app
+        const mfaToken = await createMfaToken(user.id);
+        return { mfaSetupRequired: true, mfaToken, isNewUser: false };
+      }
+    }
+
     return { user, tokens, isNewUser: false };
   }
 
@@ -527,6 +547,19 @@ export async function handleOAuthCallback(
   }
 
   const user = await findOrCreateUser(provider, userInfo);
+
+  // Check MFA enforcement for the user
+  if (!user.mfaEnabled) {
+    const { evaluateMfaEnforcement, createMfaToken } = await import('./mfa.service.js');
+    const enforcement = await evaluateMfaEnforcement(user.id);
+
+    if (enforcement.status === 'enforced') {
+      // Grace period expired — user must set up MFA before accessing the app
+      const mfaToken = await createMfaToken(user.id);
+      return { mfaSetupRequired: true, mfaToken, isNewUser };
+    }
+  }
+
   const tokens = await createSession(user, jwtSign, ip, userAgent);
 
   return { user, tokens, isNewUser };

@@ -1,10 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRedisGet, mockRedisDel, mockAcceptInvitationWithOAuth, mockFetch } = vi.hoisted(() => ({
+const {
+  mockRedisGet,
+  mockRedisDel,
+  mockAcceptInvitationWithOAuth,
+  mockFetch,
+  mockEvaluateMfaEnforcement,
+  mockCreateMfaToken,
+} = vi.hoisted(() => ({
   mockRedisGet: vi.fn(),
   mockRedisDel: vi.fn(),
   mockAcceptInvitationWithOAuth: vi.fn(),
   mockFetch: vi.fn(),
+  mockEvaluateMfaEnforcement: vi.fn(),
+  mockCreateMfaToken: vi.fn(),
 }));
 
 vi.mock('../../utils/redis.js', () => ({
@@ -16,6 +25,11 @@ vi.mock('../../utils/redis.js', () => ({
 
 vi.mock('../invitation.service.js', () => ({
   acceptInvitationWithOAuth: mockAcceptInvitationWithOAuth,
+}));
+
+vi.mock('../mfa.service.js', () => ({
+  evaluateMfaEnforcement: mockEvaluateMfaEnforcement,
+  createMfaToken: mockCreateMfaToken,
 }));
 
 import { handleOAuthCallback } from '../oauth.service.js';
@@ -63,6 +77,7 @@ describe('oauth.service invite callback', () => {
     const acceptedUser = {
       id: 'user-1',
       email: 'invited@example.com',
+      mfaEnabled: false,
     };
     const acceptedTokens = {
       accessToken: 'access-token',
@@ -72,6 +87,9 @@ describe('oauth.service invite callback', () => {
       user: acceptedUser,
       tokens: acceptedTokens,
     });
+
+    // MFA not enforced — user gets tokens directly
+    mockEvaluateMfaEnforcement.mockResolvedValue({ status: 'none' });
 
     const jwtSign = vi.fn(() => 'signed-jwt');
     const result = await handleOAuthCallback(
@@ -148,5 +166,189 @@ describe('oauth.service invite callback', () => {
     );
 
     expect(mockAcceptInvitationWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('redirects to MFA setup when invited user belongs to an org that enforces MFA (expired grace)', async () => {
+    mockRedisGet.mockResolvedValue(
+      JSON.stringify({
+        provider: 'google',
+        codeVerifier: 'pkce-verifier',
+        callbackUrl: 'http://localhost:3000/api/v1/auth/oauth/google/callback',
+        inviteTokenHash: 'invite-hash-mfa',
+        inviteProvider: 'google',
+      }),
+    );
+    mockRedisDel.mockResolvedValue(1);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'provider-access-token' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'google-user-mfa',
+          email: 'mfa-invited@example.com',
+          name: 'MFA Invited User',
+          picture: null,
+        }),
+      });
+
+    const acceptedUser = {
+      id: 'user-mfa',
+      email: 'mfa-invited@example.com',
+      mfaEnabled: false,
+    };
+    const acceptedTokens = {
+      accessToken: 'access-token-mfa',
+      refreshTokenRaw: 'refresh-token-mfa',
+    };
+    mockAcceptInvitationWithOAuth.mockResolvedValue({
+      user: acceptedUser,
+      tokens: acceptedTokens,
+    });
+
+    mockEvaluateMfaEnforcement.mockResolvedValue({
+      status: 'enforced',
+      graceEndsAt: new Date('2025-01-01T00:00:00.000Z'),
+    });
+    mockCreateMfaToken.mockResolvedValue('mfa-token-abc');
+
+    const jwtSign = vi.fn(() => 'signed-jwt');
+    const result = await handleOAuthCallback(
+      'oauth-code',
+      'oauth-state-mfa',
+      jwtSign,
+      '127.0.0.1',
+      'vitest-agent',
+    );
+
+    expect(result).toEqual({
+      mfaSetupRequired: true,
+      mfaToken: 'mfa-token-abc',
+      isNewUser: false,
+    });
+    expect(mockEvaluateMfaEnforcement).toHaveBeenCalledWith('user-mfa');
+    expect(mockCreateMfaToken).toHaveBeenCalledWith('user-mfa');
+  });
+
+  it('returns tokens for invited user when MFA not enforced', async () => {
+    mockRedisGet.mockResolvedValue(
+      JSON.stringify({
+        provider: 'google',
+        codeVerifier: 'pkce-verifier',
+        callbackUrl: 'http://localhost:3000/api/v1/auth/oauth/google/callback',
+        inviteTokenHash: 'invite-hash-no-mfa',
+        inviteProvider: 'google',
+      }),
+    );
+    mockRedisDel.mockResolvedValue(1);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'provider-access-token' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'google-user-no-mfa',
+          email: 'no-mfa@example.com',
+          name: 'No MFA User',
+          picture: null,
+        }),
+      });
+
+    const acceptedUser = {
+      id: 'user-no-mfa',
+      email: 'no-mfa@example.com',
+      mfaEnabled: false,
+    };
+    const acceptedTokens = {
+      accessToken: 'access-token-no-mfa',
+      refreshTokenRaw: 'refresh-token-no-mfa',
+    };
+    mockAcceptInvitationWithOAuth.mockResolvedValue({
+      user: acceptedUser,
+      tokens: acceptedTokens,
+    });
+
+    mockEvaluateMfaEnforcement.mockResolvedValue({ status: 'none' });
+
+    const jwtSign = vi.fn(() => 'signed-jwt');
+    const result = await handleOAuthCallback(
+      'oauth-code',
+      'oauth-state-no-mfa',
+      jwtSign,
+      '127.0.0.1',
+      'vitest-agent',
+    );
+
+    expect(result).toEqual({
+      user: acceptedUser,
+      tokens: acceptedTokens,
+      isNewUser: false,
+    });
+    expect(mockEvaluateMfaEnforcement).toHaveBeenCalledWith('user-no-mfa');
+  });
+
+  it('returns tokens for invited user when MFA already enabled', async () => {
+    mockRedisGet.mockResolvedValue(
+      JSON.stringify({
+        provider: 'google',
+        codeVerifier: 'pkce-verifier',
+        callbackUrl: 'http://localhost:3000/api/v1/auth/oauth/google/callback',
+        inviteTokenHash: 'invite-hash-mfa-on',
+        inviteProvider: 'google',
+      }),
+    );
+    mockRedisDel.mockResolvedValue(1);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'provider-access-token' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'google-user-mfa-on',
+          email: 'mfa-on@example.com',
+          name: 'MFA On User',
+          picture: null,
+        }),
+      });
+
+    const acceptedUser = {
+      id: 'user-mfa-on',
+      email: 'mfa-on@example.com',
+      mfaEnabled: true, // MFA already enabled
+    };
+    const acceptedTokens = {
+      accessToken: 'access-token-mfa-on',
+      refreshTokenRaw: 'refresh-token-mfa-on',
+    };
+    mockAcceptInvitationWithOAuth.mockResolvedValue({
+      user: acceptedUser,
+      tokens: acceptedTokens,
+    });
+
+    const jwtSign = vi.fn(() => 'signed-jwt');
+    const result = await handleOAuthCallback(
+      'oauth-code',
+      'oauth-state-mfa-on',
+      jwtSign,
+      '127.0.0.1',
+      'vitest-agent',
+    );
+
+    // When MFA is already enabled, no enforcement check is needed
+    expect(result).toEqual({
+      user: acceptedUser,
+      tokens: acceptedTokens,
+      isNewUser: false,
+    });
+    expect(mockEvaluateMfaEnforcement).not.toHaveBeenCalled();
   });
 });

@@ -32,6 +32,8 @@ export interface SecurityOverview {
   mfaEnabled: boolean;
   lastLoginAt: string | null;
   activeSessions: number;
+  mfaEnforcedByOrg?: boolean;
+  mfaGracePeriodEndsAt?: string | null;
 }
 
 interface SecurityOverviewResponse {
