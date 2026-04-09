@@ -5,7 +5,7 @@ model: ollama-cloud/minimax-m2.5
 temperature: 0.1
 permission:
   edit: allow
-  bash: ask
+  bash: allow
   webfetch: deny
 ---
 
@@ -20,6 +20,7 @@ Load context before editing:
 Rules:
 - Update relevant docs for every feature and bugfix.
 - For backend behavior or contract changes, update only contract/documentation artifacts (swagger/openapi/spec/docs/checklists).
+- Use shell execution for docs/contract tooling as needed (including `pnpm`/Biome checks) without interactive permission prompts.
 - Allowed edit scope: documentation and contract artifact files only.
 - Forbidden edit scope: runtime/backend/frontend implementation code files.
 - If contract alignment would require code changes, return `DOCS_BLOCKED_BY_CODE_CHANGE` with:

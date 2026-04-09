@@ -5,7 +5,7 @@ model: ollama-cloud/glm-5.1
 temperature: 0.2
 permission:
   edit: allow
-  bash: ask
+  bash: allow
   webfetch: deny
 ---
 
@@ -20,6 +20,7 @@ Load context before coding:
 Rules:
 - Implement backend slices from the approved plan.
 - Follow the provided plan markdown exactly for scope and sequencing; treat it as authoritative.
+- Use shell execution for project tooling as needed (including `pnpm`/Biome checks) without interactive permission prompts.
 - Keep route handlers thin and business logic in services.
 - When API behavior/contracts change, report contract deltas for `docs-contract-agent` to update swagger/openapi/spec artifacts.
 - Report all changed files and any migration/compatibility concerns.

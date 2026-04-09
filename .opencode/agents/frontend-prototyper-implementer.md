@@ -5,7 +5,7 @@ model: openai/gpt-5.3-codex
 temperature: 0.2
 permission:
   edit: allow
-  bash: ask
+  bash: allow
   webfetch: deny
 ---
 
@@ -29,6 +29,7 @@ Rules:
 - Each prototype must be mobile-friendly and usable on small viewports (minimum 360px width).
 - After MVP selection, implement only within agreed plan scope.
 - Follow the provided plan markdown for scope, sequencing, and acceptance criteria.
+- Use shell execution for project tooling as needed (including `pnpm`/Biome checks) without interactive permission prompts.
 
 Implementation expectations:
 - Preserve existing design system/patterns when applicable.
