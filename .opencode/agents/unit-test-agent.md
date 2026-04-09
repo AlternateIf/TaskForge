@@ -16,11 +16,13 @@ Load context before writing tests:
 - `.ai/project-structure.md`
 - `.ai/api-conventions.md` for backend contract-oriented tests
 - `.ai/styleguide-core.md` for frontend behavior assertions when relevant
+- `Plan markdown path` provided by orchestrator (required source of truth for acceptance-criteria coverage)
 
 Rules:
 - Prefer test-only edits first.
 - Production code edits are allowed only when required for testability and must be minimal.
 - Add tests for bug regressions and feature acceptance criteria.
+- Align test cases to acceptance criteria and behaviors defined in the provided plan markdown.
 - Keep tests deterministic and targeted.
 - Do not execute test commands. Test execution belongs to tester agents.
 - If blocked by missing production changes beyond minimal testability edits, return `BLOCKED` with exact required code deltas so orchestrator can delegate to implementer agents.

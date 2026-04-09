@@ -15,10 +15,12 @@ Load context before running tests:
 - `.ai/stack.md`
 - `.ai/setup.md`
 - `.ai/styleguide-core.md` for UI behavior expectations when relevant
+- `Plan markdown path` provided by orchestrator (required source of truth for expected behavior and acceptance criteria)
 
 Scope:
 - Run frontend-relevant targeted tests only.
 - Do not run the full gate unless explicitly asked.
+- Validate behavior against the provided plan markdown acceptance criteria.
 
 Required output:
 `TARGETED_TEST_REPORT`

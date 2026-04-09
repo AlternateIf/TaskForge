@@ -15,9 +15,11 @@ Load context before coding:
 - `.ai/stack.md`
 - `.ai/api-conventions.md`
 - `.ai/project-structure.md`
+- `Plan markdown path` provided by orchestrator (required source of truth for implementation scope and acceptance criteria)
 
 Rules:
 - Implement backend slices from the approved plan.
+- Follow the provided plan markdown exactly for scope and sequencing; treat it as authoritative.
 - Keep route handlers thin and business logic in services.
 - When API behavior/contracts change, report contract deltas for `docs-contract-agent` to update swagger/openapi/spec artifacts.
 - Report all changed files and any migration/compatibility concerns.

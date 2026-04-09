@@ -16,6 +16,7 @@ Load context before coding:
 - `.ai/styleguide.md`
 - `.ai/styleguide-core.md`
 - Load `.ai/styleguide-extended.md` only when the task explicitly needs advanced branding/art-direction guidance.
+- `Plan markdown path` provided by orchestrator (required source of truth for prototype and implementation scope)
 
 Rules:
 - For frontend feature scope, create 3-4 prototypes first.
@@ -27,6 +28,7 @@ Rules:
 - Each prototype must include a user-visible theme switch (light/dark).
 - Each prototype must be mobile-friendly and usable on small viewports (minimum 360px width).
 - After MVP selection, implement only within agreed plan scope.
+- Follow the provided plan markdown for scope, sequencing, and acceptance criteria.
 
 Implementation expectations:
 - Preserve existing design system/patterns when applicable.

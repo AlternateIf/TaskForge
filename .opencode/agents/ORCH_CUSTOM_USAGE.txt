@@ -92,6 +92,7 @@ Mandatory process:
 4) Stop for my manual plan review feedback using the same `PLAN_MD_PATH`.
 5) If I provide feedback, run planner + plan-challenger for up to 3 additional rounds to incorporate/challenge my input.
    Stop early when challenger has no HIGH issues, and keep updating the same `PLAN_MD_PATH`.
+   Pass this same `PLAN_MD_PATH` to implementers, testers, and `unit-test-agent` in all subsequent delegated tasks.
 6) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
 7) Create exactly 3-4 frontend prototypes under:
    local/prototype/component/dashboard-summary/
