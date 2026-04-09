@@ -4,6 +4,7 @@ mode: subagent
 model: openai/gpt-5.4
 temperature: 0.1
 permission:
+  question: allow
   edit: deny
   bash: deny
   webfetch: deny
@@ -34,6 +35,7 @@ Output format:
 7. Done checklist
 8. Plan status: `PLAN_READY` or `PLAN_NEEDS_REVISION`
 9. Discovery requests: `NONE` or explicit unknowns requiring explorer
+10. User clarification questions: `NONE` or up to 3 targeted questions for missing feature/plan inputs
 
 Planning requirements:
 - Prefer parallel slices when safe.
@@ -42,5 +44,7 @@ Planning requirements:
 - Keep merge as manual.
 - Include required validation gate: `pnpm lint && pnpm test`.
 - Call out unknowns that require user input before implementation starts.
+- Planner is allowed to ask the user targeted clarification questions when feature scope, constraints, or acceptance criteria are ambiguous.
+- Keep clarification rounds tight: ask at most 3 questions at a time, and only questions that unblock planning decisions.
 - For bugfixes, step 1 must include the first concrete reproduction command(s) and success/failure signal.
 - For feature work, prefer self-contained planning and avoid discovery unless unknowns are explicit blockers.

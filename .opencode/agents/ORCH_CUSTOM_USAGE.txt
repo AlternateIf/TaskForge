@@ -82,7 +82,7 @@ Rough spec:
 Add a project dashboard summary card section in the web app, backed by an API endpoint that returns project activity summary data.
 
 Mandatory process:
-1) Plan with me first (planner).
+1) Plan with me first (planner). If planner asks clarification questions, ask me and feed answers back to planner before moving on.
 2) Challenge the plan (plan-challenger).
 3) Send challenger findings back to planner until PLAN_READY (max 5 loops).
 4) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
