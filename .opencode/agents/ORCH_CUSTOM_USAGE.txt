@@ -81,8 +81,13 @@ Prompt:
 Feature workflow with frontend + backend. Delegate-only mode.
 
 Rough spec:
-The user settings page currently has a MFA section that currently only shows if MFA is activated or not. It has a "manage" link that currently does not do anything.
-This manage Button should open a modal that allows the user to setup his MFA. Possible MFAs are common Authenticator apps for now
+We need a page that is only available with the correct permissions (or roles that hold permissions). [a rough overview of permissions can be found in setup.md]
+This page features a) organization settings like changing the org name, showing all members of the org, allowing to remove members
+as well as inviting new members. the flow is: if registration is open [can be set via env variable] user can just register; if it is closed the "registration" is invite only.
+For that we previously already had the frontend to invite members by email [with resend functionality etc /auth/invite?token=]. they would get an email with a link and through that they could register. maybe you can find the old behavior via git
+b) role and permission handling where you can create new roles, assign roles to users of an org [keep in mind a user can have multiple orgs] and assign single permissions to users of an org
+everything should feel intuitive and easy for users. because this is important i want you to create 6 prototypes this time. org settings may also include name, logo, auth settings (force mfa)
+for the frontend consider mobile friendly, dark and light mode and give some variations in the prototypes. the prototypes should be html to be viewable in the browser. it would be nice if the prototype had a theme toggle
 
 Mandatory process:
 1) Plan with me first (planner). Create one shared `PLAN_MD_PATH` in `.ai/plans/` before round 1, then keep updating that same file each round.
@@ -90,7 +95,7 @@ Mandatory process:
 2) Challenge the plan (plan-challenger).
    Always send challenger the full current plan from `PLAN_MD_PATH` plus a short "changes since last round" summary.
 3) Send challenger findings back to planner only while challenger has unresolved HIGH issues; stop early when highest severity is below HIGH.
-   Max 5 loops applies only to those blocking HIGH-severity rounds.
+   Max 10 loops applies only to those blocking MEDIUM-severity rounds.
    If I explicitly ask, increase planning loop cap to 15 for the current run only.
 4) Stop for my manual plan review feedback using the same `PLAN_MD_PATH`.
 5) If I provide feedback, run planner + plan-challenger for up to 3 additional rounds to incorporate/challenge my input.

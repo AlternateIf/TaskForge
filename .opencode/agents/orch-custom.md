@@ -167,17 +167,17 @@ Feature workflow (when frontend is involved):
    - If `planner` requests clarification questions, ask the user and loop back to `planner` until clarified or `PLAN_READY`.
    - Before first planner output, create a single `PLAN_MD_PATH` under `.ai/plans/`; persist round-1 planner output there and pass this path in every planner/challenger prompt.
 2. Plan challenge and corrections.
-3. Send challenger findings back to planner for revision only while challenge remains blocking (`HIGH` severity unresolved).
+3. Send challenger findings back to planner for revision only while challenge remains blocking (`MEDIUM` severity unresolved).
    - In each challenge round, pass the full current plan plus a short summary of changes since the previous round, always referencing the same `PLAN_MD_PATH`.
-   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `HIGH`).
-   - Max 5 loops applies only to consecutive blocking (`HIGH`) revision rounds, unless user explicitly overrides loop cap.
+   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `MEDIUM`).
+   - Max 10 loops applies only to consecutive blocking (`MEDIUM`) revision rounds, unless user explicitly overrides loop cap.
    - If blocking loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
    - Update the same `PLAN_MD_PATH` on every round; do not create a new plan file per round.
    - Then run a manual user plan-review step: present the saved plan for feedback before implementation planning continues.
    - If user provides feedback, run up to 3 additional planner/challenger rounds focused on incorporating and challenging that feedback.
    - Stop these additional rounds early when challenge status is `CHALLENGE_CLEAR`, and keep `PLAN_MD_PATH` as the single updated plan artifact.
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
-5. Create 3-4 frontend prototypes.
+5. Create 3-6 frontend prototypes.
   - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
   - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
   - Prototype generation must not modify existing code; only create/update files inside `local/prototypes/%feature%/html-prototypes/`.
