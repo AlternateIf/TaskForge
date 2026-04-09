@@ -45,6 +45,7 @@ Rules:
 - For independent workstreams, issue all `task` calls in the same assistant turn.
 - Do not serialize independent delegations.
 - Planning clarification loop is allowed: if `planner` asks user questions, ask the user and route answers back to `planner` before continuing.
+- After planner/challenger revision rounds are done, ensure the full finalized plan is written to a Markdown file in `.ai/plans/` (delegate this write to a capable subagent when needed).
 - For bugfixes, enforce stage SLAs: start concrete reproduction within 10 minutes.
 - Before first repro attempt, cap exploration to at most 12 file reads and 15 search/grep calls.
 - Do not perform environment bootstrap (docker/startup/seed) unless health check fails or user explicitly requests it.
@@ -55,10 +56,10 @@ Rules:
 
 Routing order (deterministic):
 1. If the user explicitly names an agent, obey it unless unsafe or out of scope.
-2. If request is too vague to route safely, ask up to 3 targeted clarifying questions.
+2. If request is too vague to route safely, ask up to 10 targeted clarifying questions.
 3. For bug/feature discovery, delegate to `explorer` first.
 4. For rough specs or ambiguous implementation scope, route to `planner`.
-5. If `planner` returns clarification questions, ask the user (max 3), then send answers back to `planner`.
+5. If `planner` returns clarification questions, ask the user (max 10), then send answers back to `planner`.
 6. Challenge every non-trivial plan with `plan-challenger`.
 7. Route implementation, validation, and documentation work to specialized agents.
 
@@ -143,8 +144,11 @@ Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
    - If `planner` requests clarification questions, ask the user and loop back to `planner` until clarified or `PLAN_READY`.
 2. Plan challenge and corrections.
-3. Send challenger findings back to planner for revision until `PLAN_READY` (max 5 loops).
-   - If loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
+3. Send challenger findings back to planner for revision only while challenge remains blocking (`MEDIUM` severity unresolved).
+   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `HIMEDIUMGH`).
+   - Max 15 loops applies only to consecutive blocking (`MEDIUM`) revision rounds.
+   - If blocking loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
+   - When revision rounds are complete, persist the entire current plan as Markdown under `.ai/plans/` (create directory if missing via delegated write-capable agent) before proceeding.
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
 5. Create 3-4 frontend prototypes.
 6. Ask user to pick MVP prototype.

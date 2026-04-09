@@ -25,10 +25,19 @@ Focus:
 - Incomplete test strategy
 - Overly serial execution where safe parallelism is possible
 
+Severity rubric:
+- `HIGH`: blocking risk that must be addressed before implementation proceeds.
+- `MEDIUM`: important but non-blocking; can proceed with explicit follow-up.
+- `LOW`: minor improvement; non-blocking.
+
 Return:
 1. High-risk gaps
 2. Medium-risk gaps
-3. Concrete plan corrections
-4. Updated done checklist additions
-5. Challenge status: `CHALLENGE_BLOCKING` or `CHALLENGE_CLEAR`
-6. Discovery need: `NONE` or explicit unknowns that require explorer
+3. Low-risk gaps
+4. Concrete plan corrections
+5. Updated done checklist additions
+6. Highest remaining severity: `HIGH` | `MEDIUM` | `LOW` | `NONE`
+7. Challenge status: `CHALLENGE_BLOCKING` or `CHALLENGE_CLEAR`
+   - Use `CHALLENGE_BLOCKING` only when unresolved `HIGH` gaps remain.
+   - Use `CHALLENGE_CLEAR` when highest remaining severity is below `HIGH`.
+8. Discovery need: `NONE` or explicit unknowns that require explorer
