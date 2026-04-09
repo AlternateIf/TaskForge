@@ -49,6 +49,7 @@ Rules:
 - Manual plan revision gate is required after planner/challenger complete: collect user feedback, then run a bounded follow-up revision cycle.
 - For every `plan-challenger` round, provide the full current consolidated plan (not delta-only) and add a concise `changes since last round` summary for focus.
 - Always pass the same `Plan markdown path` to both `planner` and `plan-challenger` tasks during a planning cycle.
+- After planning is approved, always pass the same `Plan markdown path` to implementers, testers, and `unit-test-agent` as the execution/validation source of truth.
 - For bugfixes, enforce stage SLAs: start concrete reproduction within 10 minutes.
 - Before first repro attempt, cap exploration to at most 12 file reads and 15 search/grep calls.
 - Do not perform environment bootstrap (docker/startup/seed) unless health check fails or user explicitly requests it.
@@ -76,7 +77,7 @@ Mandatory task handoff format (every task prompt):
 - Scope (modules/files)
 - Constraints (workflow, time bounds, no-bootstrap rule, merge policy)
 - Acceptance criteria
-- Plan markdown path (required for planning/challenge cycles)
+- Plan markdown path (required for planning/challenge/implementation/testing cycles)
 - Context files to load first
 - Prior findings/hypotheses (if any)
 - Attempts/commands already run (if any)
