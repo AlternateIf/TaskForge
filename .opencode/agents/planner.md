@@ -5,7 +5,7 @@ model: openai/gpt-5.4
 temperature: 0.1
 permission:
   question: allow
-  edit: deny
+  edit: allow
   bash: deny
   webfetch: deny
 ---
@@ -59,3 +59,11 @@ Planning requirements:
 - For feature work, prefer self-contained planning and avoid discovery unless unknowns are explicit blockers.
 - Scope discipline: do not expand scope for pre-existing or adjacent issues unless user explicitly approves scope expansion.
 - If revising after challenge, keep stable challenge IDs and map each blocking issue to an explicit plan change.
+
+Plan file synchronization (mandatory):
+- If `Plan markdown path` is provided, update that file in the same turn before returning your response.
+- The markdown file is the canonical output; chat summary is secondary and must match file contents.
+- Any plan delta (scope, slices, acceptance, tests, risks, checklist, status, or open questions) must be persisted to the same file immediately.
+- Never leave placeholder sections like `TBD` after a planning/revision response.
+- In every response, include `Plan file sync: UPDATED <path>` after writing the file.
+- If you cannot write the file for any reason, return `Plan file sync: BLOCKED <reason>` and set `Plan status: PLAN_NEEDS_REVISION`.
