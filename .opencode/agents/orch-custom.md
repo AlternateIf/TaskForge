@@ -45,7 +45,10 @@ Rules:
 - For independent workstreams, issue all `task` calls in the same assistant turn.
 - Do not serialize independent delegations.
 - Planning clarification loop is allowed: if `planner` asks user questions, ask the user and route answers back to `planner` before continuing.
-- After planner/challenger revision rounds are done, ensure the full finalized plan is written to a Markdown file in `.ai/plans/` (delegate this write to a capable subagent when needed).
+- Initialize a single plan artifact path in `.ai/plans/` before the first planner round and keep updating the same file across all planner/challenger/user-feedback rounds (delegate writes to a capable subagent when needed).
+- Manual plan revision gate is required after planner/challenger complete: collect user feedback, then run a bounded follow-up revision cycle.
+- For every `plan-challenger` round, provide the full current consolidated plan (not delta-only) and add a concise `changes since last round` summary for focus.
+- Always pass the same `Plan markdown path` to both `planner` and `plan-challenger` tasks during a planning cycle.
 - For bugfixes, enforce stage SLAs: start concrete reproduction within 10 minutes.
 - Before first repro attempt, cap exploration to at most 12 file reads and 15 search/grep calls.
 - Do not perform environment bootstrap (docker/startup/seed) unless health check fails or user explicitly requests it.
@@ -73,6 +76,7 @@ Mandatory task handoff format (every task prompt):
 - Scope (modules/files)
 - Constraints (workflow, time bounds, no-bootstrap rule, merge policy)
 - Acceptance criteria
+- Plan markdown path (required for planning/challenge cycles)
 - Context files to load first
 - Prior findings/hypotheses (if any)
 - Attempts/commands already run (if any)
@@ -143,14 +147,22 @@ Routing policy:
 Feature workflow (when frontend is involved):
 1. Plan from rough spec with user discussion.
    - If `planner` requests clarification questions, ask the user and loop back to `planner` until clarified or `PLAN_READY`.
+   - Before first planner output, create a single `PLAN_MD_PATH` under `.ai/plans/`; persist round-1 planner output there and pass this path in every planner/challenger prompt.
 2. Plan challenge and corrections.
 3. Send challenger findings back to planner for revision only while challenge remains blocking (`MEDIUM` severity unresolved).
-   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `HIMEDIUMGH`).
+   - In each challenge round, pass the full current plan plus a short summary of changes since the previous round, always referencing the same `PLAN_MD_PATH`.
+   - Stop the planner/challenger loop early when challenge status is `CHALLENGE_CLEAR` (highest remaining severity below `MEDIUM`).
    - Max 15 loops applies only to consecutive blocking (`MEDIUM`) revision rounds.
    - If blocking loop cap is reached and latest challenge status is `CHALLENGE_BLOCKING`, stop and ask user for a decision before implementation.
-   - When revision rounds are complete, persist the entire current plan as Markdown under `.ai/plans/` (create directory if missing via delegated write-capable agent) before proceeding.
+   - Update the same `PLAN_MD_PATH` on every round; do not create a new plan file per round.
+   - Then run a manual user plan-review step: present the saved plan for feedback before implementation planning continues.
+   - If user provides feedback, run up to 3 additional planner/challenger rounds focused on incorporating and challenging that feedback.
+   - Stop these additional rounds early when challenge status is `CHALLENGE_CLEAR`, and keep `PLAN_MD_PATH` as the single updated plan artifact.
 4. Run explorer only if `PLAN_READY` still lists unresolved unknowns.
 5. Create 3-4 frontend prototypes.
+   - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
+   - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
+   - Prototype generation must not modify existing code; only create/update files inside the designated prototype directory.
 6. Ask user to pick MVP prototype.
 7. Implement selected MVP with full plan scope.
 8. Check plan coverage.

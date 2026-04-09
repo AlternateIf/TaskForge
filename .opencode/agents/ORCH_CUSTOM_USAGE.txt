@@ -83,21 +83,29 @@ The user settings page currently has a MFA section that currently only shows if 
 This manage Button should open a modal that allows the user to setup his MFA. Possible MFAs are common Authenticator apps for now
 
 Mandatory process:
-1) Plan with me first (planner). If planner asks clarification questions, ask me and feed answers back to planner before moving on.
+1) Plan with me first (planner). Create one shared `PLAN_MD_PATH` in `.ai/plans/` before round 1, then keep updating that same file each round.
+   If planner asks clarification questions, ask me and feed answers back to planner before moving on.
 2) Challenge the plan (plan-challenger).
+   Always send challenger the full current plan from `PLAN_MD_PATH` plus a short "changes since last round" summary.
 3) Send challenger findings back to planner only while challenger has unresolved HIGH issues; stop early when highest severity is below HIGH.
    Max 5 loops applies only to those blocking HIGH-severity rounds.
-4) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
-5) Create exactly 3-4 frontend prototypes under:
+4) Stop for my manual plan review feedback using the same `PLAN_MD_PATH`.
+5) If I provide feedback, run planner + plan-challenger for up to 3 additional rounds to incorporate/challenge my input.
+   Stop early when challenger has no HIGH issues, and keep updating the same `PLAN_MD_PATH`.
+6) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
+7) Create exactly 3-4 frontend prototypes under:
    local/prototype/component/dashboard-summary/
-6) Stop and ask me to choose MVP prototype.
-7) Implement chosen MVP and backend support in parallel where independent.
-8) Check plan coverage against acceptance criteria.
-9) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
-10) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:
+   Each prototype must include a light/dark switch and be mobile friendly (minimum 360px viewport support).
+   Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX).
+   Prototype generation must not change existing code; only files in the prototype directory may be edited.
+8) Stop and ask me to choose MVP prototype.
+9) Implement chosen MVP and backend support in parallel where independent.
+10) Check plan coverage against acceptance criteria.
+11) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
+12) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:
    pnpm lint && pnpm test
-11) Update docs via `docs-contract-agent`; if backend contract changed, update swagger/openapi artifacts there too.
-12) Manual merge only.
+13) Update docs via `docs-contract-agent`; if backend contract changed, update swagger/openapi artifacts there too.
+14) Manual merge only.
 
 Boundaries:
 - No local tool work in orch-custom; delegate all execution.
