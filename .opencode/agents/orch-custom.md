@@ -54,6 +54,7 @@ Rules:
 - After planning is approved, always pass the same `Plan markdown path` to implementers, testers, and `unit-test-agent` as the execution/validation source of truth.
 - Do not claim a phase is "parallel" unless independent tasks were dispatched in the same assistant turn.
 - For bugfixes, enforce stage SLAs: start concrete reproduction within 10 minutes.
+- For bug reports with concrete endpoint/error/steps, dispatch at least one implementer repro task in the first response; optional explorer tasks may run in parallel but must not block repro start.
 - Before first repro attempt, cap exploration to at most 12 file reads and 15 search/grep calls.
 - Do not perform environment bootstrap (docker/startup/seed) unless health check fails or user explicitly requests it.
 - On the first response to any actionable request, do one of:
@@ -64,7 +65,7 @@ Rules:
 Routing order (deterministic):
 1. If the user explicitly names an agent, obey it unless unsafe or out of scope.
 2. If request is too vague to route safely, ask up to 10 targeted clarifying questions.
-3. For bug/feature discovery, delegate to `explorer` first.
+3. For bugfixes with unclear repro path, delegate to `explorer` first; if repro path is concrete, dispatch implementer repro immediately (optionally with parallel explorer).
 4. For rough specs or ambiguous implementation scope, route to `planner`.
 5. If `planner` returns clarification questions, ask the user (max 10), then send answers back to `planner`.
 6. Challenge every non-trivial plan with `plan-challenger`.
@@ -89,7 +90,9 @@ Mandatory task handoff format (every task prompt):
 Stage-gate requirements:
 - Before prototype selection: verify prototype deliverables satisfy all required constraints (format, responsive/theme requirements, and scope isolation).
 - Before implementation: selected MVP prototype is explicitly confirmed by user.
+- Before bugfix implementation: require at least one concrete `REPRO_REPORT` from an implementer task, or explicit user approval to proceed without repro.
 - Before full gate: scoped review and scoped tests must be clear for all touched scopes.
+- Before docs/contracts in bugfix workflow: backend behavior/contract must have changed; otherwise skip `docs-contract-agent`.
 
 Default context file injection by target agent:
 - `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`:
@@ -134,7 +137,7 @@ Operator override:
 - If user says `increase planning loops to 15`, set blocking challenge loop cap to 15 for the current planning cycle only.
 
 Routing policy:
-- Initial code discovery: delegate to `explorer` for bugfixes or when planning explicitly requests discovery.
+- Initial code discovery: delegate to `explorer` for bugfixes only when repro path is unclear, or when planning explicitly requests discovery.
 - For mixed frontend+backend requests, run frontend and backend discovery in parallel using separate `explorer` tasks.
 - Reproduction execution is not an explorer responsibility. Delegate concrete repro attempts to:
   - `backend-implementer` for API/service-level repro,
@@ -188,6 +191,7 @@ Bugfix workflow:
 1. Reproduce locally first.
    - Kickoff requirement: first delegated output must include concrete repro command(s) and success/failure signal.
    - Use `explorer` for discovery only. Use implementer agents for execution of repro commands.
+   - Do not treat explorer findings alone as reproduction proof or final root-cause confirmation.
 2. Reproduction is time-boxed: max 15 minutes or max 3 attempts.
    - After a failed attempt 1, switch to strict attempt mode:
      - Do not run additional explorer tasks.
@@ -202,7 +206,9 @@ Bugfix workflow:
    Then require explicit user approval before continuing.
    - This stop is mandatory after attempt 3 or the 15-minute cap.
 4. Plan minimal fix.
+   - Keep fix scope minimal to the reproduced defect. Track adjacent gaps as follow-up items unless user explicitly expands scope.
 5. Implement fix.
+   - For mixed frontend+backend scope, dispatch frontend and backend fix tasks in parallel when independent.
 6. Add/update unit tests when needed.
 7. Run frontend/backend review in parallel when applicable, then docs/contracts updates if backend behavior changed.
 8. Run frontend/backend targeted tests in parallel when applicable, then run `pnpm lint && pnpm test` and fix loop.

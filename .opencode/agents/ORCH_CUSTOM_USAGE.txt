@@ -50,6 +50,7 @@ Scope: apps/api auth + apps/web auth probably.
 Mandatory rules:
 - Delegate-only: do not use local read/grep/glob/list/symbol tools in orch-custom.
 - First response must dispatch at least one task (or ask max 3 targeted clarifying questions).
+- If endpoint/error/steps are concrete, first response must dispatch at least one implementer repro task; explorer can run in parallel but must not block repro start.
 - Start concrete reproduction within 10 minutes.
 - Before first repro attempt: max 12 file reads and max 15 search/grep calls (by subagents).
 - Reproduction cap: max 15 minutes OR max 3 attempts.
@@ -60,6 +61,7 @@ Mandatory rules:
   3) instrumentation/logging additions,
   4) smallest safe hardening patch option.
   Then ask for my approval before continuing.
+- Do not treat explorer hypotheses as reproduction proof; reproduction must be confirmed by implementer/tester execution output.
 
 After successful repro:
 follow process exactly:

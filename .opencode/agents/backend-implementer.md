@@ -24,3 +24,4 @@ Rules:
 - Keep route handlers thin and business logic in services.
 - When API behavior/contracts change, report contract deltas for `docs-contract-agent` to update swagger/openapi/spec artifacts.
 - Report all changed files and any migration/compatibility concerns.
+- If the task objective is reproduction, return `REPRO_REPORT` including: attempt number, exact commands, timestamps, success/failure signal, and observed evidence (errors/logs).

@@ -30,6 +30,7 @@ Rules:
 - After MVP selection, implement only within agreed plan scope.
 - Follow the provided plan markdown for scope, sequencing, and acceptance criteria.
 - Use shell execution for project tooling as needed (including `pnpm`/Biome checks) without interactive permission prompts.
+- If the task objective is reproduction, return `REPRO_REPORT` including: attempt number, exact commands, timestamps, success/failure signal, and observed evidence (errors/logs).
 
 Implementation expectations:
 - Preserve existing design system/patterns when applicable.
