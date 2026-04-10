@@ -103,13 +103,16 @@ Mandatory process:
    Pass this same `PLAN_MD_PATH` to implementers, testers, and `unit-test-agent` in all subsequent delegated tasks.
 6) Run frontend/backend discovery in parallel only if PLAN_READY still has unresolved unknowns.
 7) Create exactly 3-4 frontend prototypes under (if necessary - only for frontend):
-   local/prototype/component/tool-name/
+   local/prototype/%feature%/html-prototypes/
    Each prototype must include a light/dark switch and be mobile friendly (minimum 360px viewport support).
    Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX).
    Prototype generation must not change existing code; only files in the prototype directory may be edited.
 8) Run prototype compliance check and report exact prototype file paths.
 9) Stop and ask me to choose MVP prototype.
 10) Implement chosen MVP and backend support in parallel where independent.
+    For every frontend task, pass `MVP_PROTOTYPE_HTML_PATH`.
+    If prototype revisions were requested after selection, pass `REVISED_MVP_PROTOTYPE_HTML_PATH` and treat it as authoritative.
+    Require `PROTOTYPE_ADHERENCE_REPORT` in frontend implementer output.
 11) Check plan coverage against acceptance criteria.
 12) Run frontend/backend reviews in parallel (`reviewer-frontend` + `reviewer-backend`), then merge findings with `reviewer-full` if needed.
 13) Run frontend/backend targeted tests in parallel (`tester-frontend` + `tester-backend`), then run full gate once with `tester-full`:

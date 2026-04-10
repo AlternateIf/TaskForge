@@ -47,7 +47,7 @@ Planning requirements:
 - For frontend prototype stages, require a light/dark theme switch in each variant and mobile-friendly behavior (minimum 360px viewport support).
 - For frontend prototype stages, specify browser-viewable HTML prototype artifacts (`.html`) and avoid JSX/TSX prototype deliverables.
 - For frontend prototype stages, enforce no modifications to existing code; prototype generation must be isolated to new files in the prototype directory.
-- For frontend prototype stages, require prototype output path `local/prototypes/%feature%/html-prototypes/` and flag any other path (for example `apps/web/prototype`) as non-compliant.
+- For frontend prototype stages, require prototype output path `local/prototype/%feature%/html-prototypes/` and flag any other path (for example `apps/web/prototype`) as non-compliant.
 - For backend-only features, explicitly skip prototype stages and proceed directly to backend implementation slices.
 - Keep merge as manual.
 - Include required validation gate: `pnpm lint && pnpm test`.

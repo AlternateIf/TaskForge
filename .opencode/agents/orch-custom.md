@@ -183,7 +183,7 @@ Feature workflow (when frontend is involved):
 5. Create 3-6 frontend prototypes.
   - Each prototype must include a light/dark mode switch and mobile-friendly behavior (minimum 360px viewport support).
   - Prototype artifacts must be browser-viewable `.html` files (not JSX/TSX component files).
-  - Prototype generation must not modify existing code; only create/update files inside `local/prototypes/%feature%/html-prototypes/`.
+  - Prototype generation must not modify existing code; only create/update files inside `local/prototype/%feature%/html-prototypes/`.
 6. Run a prototype compliance check against required constraints and report exact prototype file paths.
 7. Ask user to pick MVP prototype.
 8. Implement selected MVP with full plan scope.

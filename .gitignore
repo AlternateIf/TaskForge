@@ -37,3 +37,6 @@ uploads/
 # Logs
 *.log
 tmp.txt
+
+# AI plans
+.ai/plans/
