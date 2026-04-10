@@ -15,6 +15,7 @@ import {
   LogOut,
   Plus,
   Settings,
+  Users,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -78,11 +79,18 @@ interface NavItem {
   label: string;
   path: string;
   Icon: React.ComponentType<{ className?: string }>;
+  requiresGovernance?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Personal Dashboard', path: '/dashboard', Icon: LayoutDashboard },
   { label: 'Projects', path: '/projects', Icon: FolderOpen },
+  {
+    label: 'Organization & Permissions',
+    path: '/settings/organization',
+    Icon: Users,
+    requiresGovernance: true,
+  },
   { label: 'Settings', path: '/settings', Icon: Settings },
 ];
 
@@ -145,6 +153,15 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { user, activeOrganizationId, setActiveOrganizationId } = useAuthStore();
+  const canViewGovernanceSettings = (user?.permissions ?? []).some(
+    (permission) =>
+      (permission.startsWith('organization.') ||
+        permission.startsWith('membership.') ||
+        permission.startsWith('invitation.') ||
+        permission.startsWith('role.') ||
+        permission.startsWith('permission.')) &&
+      permission.endsWith('.org'),
+  );
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -400,64 +417,70 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         aria-label="Main navigation"
       >
         <ul className="flex flex-col gap-1.5">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.path}>
-              <SidebarNavItem
-                item={item}
-                collapsed={collapsed}
-                active={currentPath === item.path || currentPath.startsWith(`${item.path}/`)}
-                onClick={() => handleNavigate(item.path)}
-              />
-              {/* Recent projects — shown indented under "Projects" */}
-              {item.path === '/projects' && recentProjects.length > 0 && (
-                <ul
-                  className={cn(
-                    'mt-1.5 flex flex-col gap-1.5',
-                    collapsed ? 'items-center' : 'pl-sm',
-                  )}
-                >
-                  {recentProjects.map((p) => {
-                    const isActive = currentPath.startsWith(`/projects/${p.id}`);
-                    const button = (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handleNavigate(`/projects/${p.id}/board`)}
-                        aria-current={isActive ? 'page' : undefined}
-                        className={cn(
-                          'flex w-full items-center gap-sm rounded-radius-lg px-2.5 py-sm text-body transition-colors',
-                          isActive
-                            ? 'text-sidebar-row-accent'
-                            : 'text-sidebar-row-muted hover:text-sidebar-row-text',
-                          collapsed && 'justify-center p-sm',
-                        )}
-                      >
-                        <span
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: p.color ?? 'var(--sidebar-row-muted)' }}
-                          aria-hidden
-                        />
-                        {!collapsed && <span className="truncate text-label">{p.name}</span>}
-                      </button>
-                    );
-                    if (collapsed) {
-                      return (
-                        <li key={p.id}>
-                          <Tooltip>
-                            <TooltipTrigger>{button}</TooltipTrigger>
-                            <TooltipContent className="left-full ml-2 top-1/2 -translate-y-1/2">
-                              {p.name}
-                            </TooltipContent>
-                          </Tooltip>
-                        </li>
+          {NAV_ITEMS.filter((item) => !item.requiresGovernance || canViewGovernanceSettings).map(
+            (item) => (
+              <li key={item.path}>
+                <SidebarNavItem
+                  item={item}
+                  collapsed={collapsed}
+                  active={
+                    item.path === '/settings'
+                      ? currentPath === '/settings'
+                      : currentPath === item.path || currentPath.startsWith(`${item.path}/`)
+                  }
+                  onClick={() => handleNavigate(item.path)}
+                />
+                {/* Recent projects — shown indented under "Projects" */}
+                {item.path === '/projects' && recentProjects.length > 0 && (
+                  <ul
+                    className={cn(
+                      'mt-1.5 flex flex-col gap-1.5',
+                      collapsed ? 'items-center' : 'pl-sm',
+                    )}
+                  >
+                    {recentProjects.map((p) => {
+                      const isActive = currentPath.startsWith(`/projects/${p.id}`);
+                      const button = (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleNavigate(`/projects/${p.id}/board`)}
+                          aria-current={isActive ? 'page' : undefined}
+                          className={cn(
+                            'flex w-full items-center gap-sm rounded-radius-lg px-2.5 py-sm text-body transition-colors',
+                            isActive
+                              ? 'text-sidebar-row-accent'
+                              : 'text-sidebar-row-muted hover:text-sidebar-row-text',
+                            collapsed && 'justify-center p-sm',
+                          )}
+                        >
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: p.color ?? 'var(--sidebar-row-muted)' }}
+                            aria-hidden
+                          />
+                          {!collapsed && <span className="truncate text-label">{p.name}</span>}
+                        </button>
                       );
-                    }
-                    return <li key={p.id}>{button}</li>;
-                  })}
-                </ul>
-              )}
-            </li>
-          ))}
+                      if (collapsed) {
+                        return (
+                          <li key={p.id}>
+                            <Tooltip>
+                              <TooltipTrigger>{button}</TooltipTrigger>
+                              <TooltipContent className="left-full ml-2 top-1/2 -translate-y-1/2">
+                                {p.name}
+                              </TooltipContent>
+                            </Tooltip>
+                          </li>
+                        );
+                      }
+                      return <li key={p.id}>{button}</li>;
+                    })}
+                  </ul>
+                )}
+              </li>
+            ),
+          )}
         </ul>
       </nav>
 

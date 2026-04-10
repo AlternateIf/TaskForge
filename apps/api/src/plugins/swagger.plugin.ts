@@ -44,6 +44,8 @@ const SPECIAL_SUMMARIES: Record<string, string> = {
   'POST /api/v1/tasks/:id/watch': 'Watch task',
   'DELETE /api/v1/tasks/:id/watch': 'Unwatch task',
   'PATCH /api/v1/tasks/:id/position': 'Update task position',
+  'GET /api/v1/organizations/:id/members/:userId/effective-permissions':
+    'Get member effective permissions',
 };
 
 const TAGS_BY_ROOT: Record<string, string> = {

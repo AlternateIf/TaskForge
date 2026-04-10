@@ -12,19 +12,23 @@ import type {
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
 import type { FeatureMap } from '../../services/feature-toggle.service.js';
-import { hasGlobalPermission } from '../../services/permission.service.js';
+import { hasGlobalPermission, hasOrgPermission } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { getAuthSettingsHandler, updateAuthSettingsHandler } from './auth-settings.handlers.js';
 import { getFeaturesHandler, updateFeaturesHandler } from './features.handlers.js';
 import {
   createOrganizationHandler,
   deleteOrganizationHandler,
+  getEffectivePermissionsHandler,
   getOrganizationHandler,
+  getOrganizationLogoHandler,
+  getPermissionMatrixHandler,
   listMembersHandler,
   listOrganizationsHandler,
   removeMemberHandler,
   updateMemberRoleHandler,
   updateOrganizationHandler,
+  uploadOrganizationLogoHandler,
 } from './organizations.handlers.js';
 
 export async function organizationRoutes(fastify: FastifyInstance) {
@@ -81,6 +85,12 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     updateOrganizationHandler,
   );
 
+  fastify.post<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id/logo',
+    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
+    uploadOrganizationLogoHandler,
+  );
+
   // Delete: requires org delete (Super Admin only)
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/organizations/:id',
@@ -114,6 +124,14 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     removeMemberHandler,
   );
 
+  // Effective permissions for a member - requires organization.manage (not just read)
+  // to prevent non-admins from enumerating other users' permissions
+  fastify.get<{ Params: { id: string; userId: string } }>(
+    '/api/v1/organizations/:id/members/:userId/effective-permissions',
+    { preHandler: authorize({ resource: 'organization', action: 'manage' }) },
+    getEffectivePermissionsHandler,
+  );
+
   // Feature toggles
   fastify.get<{ Params: { id: string } }>(
     '/api/v1/organizations/:id/features',
@@ -145,5 +163,40 @@ export async function organizationRoutes(fastify: FastifyInstance) {
       ],
     },
     updateAuthSettingsHandler,
+  );
+
+  // Permission matrix — requires organization.manage OR role.read.org
+  fastify.get<{ Params: { id: string } }>(
+    '/api/v1/organizations/:id/permission-matrix',
+    {
+      preHandler: [
+        fastify.authenticate,
+        async (request, _reply) => {
+          if (!request.authUser) {
+            throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+          }
+          const params = request.params as Record<string, string>;
+          const orgId = params.id;
+          const userId = request.authUser.userId;
+
+          const hasManage = await hasOrgPermission(userId, orgId, 'organization', 'manage');
+          if (hasManage) return;
+
+          const hasRoleRead = await hasOrgPermission(userId, orgId, 'role', 'read');
+          if (hasRoleRead) return;
+
+          throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions');
+        },
+      ],
+    },
+    getPermissionMatrixHandler,
+  );
+}
+
+export async function organizationPublicRoutes(fastify: FastifyInstance) {
+  fastify.get<{ Params: { id: string } }>(
+    '/api/v1/organizations/logos/:id',
+    {},
+    getOrganizationLogoHandler,
   );
 }

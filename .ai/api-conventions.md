@@ -503,3 +503,99 @@ When the API server receives a termination signal (SIGTERM):
 6. Exit with code 0
 
 The `/ready` endpoint returns 503 immediately on SIGTERM to prevent load balancers from routing new requests.
+
+---
+
+## Organization Settings & Permissions
+
+### Effective Permissions Endpoint
+
+```
+GET /api/v1/organizations/:organizationId/members/:userId/effective-permissions
+```
+
+**Authorization**: Requires `organization.manage` permission (not `organization.read`) to prevent non-admins from enumerating other users' permissions.
+
+**Response** (200):
+```json
+{
+  "data": {
+    "userId": "uuid",
+    "organizationId": "uuid",
+    "permissions": [
+      {
+        "key": "task.create.organization",
+        "granted": true,
+        "sources": [
+          { "type": "role", "roleId": "uuid", "roleName": "Developer", "assignmentId": "uuid" }
+        ]
+      }
+    ],
+    "roles": [
+      { "roleId": "uuid", "roleName": "Developer", "scope": "organization" }
+    ],
+    "isSuperAdmin": false
+  }
+}
+```
+
+**Errors**:
+- 404: User is not a member of this organization
+- 403: Actor lacks `organization.manage` permission
+
+### Member Removal
+
+```
+DELETE /api/v1/organizations/:organizationId/members/:memberId
+```
+
+**Authorization**: Requires `organization.update` permission.
+
+**Cascade Behavior**: When a member is removed, the following are deleted in a single transaction:
+- `organizationMembers` row
+- `roleAssignments` for the user in this organization
+- `permissionAssignments` for the user in this organization
+- `projectMembers` for all projects belonging to this organization
+
+**Last-Admin Protection**:
+- Cannot remove the last member with `organization.manage` permission from an organization
+- Cannot remove yourself as the last admin-capable member
+- Self-removal is allowed only if at least 1 other admin-capable member remains
+
+**Errors**:
+- 403: Cannot remove the last admin-capable member
+- 403: Cannot remove yourself as the last admin-capable member
+
+### Role Creation
+
+```
+POST /api/v1/organizations/:organizationId/roles
+```
+
+**Request Body**:
+```json
+{
+  "name": "Custom Role",
+  "description": "Optional description",
+  "permissions": [
+    { "resource": "task", "action": "create", "scope": "organization" }
+  ]
+}
+```
+
+**Escalation Prevention**: The actor must hold every permission being assigned to the new role. If the actor attempts to create a role with permissions they do not possess, the request is denied.
+
+**Errors**:
+- 403: Actor lacks one or more permissions being assigned to the role
+
+### Role Assignment
+
+```
+POST /api/v1/organizations/:organizationId/role-assignments
+```
+
+**Authorization**: Requires `organization.manage` permission (not `organization.update`).
+
+**Existing RBAC Protections Preserved**:
+- Direct permission assignment and Super Admin role assignment restrictions remain enforced
+- Duplicate role assignments are idempotent

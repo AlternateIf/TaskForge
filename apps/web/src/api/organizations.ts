@@ -1,12 +1,14 @@
 import { apiClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 export interface OrgMember {
+  id: string;
   userId: string;
   email: string;
   displayName: string;
-  roleId: string;
-  roleName: string;
+  roleId: string | null;
+  roleName: string | null;
+  joinedAt: string;
 }
 
 interface ApiEnvelope<T> {
@@ -26,5 +28,12 @@ export function useOrgMembers(orgId: string | undefined) {
         .then((r) => r.data),
     enabled: !!orgId,
     staleTime: 60_000,
+  });
+}
+
+export function useRemoveOrgMember(orgId: string | undefined) {
+  return useMutation({
+    mutationFn: (memberId: string) =>
+      apiClient.delete(`/organizations/${orgId}/members/${memberId}`),
   });
 }

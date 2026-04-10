@@ -3,15 +3,21 @@ import {
   db,
   organizationMembers,
   permissionAssignments,
+  permissions,
   roleAssignments,
   roles,
   users,
 } from '@taskforge/db';
+import type { Action, Resource } from '@taskforge/shared';
 import { ROLE_NAMES } from '@taskforge/shared';
-import { and, eq, isNull, not } from 'drizzle-orm';
+import { and, eq, isNull, not, or } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
-import { loadPermissionContext } from './permission.service.js';
+import {
+  hasGlobalPermission,
+  hasOrgPermission,
+  loadPermissionContext,
+} from './permission.service.js';
 
 function getBootstrapSuperAdminEmail(): string {
   return process.env.AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL ?? 'superadmin@taskforge.local';
@@ -118,7 +124,7 @@ async function logRbacAudit(args: {
 }
 
 export async function listRoles(organizationId?: string) {
-  return db
+  const roleRows = await db
     .select()
     .from(roles)
     .where(
@@ -126,12 +132,87 @@ export async function listRoles(organizationId?: string) {
         ? isNull(roles.organizationId)
         : eq(roles.organizationId, organizationId),
     );
+
+  if (roleRows.length === 0) {
+    return [];
+  }
+
+  const rolePermissionRows = await db
+    .select({
+      roleId: permissions.roleId,
+      resource: permissions.resource,
+      action: permissions.action,
+      scope: permissions.scope,
+    })
+    .from(permissions)
+    .where(
+      roleRows.length === 1
+        ? eq(permissions.roleId, roleRows[0].id)
+        : or(...roleRows.map((role) => eq(permissions.roleId, role.id))),
+    );
+
+  const permissionsByRoleId = new Map<string, string[]>();
+
+  for (const rolePermission of rolePermissionRows) {
+    const scopeToken = rolePermission.scope === 'organization' ? 'org' : rolePermission.scope;
+    const permissionKey = `${rolePermission.resource}.${rolePermission.action}.${scopeToken}`;
+    const current = permissionsByRoleId.get(rolePermission.roleId) ?? [];
+    current.push(permissionKey);
+    permissionsByRoleId.set(rolePermission.roleId, current);
+  }
+
+  return roleRows.map((role) => ({
+    ...role,
+    permissions: (permissionsByRoleId.get(role.id) ?? []).sort((a, b) => a.localeCompare(b)),
+  }));
 }
 
 export async function createRole(
   actorUserId: string,
-  input: { name: string; description?: string | null; organizationId?: string | null },
+  input: {
+    name: string;
+    description?: string | null;
+    organizationId?: string | null;
+    permissions?: Array<{ resource: string; action: string; scope: string }>;
+  },
 ) {
+  // Escalation prevention: actor must hold every permission being assigned to the new role
+  if (input.permissions && input.permissions.length > 0) {
+    const orgIdForCheck = input.organizationId ?? null;
+
+    for (const perm of input.permissions) {
+      if (orgIdForCheck) {
+        const actorHasPermission = await hasOrgPermission(
+          actorUserId,
+          orgIdForCheck,
+          perm.resource,
+          perm.action,
+        );
+        if (!actorHasPermission) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            `Cannot assign permission ${perm.resource}.${perm.action} that you do not hold in this organization`,
+          );
+        }
+      } else {
+        // Global scope: check global permission
+        const hasGlobal = await hasGlobalPermission(
+          actorUserId,
+          perm.resource as Resource,
+          perm.action as Action,
+        );
+        if (!hasGlobal) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            `Cannot assign permission ${perm.resource}.${perm.action} that you do not hold globally`,
+          );
+        }
+      }
+    }
+  }
+
   const now = new Date();
   const roleId = crypto.randomUUID();
   await db.insert(roles).values({
@@ -143,6 +224,19 @@ export async function createRole(
     createdAt: now,
     updatedAt: now,
   });
+
+  // Insert permissions for this role if provided
+  if (input.permissions && input.permissions.length > 0) {
+    await db.insert(permissions).values(
+      input.permissions.map((perm) => ({
+        id: crypto.randomUUID(),
+        roleId,
+        resource: perm.resource,
+        action: perm.action,
+        scope: perm.scope,
+      })),
+    );
+  }
 
   const createdRole = (await db.select().from(roles).where(eq(roles.id, roleId)).limit(1))[0];
   await logRbacAudit({
@@ -259,6 +353,65 @@ export async function createRoleAssignment(
     }
   }
 
+  // Org-scoped role assignment: actor must have organization.manage in target org
+  if (assignmentOrgId) {
+    const actorCanManage = await hasOrgPermission(
+      actorUserId,
+      assignmentOrgId,
+      'organization',
+      'manage',
+    );
+    if (!actorCanManage) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'You must have organization.manage permission to assign roles in this organization',
+      );
+    }
+  }
+
+  // Escalation prevention: actor must hold every permission the target role grants
+  const rolePerms = await db
+    .select({
+      resource: permissions.resource,
+      action: permissions.action,
+      scope: permissions.scope,
+    })
+    .from(permissions)
+    .where(eq(permissions.roleId, role.id));
+
+  for (const perm of rolePerms) {
+    if (assignmentOrgId) {
+      const actorHasPermission = await hasOrgPermission(
+        actorUserId,
+        assignmentOrgId,
+        perm.resource,
+        perm.action,
+      );
+      if (!actorHasPermission) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          `Cannot assign role that grants ${perm.resource}.${perm.action} which you do not hold in this organization`,
+        );
+      }
+    } else {
+      // Global scope: check global permission
+      const hasGlobal = await hasGlobalPermission(
+        actorUserId,
+        perm.resource as Resource,
+        perm.action as Action,
+      );
+      if (!hasGlobal) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          `Cannot assign role that grants ${perm.resource}.${perm.action} which you do not hold globally`,
+        );
+      }
+    }
+  }
+
   const existing = (
     await db
       .select({ id: roleAssignments.id })
@@ -344,6 +497,50 @@ export async function updateRoleAssignment(
     );
   }
 
+  // Escalation prevention: actor must hold every permission the new role grants
+  const newRolePerms = await db
+    .select({
+      resource: permissions.resource,
+      action: permissions.action,
+      scope: permissions.scope,
+    })
+    .from(permissions)
+    .where(eq(permissions.roleId, newRole.id));
+
+  const assignmentOrgId = existing.organizationId ?? null;
+
+  for (const perm of newRolePerms) {
+    if (assignmentOrgId) {
+      const actorHasPermission = await hasOrgPermission(
+        actorUserId,
+        assignmentOrgId,
+        perm.resource,
+        perm.action,
+      );
+      if (!actorHasPermission) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          `Cannot assign role that grants ${perm.resource}.${perm.action} which you do not hold in this organization`,
+        );
+      }
+    } else {
+      // Global scope: check global permission
+      const hasGlobal = await hasGlobalPermission(
+        actorUserId,
+        perm.resource as Resource,
+        perm.action as Action,
+      );
+      if (!hasGlobal) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          `Cannot assign role that grants ${perm.resource}.${perm.action} which you do not hold globally`,
+        );
+      }
+    }
+  }
+
   await db
     .update(roleAssignments)
     .set({
@@ -391,6 +588,65 @@ export async function deleteRoleAssignment(
       );
     }
     await ensureSuperAdminInvariantAfterDelete(assignmentId);
+  }
+
+  // Last-admin protection for org-scoped role assignment deletion:
+  // If this role grants organization.manage in the org, verify the target user
+  // will still have organization.manage after this role assignment is removed.
+  if (existing.organizationId) {
+    const rolePerms = await db
+      .select({ resource: permissions.resource, action: permissions.action })
+      .from(permissions)
+      .where(eq(permissions.roleId, existing.roleId));
+
+    const grantsManage = rolePerms.some(
+      (p) => p.resource === 'organization' && p.action === 'manage',
+    );
+
+    if (grantsManage) {
+      // Check if the user currently has organization.manage
+      const targetCurrentlyHasManage = await hasOrgPermission(
+        existing.userId,
+        existing.organizationId,
+        'organization',
+        'manage',
+      );
+
+      if (targetCurrentlyHasManage) {
+        // After removing this assignment, check if OTHER members would still have manage
+        const allMembers = await db
+          .select({ userId: organizationMembers.userId })
+          .from(organizationMembers)
+          .where(eq(organizationMembers.organizationId, existing.organizationId));
+
+        const otherMemberIds = allMembers
+          .map((m) => m.userId)
+          .filter((uid) => uid !== existing.userId);
+
+        let otherAdminCount = 0;
+        for (const uid of otherMemberIds) {
+          const hasPerm = await hasOrgPermission(
+            uid,
+            existing.organizationId,
+            'organization',
+            'manage',
+          );
+          if (hasPerm) {
+            otherAdminCount++;
+          }
+        }
+
+        // If the user being demoted is the last admin, check if they would
+        // still have manage through other assignments after this deletion
+        if (otherAdminCount === 0) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            'Cannot remove this role assignment: it would leave the organization with no admin-capable members',
+          );
+        }
+      }
+    }
   }
 
   await db.delete(roleAssignments).where(eq(roleAssignments.id, assignmentId));

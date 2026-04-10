@@ -1,8 +1,15 @@
 import { z } from 'zod';
 
+export const permissionInputSchema = z.object({
+  resource: z.string().min(1).max(100),
+  action: z.string().min(1).max(50),
+  scope: z.string().min(1).max(50),
+});
+
 export const createRoleSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500).nullable().optional(),
+  permissions: z.array(permissionInputSchema).optional(),
 });
 
 export const updateRoleSchema = z.object({
@@ -29,3 +36,4 @@ export type UpdateRoleBody = z.infer<typeof updateRoleSchema>;
 export type CreateRoleAssignmentBody = z.infer<typeof createRoleAssignmentSchema>;
 export type UpdateRoleAssignmentBody = z.infer<typeof updateRoleAssignmentSchema>;
 export type CreatePermissionAssignmentBody = z.infer<typeof createPermissionAssignmentSchema>;
+export type PermissionInput = z.infer<typeof permissionInputSchema>;

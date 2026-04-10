@@ -25,7 +25,12 @@ export async function createGlobalRoleHandler(
   reply: FastifyReply,
 ) {
   const actorId = requireActorId(request);
-  const role = await rbacService.createRole(actorId, { ...request.body, organizationId: null });
+  const role = await rbacService.createRole(actorId, {
+    name: request.body.name,
+    description: request.body.description ?? null,
+    organizationId: null,
+    permissions: request.body.permissions,
+  });
   return reply.status(201).send(success(role));
 }
 
@@ -60,8 +65,10 @@ export async function createOrgRoleHandler(
 ) {
   const actorId = requireActorId(request);
   const role = await rbacService.createRole(actorId, {
-    ...request.body,
+    name: request.body.name,
+    description: request.body.description ?? null,
     organizationId: request.params.orgId,
+    permissions: request.body.permissions,
   });
   return reply.status(201).send(success(role));
 }

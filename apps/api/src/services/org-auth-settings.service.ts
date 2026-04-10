@@ -27,6 +27,13 @@ const DEFAULTS: Omit<AuthSettingsOutput, 'organizationId' | 'updatedAt'> = {
   allowedEmailDomains: null,
 };
 
+function toIsoString(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 function toOutput(row: typeof organizationAuthSettings.$inferSelect): AuthSettingsOutput {
   return {
     organizationId: row.organizationId,
@@ -34,10 +41,10 @@ function toOutput(row: typeof organizationAuthSettings.$inferSelect): AuthSettin
     googleOauthEnabled: row.googleOauthEnabled,
     githubOauthEnabled: row.githubOauthEnabled,
     mfaEnforced: row.mfaEnforced,
-    mfaEnforcedAt: row.mfaEnforcedAt?.toISOString() ?? null,
+    mfaEnforcedAt: toIsoString(row.mfaEnforcedAt),
     mfaGracePeriodDays: row.mfaGracePeriodDays,
     allowedEmailDomains: row.allowedEmailDomains ?? null,
-    updatedAt: row.updatedAt.toISOString(),
+    updatedAt: toIsoString(row.updatedAt) ?? new Date().toISOString(),
   };
 }
 

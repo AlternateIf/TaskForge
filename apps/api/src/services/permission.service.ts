@@ -264,3 +264,177 @@ export async function hasGlobalPermission(
 
   return hasPermission(tuples, resource, action);
 }
+
+export interface EffectivePermissionSource {
+  type: 'role' | 'direct';
+  roleId?: string;
+  roleName?: string;
+  assignmentId?: string;
+}
+
+export interface EffectivePermissionEntry {
+  key: string;
+  granted: true;
+  sources: EffectivePermissionSource[];
+}
+
+export interface EffectivePermissionsResult {
+  userId: string;
+  organizationId: string;
+  permissions: EffectivePermissionEntry[];
+  roles: Array<{ roleId: string; roleName: string; scope: 'organization' }>;
+  isSuperAdmin: boolean;
+}
+
+/**
+ * Get another user's effective permissions in an organization.
+ * Used by org admins to view any member's effective permissions page.
+ */
+export async function getEffectivePermissions(
+  targetUserId: string,
+  orgId: string,
+): Promise<EffectivePermissionsResult> {
+  // 1. Get role assignments for the user in this org (org-scoped + global)
+  const assignedRoleRows = await db
+    .select({
+      assignmentId: roleAssignments.id,
+      roleId: roleAssignments.roleId,
+      roleName: roles.name,
+      assignmentOrgId: roleAssignments.organizationId,
+    })
+    .from(roleAssignments)
+    .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
+    .where(
+      and(
+        eq(roleAssignments.userId, targetUserId),
+        or(eq(roleAssignments.organizationId, orgId), isNull(roleAssignments.organizationId)),
+      ),
+    );
+
+  const isSuperAdmin = assignedRoleRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
+
+  const rolesList: Array<{ roleId: string; roleName: string; scope: 'organization' }> =
+    assignedRoleRows
+      .filter((row) => row.assignmentOrgId === orgId)
+      .map((row) => ({
+        roleId: row.roleId,
+        roleName: row.roleName,
+        scope: 'organization' as const,
+      }));
+
+  // 2. Get all permissions tied to the assigned roles
+  const rolePermRows =
+    assignedRoleRows.length === 0
+      ? []
+      : await db
+          .select({
+            roleId: permissions.roleId,
+            resource: permissions.resource,
+            action: permissions.action,
+            scope: permissions.scope,
+          })
+          .from(permissions)
+          .where(or(...assignedRoleRows.map((row) => eq(permissions.roleId, row.roleId))));
+
+  // 3. Get direct permission assignments for the user in this org (org-scoped + global)
+  const directPermRows = await db
+    .select({
+      id: permissionAssignments.id,
+      permissionKey: permissionAssignments.permissionKey,
+    })
+    .from(permissionAssignments)
+    .where(
+      and(
+        eq(permissionAssignments.userId, targetUserId),
+        or(
+          eq(permissionAssignments.organizationId, orgId),
+          isNull(permissionAssignments.organizationId),
+        ),
+      ),
+    );
+
+  const directPermTuples = directPermRows
+    .map((row) => ({
+      ...permissionKeyToTuple(row.permissionKey),
+      assignmentId: row.id,
+      permissionKey: row.permissionKey,
+    }))
+    .filter(
+      (
+        row,
+      ): row is {
+        resource: string;
+        action: string;
+        scope: string;
+        assignmentId: string;
+        permissionKey: string;
+      } => row.resource !== undefined && row.action !== undefined && row.scope !== undefined,
+    );
+
+  // 4. Merge into effective permissions with source tracing
+  const permMap = new Map<string, EffectivePermissionEntry>();
+
+  // Role-based permissions
+  for (const rp of rolePermRows) {
+    const key = `${rp.resource}.${rp.action}.${rp.scope}`;
+    const roleRow = assignedRoleRows.find((r) => r.roleId === rp.roleId);
+    const source: EffectivePermissionSource = {
+      type: 'role',
+      roleId: rp.roleId,
+      roleName: roleRow?.roleName,
+      assignmentId: roleRow?.assignmentId,
+    };
+
+    const existing = permMap.get(key);
+    if (existing) {
+      existing.sources.push(source);
+    } else {
+      permMap.set(key, { key, granted: true, sources: [source] });
+    }
+  }
+
+  // Direct permission assignments
+  for (const dp of directPermTuples) {
+    const key = `${dp.resource}.${dp.action}.${dp.scope}`;
+    const source: EffectivePermissionSource = {
+      type: 'direct',
+      assignmentId: dp.assignmentId,
+    };
+
+    const existingDirect = permMap.get(key);
+    if (existingDirect) {
+      existingDirect.sources.push(source);
+    } else {
+      permMap.set(key, { key, granted: true, sources: [source] });
+    }
+  }
+
+  return {
+    userId: targetUserId,
+    organizationId: orgId,
+    permissions: Array.from(permMap.values()),
+    roles: rolesList,
+    isSuperAdmin,
+  };
+}
+
+/**
+ * Check if a given user has a specific permission (resource.manage style)
+ * in an organization context. Used for last-admin protection checks.
+ */
+export async function hasOrgPermission(
+  userId: string,
+  orgId: string,
+  resource: string,
+  action: string,
+): Promise<boolean> {
+  const ctx = await loadPermissionContext(userId, orgId);
+  if (!ctx) return false;
+  if (ctx.hasSuperAdmin) return true;
+  return ctx.effectivePermissions.some(
+    (entry) =>
+      entry.resource === resource &&
+      (entry.action === action ||
+        (entry.action === 'manage' && ['create', 'read', 'update', 'delete'].includes(action))),
+  );
+}

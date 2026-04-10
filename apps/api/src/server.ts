@@ -22,7 +22,10 @@ import { commentRoutes } from './routes/comments/comments.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { invitationRoutes } from './routes/invitations/invitations.routes.js';
 import { notificationRoutes } from './routes/notifications/notifications.routes.js';
-import { organizationRoutes } from './routes/organizations/organizations.routes.js';
+import {
+  organizationPublicRoutes,
+  organizationRoutes,
+} from './routes/organizations/organizations.routes.js';
 import { projectRoutes } from './routes/projects/projects.routes.js';
 import { rbacRoutes } from './routes/rbac/rbac.routes.js';
 import { savedFilterRoutes } from './routes/saved-filters/saved-filters.routes.js';
@@ -84,6 +87,7 @@ export async function buildServer() {
   await fastify.register(notificationRoutes);
   await fastify.register(userRoutes);
   await fastify.register(userPublicRoutes);
+  await fastify.register(organizationPublicRoutes);
   await fastify.register(realtimeGateway);
   await fastify.register(sseRoutes);
 

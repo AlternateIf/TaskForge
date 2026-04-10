@@ -1,19 +1,37 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   db,
   organizationMembers,
   organizations,
+  permissionAssignments,
+  permissions,
+  projectMembers,
+  projects,
   roleAssignments,
   roles,
   users,
 } from '@taskforge/db';
 import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '@taskforge/shared';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import { fileTypeFromBuffer } from 'file-type';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { isEmailDomainAllowed } from './org-auth-settings.service.js';
+import { hasOrgPermission } from './permission.service.js';
 
 const TRIAL_DAYS = 14;
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
+const ORGANIZATION_LOGO_DIR = path.join(UPLOAD_DIR, 'organization-logos');
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
+const LOGO_ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const LOGO_MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
 
 function slugify(name: string): string {
   return name
@@ -243,6 +261,108 @@ export async function deleteOrganization(orgId: string, userId: string): Promise
   });
 }
 
+async function clearOrganizationLogoFiles(orgId: string): Promise<void> {
+  const dir = path.join(ORGANIZATION_LOGO_DIR, orgId);
+  try {
+    const files = await fs.promises.readdir(dir);
+    await Promise.all(files.map((file) => fs.promises.unlink(path.join(dir, file))));
+  } catch {
+    // Directory does not exist yet — nothing to clear.
+  }
+}
+
+export async function uploadOrganizationLogo(
+  orgId: string,
+  userId: string,
+  fileBuffer: Buffer,
+  declaredMime: string,
+): Promise<OrganizationOutput> {
+  await requireMembership(orgId, userId);
+
+  if (fileBuffer.length > LOGO_MAX_BYTES) {
+    throw new AppError(413, ErrorCode.FILE_TOO_LARGE, 'Logo must be 5 MB or smaller');
+  }
+
+  if (!LOGO_ALLOWED_MIMES.has(declaredMime)) {
+    throw new AppError(
+      415,
+      ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+      'Only JPEG, PNG, GIF, and WebP images are allowed',
+    );
+  }
+
+  const detected = await fileTypeFromBuffer(fileBuffer);
+  if (!detected || !LOGO_ALLOWED_MIMES.has(detected.mime)) {
+    throw new AppError(
+      415,
+      ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+      'File content does not match an allowed image type',
+    );
+  }
+
+  const ext = LOGO_MIME_TO_EXT[detected.mime];
+  const dir = path.join(ORGANIZATION_LOGO_DIR, orgId);
+
+  const orgBefore = (
+    await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1)
+  )[0];
+
+  await clearOrganizationLogoFiles(orgId);
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(path.join(dir, `logo${ext}`), fileBuffer);
+
+  const logoUrl = `/api/v1/organizations/logos/${orgId}?v=${Date.now()}`;
+  await db
+    .update(organizations)
+    .set({ logoUrl, updatedAt: new Date() })
+    .where(eq(organizations.id, orgId));
+
+  if (orgBefore && orgBefore.logoUrl !== logoUrl) {
+    await activityService.log({
+      organizationId: orgId,
+      actorId: userId,
+      entityType: 'organization',
+      entityId: orgId,
+      action: 'updated',
+      changes: {
+        logoUrl: { before: orgBefore.logoUrl ?? null, after: logoUrl },
+      },
+    });
+  }
+
+  return getOrganization(orgId, userId);
+}
+
+export async function getOrganizationLogoFilePath(
+  orgId: string,
+): Promise<{ filePath: string; mimeType: string } | null> {
+  const dir = path.join(ORGANIZATION_LOGO_DIR, orgId);
+
+  let files: string[];
+  try {
+    files = await fs.promises.readdir(dir);
+  } catch {
+    return null;
+  }
+
+  const filename = files.find((file) => file.startsWith('logo'));
+  if (!filename) return null;
+
+  const extMimes: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  };
+
+  const ext = path.extname(filename).toLowerCase();
+  return {
+    filePath: path.join(dir, filename),
+    mimeType: extMimes[ext] ?? 'image/jpeg',
+  };
+}
+
 export async function listMembers(orgId: string, userId: string): Promise<MemberOutput[]> {
   await requireMembership(orgId, userId);
 
@@ -412,6 +532,47 @@ export async function updateMemberRole(
       )[0]
     : null;
 
+  // Last-admin protection: if demoting a member who currently has organization.manage,
+  // check that at least one other member still holds organization.manage
+  const targetCurrentlyHasManage = await hasOrgPermission(
+    member.userId,
+    orgId,
+    'organization',
+    'manage',
+  );
+
+  const isDemotion =
+    targetCurrentlyHasManage &&
+    // Demotion scenarios: removing role entirely (roleId=null),
+    // or changing to a role that doesn't grant organization.manage
+    (roleId === null || !(await doesRoleGrantPermission(roleId, 'organization', 'manage', orgId)));
+
+  if (isDemotion) {
+    // Check other members
+    const allMembers = await db
+      .select({ userId: organizationMembers.userId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, orgId));
+
+    const otherMemberIds = allMembers.map((m) => m.userId).filter((uid) => uid !== member.userId);
+
+    let otherAdminCount = 0;
+    for (const uid of otherMemberIds) {
+      const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'manage');
+      if (hasPerm) {
+        otherAdminCount++;
+      }
+    }
+
+    if (otherAdminCount === 0) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Cannot demote the last admin-capable member in the organization',
+      );
+    }
+  }
+
   await db
     .update(organizationMembers)
     .set({ roleId, updatedAt: new Date() })
@@ -465,15 +626,89 @@ export async function removeMember(
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Member not found');
   }
 
+  const targetUserId = member.userId;
+
+  // Last-admin protection: check if removing this user would leave the org
+  // with zero members who have organization.manage permission
+  const allMembers = await db
+    .select({ userId: organizationMembers.userId })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.organizationId, orgId));
+
+  const otherMemberIds = allMembers.map((m) => m.userId).filter((uid) => uid !== targetUserId);
+
+  let otherAdminCount = 0;
+  for (const uid of otherMemberIds) {
+    const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'manage');
+    if (hasPerm) {
+      otherAdminCount++;
+    }
+  }
+
+  const targetHasManage = await hasOrgPermission(targetUserId, orgId, 'organization', 'manage');
+  if (targetHasManage && otherAdminCount === 0) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Cannot remove the last admin-capable member from the organization',
+    );
+  }
+
+  // Also check: if the actor is removing themselves, they must not be the last admin
+  if (actorUserId === targetUserId && targetHasManage && otherAdminCount === 0) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Cannot remove yourself as the last admin-capable member',
+    );
+  }
+
   const memberUser = (
     await db
       .select({ displayName: users.displayName })
       .from(users)
-      .where(eq(users.id, member.userId))
+      .where(eq(users.id, targetUserId))
       .limit(1)
   )[0];
 
-  await db.delete(organizationMembers).where(eq(organizationMembers.id, memberId));
+  // Cascade cleanup: delete role assignments, permission assignments,
+  // project memberships in org projects, and org membership in a single transaction
+
+  // First, get all project IDs in this org for the project member cleanup
+  const orgProjects = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.organizationId, orgId));
+
+  const orgProjectIds = orgProjects.map((p) => p.id);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(roleAssignments)
+      .where(
+        and(eq(roleAssignments.userId, targetUserId), eq(roleAssignments.organizationId, orgId)),
+      );
+    await tx
+      .delete(permissionAssignments)
+      .where(
+        and(
+          eq(permissionAssignments.userId, targetUserId),
+          eq(permissionAssignments.organizationId, orgId),
+        ),
+      );
+    // Remove project-level memberships for all projects in this organization
+    if (orgProjectIds.length > 0) {
+      await tx
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.userId, targetUserId),
+            inArray(projectMembers.projectId, orgProjectIds),
+          ),
+        );
+    }
+    await tx.delete(organizationMembers).where(eq(organizationMembers.id, memberId));
+  });
 
   await activityService.log({
     organizationId: orgId,
@@ -499,4 +734,41 @@ async function requireMembership(orgId: string, userId: string): Promise<void> {
   if (member.length === 0) {
     throw new AppError(403, ErrorCode.FORBIDDEN, 'You are not a member of this organization');
   }
+}
+
+/**
+ * Check whether a specific role grants a given permission (resource + action)
+ * within an organization. Returns true if any permission row for the role
+ * covers the resource and action (manage covers all subordinate actions).
+ */
+async function doesRoleGrantPermission(
+  roleId: string,
+  resource: string,
+  action: string,
+  orgId: string,
+): Promise<boolean> {
+  const rolePerms = await db
+    .select({ resource: permissions.resource, action: permissions.action })
+    .from(permissions)
+    .where(eq(permissions.roleId, roleId));
+
+  // Verify the role belongs to this org (security check)
+  const role = (
+    await db
+      .select({ organizationId: roles.organizationId })
+      .from(roles)
+      .where(eq(roles.id, roleId))
+      .limit(1)
+  )[0];
+
+  if (!role || (role.organizationId !== null && role.organizationId !== orgId)) {
+    return false;
+  }
+
+  return rolePerms.some(
+    (p) =>
+      p.resource === resource &&
+      (p.action === action ||
+        (p.action === 'manage' && ['create', 'read', 'update', 'delete'].includes(action))),
+  );
 }
