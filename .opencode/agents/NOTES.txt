@@ -19,7 +19,7 @@ Active agents:
 - docs-contract-agent
 
 Key policies:
-- Prototype files must remain under `local/prototype/component/%name%/%prototype_files%`.
+- Prototype files must remain under `local/prototype/%feature%/html-prototypes/`.
 - Merge is manual.
 - Validation gate is `pnpm lint && pnpm test`.
 

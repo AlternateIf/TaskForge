@@ -83,6 +83,7 @@ Mandatory task handoff format (every task prompt):
 - Constraints (workflow, time bounds, no-bootstrap rule, merge policy)
 - Acceptance criteria
 - Plan markdown path (required for planning/challenge/implementation/testing cycles)
+- MVP prototype HTML path (required for frontend implementation/review/test tasks after prototype selection)
 - Context files to load first
 - Prior findings/hypotheses (if any)
 - Attempts/commands already run (if any)
@@ -90,8 +91,10 @@ Mandatory task handoff format (every task prompt):
 
 Stage-gate requirements:
 - Before prototype selection: verify prototype deliverables satisfy all required constraints (format, responsive/theme requirements, and scope isolation).
-- Before prototype selection: verify all prototype files are under `local/prototypes/%feature%/html-prototypes/` (paths like `apps/web/prototype` are non-compliant).
+- Before prototype selection: verify all prototype files are under `local/prototype/%feature%/html-prototypes/` (paths like `apps/web/prototype` are non-compliant).
 - Before implementation: selected MVP prototype is explicitly confirmed by user.
+- Before frontend implementation/review/test delegation: include the exact selected prototype file path in handoff as `MVP_PROTOTYPE_HTML_PATH`.
+- If the user requests prototype revisions after selection, include the latest revised file path as `REVISED_MVP_PROTOTYPE_HTML_PATH` and treat it as authoritative over older variants.
 - Before bugfix implementation: require at least one concrete `REPRO_REPORT` from an implementer task, or explicit user approval to proceed without repro.
 - Before full gate: scoped review and scoped tests must be clear for all touched scopes.
 - Before docs/contracts in bugfix workflow: backend behavior/contract must have changed; otherwise skip `docs-contract-agent`.
@@ -184,6 +187,8 @@ Feature workflow (when frontend is involved):
 6. Run a prototype compliance check against required constraints and report exact prototype file paths.
 7. Ask user to pick MVP prototype.
 8. Implement selected MVP with full plan scope.
+   - For any frontend task after MVP selection, pass `MVP_PROTOTYPE_HTML_PATH` (or `REVISED_MVP_PROTOTYPE_HTML_PATH` when applicable) in the task handoff.
+   - Require frontend implementer output to include `PROTOTYPE_ADHERENCE_REPORT` naming the exact prototype file used.
    - For mixed frontend+backend scope, dispatch frontend and backend implementation tasks in parallel when independent.
 9. Check plan coverage.
 10. Manual test and feedback loops.
