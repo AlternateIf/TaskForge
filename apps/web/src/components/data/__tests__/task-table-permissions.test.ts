@@ -113,8 +113,6 @@ describe('TaskTable permission gating', () => {
 
   describe('applyBulkUpdate gating', () => {
     it('applyBulkUpdate returns early when no tasks are selected', () => {
-      const permissionSet = new Set(mockUserWithPermission.permissions);
-      const canEditTask = true;
       const selectedIds = new Set<string>();
 
       let bulkUpdateCalled = false;
