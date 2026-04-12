@@ -16,8 +16,8 @@ export async function listNotificationsHandler(
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const { cursor, limit } = request.query;
-  const result = await notificationService.listNotifications(userId, cursor, limit);
+  const { cursor, limit, orgId } = request.query;
+  const result = await notificationService.listNotifications(userId, cursor, limit, orgId);
   return reply.status(200).send(paginated(result.items, result.cursor, result.hasMore));
 }
 
@@ -26,25 +26,29 @@ export async function markAsReadHandler(
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  await notificationService.markAsRead(request.params.id, userId);
+  const orgId = (request.query as { orgId?: string }).orgId;
+  await notificationService.markAsRead(request.params.id, userId, orgId);
   return reply.status(204).send();
 }
 
 export async function markAllAsReadHandler(request: FastifyRequest, reply: FastifyReply) {
   const userId = requireAuth(request);
-  await notificationService.markAllAsRead(userId);
+  const orgId = (request.query as { orgId?: string }).orgId;
+  await notificationService.markAllAsRead(userId, orgId);
   return reply.status(204).send();
 }
 
 export async function getUnreadCountHandler(request: FastifyRequest, reply: FastifyReply) {
   const userId = requireAuth(request);
-  const count = await notificationService.getUnreadCount(userId);
+  const orgId = (request.query as { orgId?: string }).orgId;
+  const count = await notificationService.getUnreadCount(userId, orgId);
   return reply.status(200).send(success({ count }));
 }
 
 export async function getPreferencesHandler(request: FastifyRequest, reply: FastifyReply) {
   const userId = requireAuth(request);
-  const prefs = await notificationService.getPreferences(userId);
+  const orgId = (request.query as { orgId?: string }).orgId;
+  const prefs = await notificationService.getPreferences(userId, orgId);
   return reply.status(200).send(success(prefs));
 }
 

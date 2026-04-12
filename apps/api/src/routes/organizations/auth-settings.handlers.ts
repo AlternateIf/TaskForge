@@ -15,8 +15,8 @@ export async function getAuthSettingsHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const settings = await authSettingsService.getAuthSettings(request.params.id);
+  const userId = requireAuth(request);
+  const settings = await authSettingsService.getAuthSettings(request.params.id, userId);
   return reply.status(200).send(success(settings));
 }
 

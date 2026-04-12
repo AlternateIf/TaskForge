@@ -6,6 +6,7 @@ import {
   useCreatePermissionAssignment,
   useCreateRole,
   useCreateRoleAssignment,
+  useDeleteOrganization,
   useDeleteRole,
   useOrganization,
   useOrganizationAuthSettings,
@@ -39,6 +40,25 @@ import { Switch } from '@/components/ui/switch';
 import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
 import {
+  INVITATION_DELETE_PERMISSION,
+  INVITATION_READ_PERMISSION,
+  INVITATION_UPDATE_PERMISSION,
+  INVITATION_CREATE_PERMISSION as INVITE_CREATE_PERMISSION_SHARED,
+  MEMBERSHIP_DELETE_PERMISSION,
+  MEMBERSHIP_READ_PERMISSION,
+  MEMBERSHIP_UPDATE_PERMISSION,
+  ORGANIZATION_DELETE_PERMISSION,
+  ORGANIZATION_READ_PERMISSION,
+  ORGANIZATION_UPDATE_PERMISSION,
+  PERMISSION_READ_PERMISSION,
+  PERMISSION_UPDATE_PERMISSION,
+  ROLE_CREATE_PERMISSION,
+  ROLE_DELETE_PERMISSION,
+  ROLE_READ_PERMISSION,
+  ROLE_UPDATE_PERMISSION,
+  hasAnyGovernancePermission,
+} from '@taskforge/shared';
+import {
   AlertTriangle,
   Building2,
   ChevronDown,
@@ -51,27 +71,16 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-const ORG_INFO_READ_PERMISSION = 'organization.read.org';
-const ORG_INFO_UPDATE_PERMISSION = 'organization.update.org';
-const ORG_MANAGE_PERMISSION = 'organization.manage.org';
-const MEMBERS_READ_PERMISSION = 'membership.read.org';
-const MEMBERS_UPDATE_PERMISSION = 'membership.update.org';
-const MEMBERS_DELETE_PERMISSION = 'membership.delete.org';
-const INVITE_READ_PERMISSION = 'invitation.read.org';
-const INVITE_CREATE_PERMISSION = 'invitation.create.org';
-const INVITE_UPDATE_PERMISSION = 'invitation.update.org';
-const ROLE_READ_PERMISSION = 'role.read.org';
-const ROLE_CREATE_PERMISSION = 'role.create.org';
-const ROLE_UPDATE_PERMISSION = 'role.update.org';
-const ROLE_DELETE_PERMISSION = 'role.delete.org';
-const PERMISSION_READ_PERMISSION = 'permission.read.org';
-const PERMISSION_UPDATE_PERMISSION = 'permission.update.org';
-const GLOBAL_ROLE_ASSIGNMENT_PERMISSIONS = [
-  'global_role_assignment.create',
-  'global_role_assignment.read',
-  'global_role_assignment.update',
-  'global_role_assignment.delete',
-];
+const ORG_INFO_READ_PERMISSION = ORGANIZATION_READ_PERMISSION;
+const ORG_INFO_UPDATE_PERMISSION = ORGANIZATION_UPDATE_PERMISSION;
+const ORG_DELETE_PERMISSION = ORGANIZATION_DELETE_PERMISSION;
+const MEMBERS_READ_PERMISSION = MEMBERSHIP_READ_PERMISSION;
+const MEMBERS_UPDATE_PERMISSION = MEMBERSHIP_UPDATE_PERMISSION;
+const MEMBERS_DELETE_PERMISSION = MEMBERSHIP_DELETE_PERMISSION;
+const INVITE_READ_PERMISSION = INVITATION_READ_PERMISSION;
+const INVITE_CREATE_PERMISSION = INVITE_CREATE_PERMISSION_SHARED;
+const INVITE_UPDATE_PERMISSION = INVITATION_UPDATE_PERMISSION;
+const INVITE_DELETE_PERMISSION = INVITATION_DELETE_PERMISSION;
 const ROLE_PERMISSION_PREVIEW_COUNT = 4;
 const DIRECT_PERMISSION_PREVIEW_COUNT = 4;
 const MAX_LOGO_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -82,23 +91,6 @@ const ALLOWED_LOGO_MIME_TYPES = new Set([
   'image/gif',
   'image/webp',
 ]);
-
-const GOVERNANCE_PREFIXES = [
-  'organization.',
-  'membership.',
-  'invitation.',
-  'role.',
-  'permission.',
-  'global_role_assignment.',
-];
-
-function hasAnyGovernancePermission(permissions: string[]): boolean {
-  for (const permission of permissions) {
-    const isGovernance = GOVERNANCE_PREFIXES.some((prefix) => permission.startsWith(prefix));
-    if (isGovernance) return true;
-  }
-  return false;
-}
 
 function formatPermissionKeyLabel(permissionKey: string): string {
   return permissionKey.endsWith('.org')
@@ -121,7 +113,6 @@ function getPermissionCategory(permissionKey: string): string {
   if (permissionKey.startsWith('organization.')) return 'Organization';
   if (permissionKey.startsWith('invitation.')) return 'Invitations';
   if (permissionKey.startsWith('membership.')) return 'Membership';
-  if (permissionKey.startsWith('global_role_assignment.')) return 'Global Role Assignment';
   if (permissionKey.startsWith('role.')) return 'Roles';
   if (permissionKey.startsWith('permission.')) return 'Permissions';
   return 'Other';
@@ -141,7 +132,6 @@ function groupPermissionKeys(permissionKeys: string[]): Array<[string, string[]]
     'Organization',
     'Invitations',
     'Membership',
-    'Global Role Assignment',
     'Roles',
     'Permissions',
     'Other',
@@ -259,31 +249,29 @@ export function OrganizationSettingsPage() {
   const navigate = useNavigate();
   const { user, activeOrganizationId } = useAuthStore();
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
-
   const canSeeGovernance = hasAnyGovernancePermission(user?.permissions ?? []);
   const canViewOrgInfo = permissionSet.has(ORG_INFO_READ_PERMISSION);
   const canEditOrgInfo = permissionSet.has(ORG_INFO_UPDATE_PERMISSION);
+  const canDeleteOrganization = permissionSet.has(ORG_DELETE_PERMISSION);
   const canViewMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
   const canRemoveMember =
-    permissionSet.has(MEMBERS_DELETE_PERMISSION) ||
-    permissionSet.has(MEMBERS_UPDATE_PERMISSION) ||
-    permissionSet.has(ORG_INFO_UPDATE_PERMISSION);
+    permissionSet.has(MEMBERS_DELETE_PERMISSION) || permissionSet.has(MEMBERS_UPDATE_PERMISSION);
   const canViewInvite = permissionSet.has(INVITE_READ_PERMISSION);
   const canSendInvite = permissionSet.has(INVITE_CREATE_PERMISSION);
-  const canManageInvites = permissionSet.has(INVITE_UPDATE_PERMISSION);
+  const canResendInvites = permissionSet.has(INVITE_UPDATE_PERMISSION);
+  const canRevokeInvites = permissionSet.has(INVITE_DELETE_PERMISSION);
   const canViewRoleManagement = permissionSet.has(ROLE_READ_PERMISSION);
   const canCreateRole = permissionSet.has(ROLE_CREATE_PERMISSION);
   const canManageRoleAssignments = permissionSet.has(ROLE_UPDATE_PERMISSION);
   const canDeleteRole = permissionSet.has(ROLE_DELETE_PERMISSION);
   const canViewPermissionManagement = permissionSet.has(PERMISSION_READ_PERMISSION);
   const canEditPermissions = permissionSet.has(PERMISSION_UPDATE_PERMISSION);
-  const canManageOrganization = permissionSet.has(ORG_MANAGE_PERMISSION);
 
   const canLoadMembers = canViewMembers;
   const canLoadRoles = canViewRoleManagement || canManageRoleAssignments || canEditPermissions;
   const canLoadRoleAssignments = canViewRoleManagement;
   const canLoadPermissionAssignments = canViewPermissionManagement;
-  const canLoadPermissionMatrix = canViewRoleManagement || canManageOrganization;
+  const canLoadPermissionMatrix = canViewPermissionManagement || canViewOrgInfo;
 
   const orgIdForOrgInfo = canViewOrgInfo ? activeOrganizationId : null;
   const orgIdForMembers = canLoadMembers ? (activeOrganizationId ?? undefined) : undefined;
@@ -310,6 +298,7 @@ export function OrganizationSettingsPage() {
   const createRole = useCreateRole(activeOrganizationId);
   const updateRole = useUpdateRole(activeOrganizationId);
   const deleteRole = useDeleteRole(activeOrganizationId);
+  const deleteOrganization = useDeleteOrganization();
   const createRoleAssignment = useCreateRoleAssignment(activeOrganizationId);
   const createPermissionAssignment = useCreatePermissionAssignment(activeOrganizationId);
   const uploadOrganizationLogo = useUploadOrganizationLogo(activeOrganizationId);
@@ -335,6 +324,7 @@ export function OrganizationSettingsPage() {
   const [selectedMemberUserId, setSelectedMemberUserId] = useState<string | null>(null);
   const [showAllMemberDirectPermissions, setShowAllMemberDirectPermissions] = useState(false);
   const [memberRemoveConfirmId, setMemberRemoveConfirmId] = useState<string | null>(null);
+  const [confirmDeleteOrganization, setConfirmDeleteOrganization] = useState(false);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -366,12 +356,8 @@ export function OrganizationSettingsPage() {
   }, [memberRemoveConfirmId, members.data]);
 
   const availablePermissionKeys = useMemo(() => {
-    const fromUser = (user?.permissions ?? []).filter(
-      (key) => key.endsWith('.org') || key.startsWith('global_role_assignment.'),
-    );
-    return [...new Set([...fromUser, ...GLOBAL_ROLE_ASSIGNMENT_PERMISSIONS])].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const fromUser = (user?.permissions ?? []).filter((key) => key.endsWith('.org'));
+    return [...new Set(fromUser)].sort((a, b) => a.localeCompare(b));
   }, [user?.permissions]);
   const groupedAvailablePermissionKeys = useMemo(
     () => groupPermissionKeys(availablePermissionKeys),
@@ -639,6 +625,23 @@ export function OrganizationSettingsPage() {
     }
   }
 
+  async function handleDeleteOrganization() {
+    if (!activeOrganizationId) {
+      toast.error('No active organization selected.');
+      return;
+    }
+
+    try {
+      await deleteOrganization.mutateAsync(activeOrganizationId);
+      setConfirmDeleteOrganization(false);
+      toast.success('Organization deleted.');
+      void navigate({ to: '/settings', replace: true });
+    } catch (error) {
+      setConfirmDeleteOrganization(false);
+      toast.error(getApiErrorMessage(error, 'Could not delete organization. Please try again.'));
+    }
+  }
+
   return (
     <div className="space-y-3 p-1">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/30 bg-surface-container-lowest px-4 py-3">
@@ -867,41 +870,41 @@ export function OrganizationSettingsPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-xs">
-                        {canManageInvites ? (
-                          <>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                resendInvitation.mutate(invite.id, {
-                                  onSuccess: () => toast.success('Invite resent.'),
-                                  onError: (error) =>
-                                    toast.error(
-                                      getApiErrorMessage(error, 'Could not resend invite.'),
-                                    ),
-                                });
-                              }}
-                            >
-                              Resend
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                revokeInvitation.mutate(invite.id, {
-                                  onSuccess: () => toast.success('Invite revoked.'),
-                                  onError: (error) =>
-                                    toast.error(
-                                      getApiErrorMessage(error, 'Could not revoke invite.'),
-                                    ),
-                                });
-                              }}
-                            >
-                              Revoke
-                            </Button>
-                          </>
+                        {canResendInvites ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              resendInvitation.mutate(invite.id, {
+                                onSuccess: () => toast.success('Invite resent.'),
+                                onError: (error) =>
+                                  toast.error(
+                                    getApiErrorMessage(error, 'Could not resend invite.'),
+                                  ),
+                              });
+                            }}
+                          >
+                            Resend
+                          </Button>
+                        ) : null}
+                        {canRevokeInvites ? (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              revokeInvitation.mutate(invite.id, {
+                                onSuccess: () => toast.success('Invite revoked.'),
+                                onError: (error) =>
+                                  toast.error(
+                                    getApiErrorMessage(error, 'Could not revoke invite.'),
+                                  ),
+                              });
+                            }}
+                          >
+                            Revoke
+                          </Button>
                         ) : null}
                       </div>
                     </div>
@@ -1187,6 +1190,54 @@ export function OrganizationSettingsPage() {
             ) : (
               <p className="text-body text-secondary">No roles found.</p>
             )}
+          </SectionCard>
+        ) : null}
+
+        {canDeleteOrganization ? (
+          <SectionCard title="Danger Zone" icon={<AlertTriangle className="size-4" />}>
+            <div className="space-y-3 rounded-lg border border-danger/30 bg-danger/5 p-3">
+              <div className="space-y-1">
+                <p className="text-body font-semibold text-foreground">Delete organization</p>
+                <p className="text-small text-muted">
+                  This permanently removes the organization and cannot be undone.
+                </p>
+              </div>
+
+              {confirmDeleteOrganization ? (
+                <div className="space-y-2">
+                  <p className="text-small text-danger">
+                    Click <strong>Confirm delete</strong> to permanently delete this organization.
+                  </p>
+                  <div className="flex flex-wrap gap-sm">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      loading={deleteOrganization.isPending}
+                      onClick={() => void handleDeleteOrganization()}
+                    >
+                      Confirm delete
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={deleteOrganization.isPending}
+                      onClick={() => setConfirmDeleteOrganization(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={deleteOrganization.isPending || !activeOrganizationId}
+                  onClick={() => setConfirmDeleteOrganization(true)}
+                >
+                  Delete Organization
+                </Button>
+              )}
+            </div>
           </SectionCard>
         ) : null}
 

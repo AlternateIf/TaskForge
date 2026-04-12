@@ -6,6 +6,7 @@ const {
   mockUpdate,
   mockDelete,
   mockLoadPermissionContext,
+  mockHasOrgPermission,
   mockActivityLog,
 } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
@@ -13,6 +14,7 @@ const {
   mockUpdate: vi.fn(),
   mockDelete: vi.fn(),
   mockLoadPermissionContext: vi.fn(),
+  mockHasOrgPermission: vi.fn(),
   mockActivityLog: vi.fn(),
 }));
 
@@ -63,6 +65,7 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('../permission.service.js', () => ({
   loadPermissionContext: mockLoadPermissionContext,
+  hasOrgPermission: mockHasOrgPermission,
 }));
 
 vi.mock('../activity.service.js', () => ({
@@ -105,7 +108,6 @@ describe('rbac.service', () => {
 
   it('rejects permission assignment when actor does not hold permission in scope', async () => {
     mockLoadPermissionContext.mockResolvedValue({
-      hasSuperAdmin: false,
       effectivePermissions: [],
     });
     setupSelectLimit([]);
@@ -121,6 +123,7 @@ describe('rbac.service', () => {
   });
 
   it('deletes direct permission assignment and writes audit entry', async () => {
+    mockHasOrgPermission.mockResolvedValue(true);
     setupSelectLimit([
       {
         id: 'perm-1',

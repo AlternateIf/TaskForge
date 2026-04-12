@@ -20,6 +20,8 @@ interface AttachmentListProps {
   uploadProgress: Array<{ filename: string; progress: number }>;
   onUploadFiles: (files: File[]) => void;
   onDeleteAttachment: (attachmentId: string) => void;
+  canUpload?: boolean;
+  canDelete?: boolean;
 }
 
 function isImage(mimeType: string) {
@@ -49,6 +51,8 @@ export function AttachmentList({
   uploadProgress,
   onUploadFiles,
   onDeleteAttachment,
+  canUpload = true,
+  canDelete = true,
 }: AttachmentListProps) {
   const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({});
   const [lightboxAttachment, setLightboxAttachment] = useState<Attachment | null>(null);
@@ -107,9 +111,11 @@ export function AttachmentList({
     <section className="space-y-sm">
       <h3 className="text-label font-bold uppercase tracking-widest text-secondary">Attachments</h3>
 
-      <FileDropzone onFilesSelected={onUploadFiles} className="w-full p-md">
-        <p className="text-small text-secondary">Drop files here or click to upload</p>
-      </FileDropzone>
+      {canUpload ? (
+        <FileDropzone onFilesSelected={onUploadFiles} className="w-full p-md">
+          <p className="text-small text-secondary">Drop files here or click to upload</p>
+        </FileDropzone>
+      ) : null}
 
       {uploadProgress.length > 0 ? (
         <ul className="space-y-xs">
@@ -194,14 +200,16 @@ export function AttachmentList({
                   >
                     <Download className="size-4" />
                   </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Delete ${attachment.filename}`}
-                    onClick={() => onDeleteAttachment(attachment.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  {canDelete ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Delete ${attachment.filename}`}
+                      onClick={() => onDeleteAttachment(attachment.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : null}
                 </div>
               </li>
             );

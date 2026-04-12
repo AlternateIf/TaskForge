@@ -58,7 +58,8 @@ export async function listInvitationsHandler(
   request: FastifyRequest<{ Params: { orgId: string } }>,
   reply: FastifyReply,
 ) {
-  const rows = await invitationService.listSentInvitations(request.params.orgId);
+  const userId = requireAuthUserId(request);
+  const rows = await invitationService.listSentInvitations(request.params.orgId, userId);
   return reply.status(200).send(success(rows));
 }
 
@@ -66,7 +67,12 @@ export async function getInvitationHandler(
   request: FastifyRequest<{ Params: { orgId: string; id: string } }>,
   reply: FastifyReply,
 ) {
-  const row = await invitationService.getInvitationById(request.params.orgId, request.params.id);
+  const userId = requireAuthUserId(request);
+  const row = await invitationService.getInvitationById(
+    request.params.orgId,
+    request.params.id,
+    userId,
+  );
   return reply.status(200).send(success(row));
 }
 

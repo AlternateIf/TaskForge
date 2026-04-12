@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { type FormEvent, useState } from 'react';
+import { useAuthStore } from '@/stores/auth.store';
+import { PROJECT_CREATE_PERMISSION } from '@taskforge/shared';
+import { type FormEvent, useMemo, useState } from 'react';
 
 const PROJECT_COLORS = [
   '#3B82F6', // blue
@@ -36,6 +38,9 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const createProject = useCreateProject();
+  const user = useAuthStore((s) => s.user);
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canCreate = permissionSet.has(PROJECT_CREATE_PERMISSION);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -114,7 +119,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
             <Button
               type="submit"
               variant="primary"
-              disabled={!name.trim() || createProject.isPending}
+              disabled={!canCreate || !name.trim() || createProject.isPending}
             >
               {createProject.isPending ? 'Creating…' : 'Create Project'}
             </Button>

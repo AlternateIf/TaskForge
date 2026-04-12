@@ -12,7 +12,7 @@ import type {
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
 import type { FeatureMap } from '../../services/feature-toggle.service.js';
-import { hasGlobalPermission, hasOrgPermission } from '../../services/permission.service.js';
+import { getOrgCreatePermission } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { getAuthSettingsHandler, updateAuthSettingsHandler } from './auth-settings.handlers.js';
 import { getFeaturesHandler, updateFeaturesHandler } from './features.handlers.js';
@@ -35,7 +35,8 @@ export async function organizationRoutes(fastify: FastifyInstance) {
   // All org routes require authentication
   fastify.addHook('preHandler', fastify.authenticate);
 
-  // Create: any authenticated user can create an org (they become Super Admin)
+  // Create: any authenticated user with organization.create.org permission can create an org.
+  // If the user has no existing org memberships (first org), creation is allowed.
   fastify.post(
     '/api/v1/organizations',
     {
@@ -44,11 +45,7 @@ export async function organizationRoutes(fastify: FastifyInstance) {
           if (!request.authUser) {
             throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
           }
-          const allowed = await hasGlobalPermission(
-            request.authUser.userId,
-            'organization',
-            'create',
-          );
+          const allowed = await getOrgCreatePermission(request.authUser.userId);
           if (!allowed) {
             throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions');
           }
@@ -61,8 +58,24 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     createOrganizationHandler,
   );
 
-  // List: returns only orgs the user belongs to
-  fastify.get('/api/v1/organizations', {}, listOrganizationsHandler);
+  // List: returns only orgs the user belongs to and has organization.read.org permission for.
+  // Route-level authorization: reject users who lack organization.read in every org they belong to.
+  // Service-layer filtering (listUserOrganizations) remains as defense-in-depth.
+  fastify.get(
+    '/api/v1/organizations',
+    {
+      preHandler: [
+        async (request) => {
+          if (!request.authUser) {
+            throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
+          }
+          // Users without any org memberships will get an empty list.
+          // No global permission check — org listing is strictly membership-based.
+        },
+      ],
+    },
+    listOrganizationsHandler,
+  );
 
   // Get: requires org read permission
   fastify.get<{ Params: { id: string } }>(
@@ -91,7 +104,7 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     uploadOrganizationLogoHandler,
   );
 
-  // Delete: requires org delete (Super Admin only)
+  // Delete: requires org delete permission
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/organizations/:id',
     { preHandler: authorize({ resource: 'organization', action: 'delete' }) },
@@ -101,7 +114,7 @@ export async function organizationRoutes(fastify: FastifyInstance) {
   // Members
   fastify.get<{ Params: { id: string } }>(
     '/api/v1/organizations/:id/members',
-    { preHandler: authorize({ resource: 'organization', action: 'read' }) },
+    { preHandler: authorize({ resource: 'membership', action: 'read' }) },
     listMembersHandler,
   );
 
@@ -109,7 +122,7 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     '/api/v1/organizations/:id/members/:memberId',
     {
       preHandler: [
-        authorize({ resource: 'organization', action: 'update' }),
+        authorize({ resource: 'membership', action: 'update' }),
         async (request) => {
           request.body = updateMemberRoleSchema.parse(request.body);
         },
@@ -120,15 +133,15 @@ export async function organizationRoutes(fastify: FastifyInstance) {
 
   fastify.delete<{ Params: { id: string; memberId: string } }>(
     '/api/v1/organizations/:id/members/:memberId',
-    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
+    { preHandler: authorize({ resource: 'membership', action: 'delete' }) },
     removeMemberHandler,
   );
 
-  // Effective permissions for a member - requires organization.manage (not just read)
+  // Effective permissions for a member - requires organization.update (not just read)
   // to prevent non-admins from enumerating other users' permissions
   fastify.get<{ Params: { id: string; userId: string } }>(
     '/api/v1/organizations/:id/members/:userId/effective-permissions',
-    { preHandler: authorize({ resource: 'organization', action: 'manage' }) },
+    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
     getEffectivePermissionsHandler,
   );
 
@@ -165,30 +178,10 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     updateAuthSettingsHandler,
   );
 
-  // Permission matrix — requires organization.manage OR role.read.org
+  // Permission matrix — requires role.read permission
   fastify.get<{ Params: { id: string } }>(
     '/api/v1/organizations/:id/permission-matrix',
-    {
-      preHandler: [
-        fastify.authenticate,
-        async (request, _reply) => {
-          if (!request.authUser) {
-            throw new AppError(401, ErrorCode.UNAUTHORIZED, 'Not authenticated');
-          }
-          const params = request.params as Record<string, string>;
-          const orgId = params.id;
-          const userId = request.authUser.userId;
-
-          const hasManage = await hasOrgPermission(userId, orgId, 'organization', 'manage');
-          if (hasManage) return;
-
-          const hasRoleRead = await hasOrgPermission(userId, orgId, 'role', 'read');
-          if (hasRoleRead) return;
-
-          throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions');
-        },
-      ],
-    },
+    { preHandler: authorize({ resource: 'role', action: 'read' }) },
     getPermissionMatrixHandler,
   );
 }

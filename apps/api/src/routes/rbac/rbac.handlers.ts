@@ -15,48 +15,13 @@ function requireActorId(request: FastifyRequest): string {
   return request.authUser.userId;
 }
 
-// Roles
-export async function listGlobalRolesHandler(_request: FastifyRequest, reply: FastifyReply) {
-  return reply.status(200).send(success(await rbacService.listRoles(undefined)));
-}
-
-export async function createGlobalRoleHandler(
-  request: FastifyRequest<{ Body: CreateRoleBody }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  const role = await rbacService.createRole(actorId, {
-    name: request.body.name,
-    description: request.body.description ?? null,
-    organizationId: null,
-    permissions: request.body.permissions,
-  });
-  return reply.status(201).send(success(role));
-}
-
-export async function updateGlobalRoleHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: UpdateRoleBody }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  const role = await rbacService.updateRole(actorId, request.params.id, request.body);
-  return reply.status(200).send(success(role));
-}
-
-export async function deleteGlobalRoleHandler(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  await rbacService.deleteRole(actorId, request.params.id);
-  return reply.status(204).send();
-}
-
+// Org roles
 export async function listOrgRolesHandler(
   request: FastifyRequest<{ Params: { orgId: string } }>,
   reply: FastifyReply,
 ) {
-  return reply.status(200).send(success(await rbacService.listRoles(request.params.orgId)));
+  const userId = requireActorId(request);
+  return reply.status(200).send(success(await rbacService.listRoles(request.params.orgId, userId)));
 }
 
 export async function createOrgRoleHandler(
@@ -91,48 +56,7 @@ export async function deleteOrgRoleHandler(
   return reply.status(204).send();
 }
 
-// Role assignments
-export async function listGlobalRoleAssignmentsHandler(
-  _request: FastifyRequest,
-  reply: FastifyReply,
-) {
-  return reply.status(200).send(success(await rbacService.listRoleAssignments(undefined)));
-}
-
-export async function createGlobalRoleAssignmentHandler(
-  request: FastifyRequest<{ Body: CreateRoleAssignmentBody }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  const assignment = await rbacService.createRoleAssignment(actorId, {
-    ...request.body,
-    organizationId: null,
-  });
-  return reply.status(201).send(success(assignment));
-}
-
-export async function updateGlobalRoleAssignmentHandler(
-  request: FastifyRequest<{ Params: { id: string }; Body: UpdateRoleAssignmentBody }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  const assignment = await rbacService.updateRoleAssignment(
-    actorId,
-    request.params.id,
-    request.body,
-  );
-  return reply.status(200).send(success(assignment));
-}
-
-export async function deleteGlobalRoleAssignmentHandler(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  await rbacService.deleteRoleAssignment(actorId, request.params.id);
-  return reply.status(204).send();
-}
-
+// Org role assignments
 export async function listOrgRoleAssignmentsHandler(
   request: FastifyRequest<{ Params: { orgId: string } }>,
   reply: FastifyReply,
@@ -179,42 +103,15 @@ export async function deleteOrgRoleAssignmentHandler(
   return reply.status(204).send();
 }
 
-// Direct permission assignments
-export async function listGlobalPermissionAssignmentsHandler(
-  _request: FastifyRequest,
-  reply: FastifyReply,
-) {
-  return reply.status(200).send(success(await rbacService.listPermissionAssignments(undefined)));
-}
-
-export async function createGlobalPermissionAssignmentHandler(
-  request: FastifyRequest<{ Body: CreatePermissionAssignmentBody }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  const assignment = await rbacService.createPermissionAssignment(actorId, {
-    ...request.body,
-    organizationId: null,
-  });
-  return reply.status(201).send(success(assignment));
-}
-
-export async function deleteGlobalPermissionAssignmentHandler(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply,
-) {
-  const actorId = requireActorId(request);
-  await rbacService.deletePermissionAssignment(actorId, request.params.id);
-  return reply.status(204).send();
-}
-
+// Org direct permission assignments
 export async function listOrgPermissionAssignmentsHandler(
   request: FastifyRequest<{ Params: { orgId: string } }>,
   reply: FastifyReply,
 ) {
+  const userId = requireActorId(request);
   return reply
     .status(200)
-    .send(success(await rbacService.listPermissionAssignments(request.params.orgId)));
+    .send(success(await rbacService.listPermissionAssignments(request.params.orgId, userId)));
 }
 
 export async function createOrgPermissionAssignmentHandler(
@@ -234,6 +131,6 @@ export async function deleteOrgPermissionAssignmentHandler(
   reply: FastifyReply,
 ) {
   const actorId = requireActorId(request);
-  await rbacService.deletePermissionAssignment(actorId, request.params.id);
+  await rbacService.deletePermissionAssignment(actorId, request.params.id, request.params.orgId);
   return reply.status(204).send();
 }

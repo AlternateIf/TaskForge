@@ -41,13 +41,9 @@ export async function uploadAttachmentHandler(request: FastifyRequest, reply: Fa
     if (!ctx) {
       throw new AppError(403, ErrorCode.FORBIDDEN, 'You are not a member of this organization');
     }
-    const allowed = await checkPermission(ctx, userId, 'attachment', 'create', resolved.projectId);
+    const allowed = await checkPermission(ctx, userId, 'task', 'update', resolved.projectId);
     if (!allowed) {
-      throw new AppError(
-        403,
-        ErrorCode.FORBIDDEN,
-        'Insufficient permissions to upload to this task',
-      );
+      throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions to update this task');
     }
   }
 

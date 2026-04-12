@@ -17,6 +17,7 @@ interface ProjectToolbarProps {
   activeView: 'board' | 'list';
   filters: TaskFilters;
   onFiltersChange: (filters: TaskFilters) => void;
+  canViewSettings?: boolean;
 }
 
 function hasActiveFilters(filters: TaskFilters): boolean {
@@ -44,6 +45,7 @@ export function ProjectToolbar({
   activeView,
   filters,
   onFiltersChange,
+  canViewSettings = true,
 }: ProjectToolbarProps) {
   const navigate = useNavigate();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -210,15 +212,17 @@ export function ProjectToolbar({
             </div>
 
             {/* Settings */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={navigateToSettings}
-              aria-label="Project settings"
-              className="shrink-0"
-            >
-              <Settings className="size-4" />
-            </Button>
+            {canViewSettings ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={navigateToSettings}
+                aria-label="Project settings"
+                className="shrink-0"
+              >
+                <Settings className="size-4" />
+              </Button>
+            ) : null}
           </>
         )}
       </div>

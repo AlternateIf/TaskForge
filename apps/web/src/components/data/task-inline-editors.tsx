@@ -6,9 +6,11 @@ import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { X } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
+
+const MEMBERS_READ_PERMISSION = 'membership.read.org';
 
 // ─── Shared popover shell ─────────────────────────────────────────────────────
 
@@ -385,9 +387,12 @@ export function AssigneePicker({
     setSearch('');
   }, []);
 
+  const userPermissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const permissionSet = useMemo(() => new Set(userPermissions), [userPermissions]);
+  const canViewOrgMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
   const orgId = useAuthStore((s) => s.activeOrganizationId ?? s.user?.organizationId);
-  const { data: orgMembers } = useOrgMembers(orgId);
-  const searchSource = orgMembers ?? members;
+  const { data: orgMembers } = useOrgMembers(canViewOrgMembers ? orgId : undefined);
+  const searchSource = canViewOrgMembers ? (orgMembers ?? members) : members;
 
   const filtered = searchSource
     .filter((m) => {
@@ -439,6 +444,11 @@ export function AssigneePicker({
           className="h-7 w-full rounded-radius-md border border-border bg-surface-container-high px-sm text-body text-foreground placeholder:text-muted focus:outline-2 focus:outline-ring"
           onClick={(e) => e.stopPropagation()}
         />
+        {!canViewOrgMembers ? (
+          <p className="pt-xs text-label text-muted">
+            Showing project members only (membership.read.org required for organization directory).
+          </p>
+        ) : null}
       </div>
       {filtered.length > 0 ? (
         filtered.map((m) => (

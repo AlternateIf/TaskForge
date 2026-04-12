@@ -6,74 +6,46 @@ import {
   permissions,
   roleAssignments,
   roles,
-  users,
 } from '@taskforge/db';
-import type { Action, Resource } from '@taskforge/shared';
-import { ROLE_NAMES } from '@taskforge/shared';
-import { and, eq, isNull, not, or } from 'drizzle-orm';
+import { and, eq, isNull, or } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
-import {
-  hasGlobalPermission,
-  hasOrgPermission,
-  loadPermissionContext,
-} from './permission.service.js';
+import { hasOrgPermission, loadPermissionContext } from './permission.service.js';
 
-function getBootstrapSuperAdminEmail(): string {
-  return process.env.AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL ?? 'superadmin@taskforge.local';
-}
-
-async function isBootstrapSuperUser(userId: string): Promise<boolean> {
-  const row = (
+/**
+ * Check if a user holds a given permission at global scope.
+ * Global roles (organizationId = null) are included in the user's effective
+ * permissions for any org they belong to, so we resolve the first org
+ * membership and check via loadPermissionContext.
+ */
+async function hasPermissionInAnyOrg(
+  userId: string,
+  resource: string,
+  action: string,
+): Promise<boolean> {
+  // Find the user's first org membership to resolve a permission context
+  const membership = (
     await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, userId), eq(users.email, getBootstrapSuperAdminEmail())))
-      .limit(1)
-  )[0];
-  return Boolean(row);
-}
-
-async function actorHasGlobalSuperAdmin(actorUserId: string): Promise<boolean> {
-  const rows = await db
-    .select({ roleName: roles.name })
-    .from(roleAssignments)
-    .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
-    .where(and(eq(roleAssignments.userId, actorUserId), isNull(roleAssignments.organizationId)));
-
-  return rows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
-}
-
-async function ensureSuperAdminInvariantAfterDelete(candidateAssignmentId: string): Promise<void> {
-  const candidate = (
-    await db
-      .select({
-        roleId: roleAssignments.roleId,
-      })
-      .from(roleAssignments)
-      .where(eq(roleAssignments.id, candidateAssignmentId))
+      .select({ organizationId: organizationMembers.organizationId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId))
       .limit(1)
   )[0];
 
-  if (!candidate) return;
-
-  const role = (await db.select().from(roles).where(eq(roles.id, candidate.roleId)).limit(1))[0];
-  if (!role || role.name !== ROLE_NAMES.SUPER_ADMIN || role.organizationId !== null) return;
-
-  const superAdmins = await db
-    .select({ id: roleAssignments.id })
-    .from(roleAssignments)
-    .where(
-      and(
-        eq(roleAssignments.roleId, role.id),
-        isNull(roleAssignments.organizationId),
-        not(eq(roleAssignments.id, candidateAssignmentId)),
-      ),
-    );
-
-  if (superAdmins.length === 0) {
-    throw new AppError(409, ErrorCode.CONFLICT, 'At least one global Super Admin must remain');
+  if (!membership) {
+    // User has no org memberships; they cannot hold any permissions
+    return false;
   }
+
+  const ctx = await loadPermissionContext(userId, membership.organizationId);
+  if (!ctx) return false;
+
+  return ctx.effectivePermissions.some(
+    (entry) =>
+      entry.resource === resource &&
+      (entry.action === action ||
+        (entry.action === 'manage' && ['create', 'read', 'update', 'delete'].includes(action))),
+  );
 }
 
 async function resolveAuditOrganizationId(
@@ -123,7 +95,19 @@ async function logRbacAudit(args: {
   });
 }
 
-export async function listRoles(organizationId?: string) {
+export async function listRoles(organizationId?: string, userId?: string) {
+  // Defense-in-depth: if userId and organizationId are provided, verify read permission
+  if (userId && organizationId) {
+    const canRead = await hasOrgPermission(userId, organizationId, 'role', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to list roles in this organization',
+      );
+    }
+  }
+
   const roleRows = await db
     .select()
     .from(roles)
@@ -176,6 +160,18 @@ export async function createRole(
     permissions?: Array<{ resource: string; action: string; scope: string }>;
   },
 ) {
+  // Defense-in-depth: verify the actor has role.create.org permission for org-scoped roles
+  if (input.organizationId) {
+    const canCreate = await hasOrgPermission(actorUserId, input.organizationId, 'role', 'create');
+    if (!canCreate) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to create roles in this organization',
+      );
+    }
+  }
+
   // Escalation prevention: actor must hold every permission being assigned to the new role
   if (input.permissions && input.permissions.length > 0) {
     const orgIdForCheck = input.organizationId ?? null;
@@ -196,12 +192,8 @@ export async function createRole(
           );
         }
       } else {
-        // Global scope: check global permission
-        const hasGlobal = await hasGlobalPermission(
-          actorUserId,
-          perm.resource as Resource,
-          perm.action as Action,
-        );
+        // Global scope: check via any org context (global roles are included there)
+        const hasGlobal = await hasPermissionInAnyOrg(actorUserId, perm.resource, perm.action);
         if (!hasGlobal) {
           throw new AppError(
             403,
@@ -261,8 +253,17 @@ export async function updateRole(
 ) {
   const role = (await db.select().from(roles).where(eq(roles.id, roleId)).limit(1))[0];
   if (!role) throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found');
-  if (role.name === ROLE_NAMES.SUPER_ADMIN && role.organizationId === null) {
-    throw new AppError(403, ErrorCode.FORBIDDEN, 'Super Admin role is immutable');
+
+  // Defense-in-depth: verify the actor has role.update.org permission for org-scoped roles
+  if (role.organizationId) {
+    const canUpdate = await hasOrgPermission(actorUserId, role.organizationId, 'role', 'update');
+    if (!canUpdate) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to update roles in this organization',
+      );
+    }
   }
 
   await db
@@ -292,8 +293,17 @@ export async function updateRole(
 export async function deleteRole(actorUserId: string, roleId: string): Promise<void> {
   const role = (await db.select().from(roles).where(eq(roles.id, roleId)).limit(1))[0];
   if (!role) throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found');
-  if (role.name === ROLE_NAMES.SUPER_ADMIN && role.organizationId === null) {
-    throw new AppError(403, ErrorCode.FORBIDDEN, 'Super Admin role is immutable');
+
+  // Defense-in-depth: verify the actor has role.delete.org permission for org-scoped roles
+  if (role.organizationId) {
+    const canDelete = await hasOrgPermission(actorUserId, role.organizationId, 'role', 'delete');
+    if (!canDelete) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to delete roles in this organization',
+      );
+    }
   }
 
   await db.delete(roleAssignments).where(eq(roleAssignments.roleId, roleId));
@@ -346,26 +356,19 @@ export async function createRoleAssignment(
     );
   }
 
-  if (role.name === ROLE_NAMES.SUPER_ADMIN && role.organizationId === null) {
-    const hasGlobalSuperAdmin = await actorHasGlobalSuperAdmin(actorUserId);
-    if (!hasGlobalSuperAdmin) {
-      throw new AppError(403, ErrorCode.FORBIDDEN, 'Only Super Admin can assign Super Admin');
-    }
-  }
-
-  // Org-scoped role assignment: actor must have organization.manage in target org
+  // Org-scoped role assignment: actor must have organization.update in target org
   if (assignmentOrgId) {
     const actorCanManage = await hasOrgPermission(
       actorUserId,
       assignmentOrgId,
       'organization',
-      'manage',
+      'update',
     );
     if (!actorCanManage) {
       throw new AppError(
         403,
         ErrorCode.FORBIDDEN,
-        'You must have organization.manage permission to assign roles in this organization',
+        'You must have organization.update permission to assign roles in this organization',
       );
     }
   }
@@ -396,12 +399,8 @@ export async function createRoleAssignment(
         );
       }
     } else {
-      // Global scope: check global permission
-      const hasGlobal = await hasGlobalPermission(
-        actorUserId,
-        perm.resource as Resource,
-        perm.action as Action,
-      );
+      // Global scope: check via any org context (global roles are included there)
+      const hasGlobal = await hasPermissionInAnyOrg(actorUserId, perm.resource, perm.action);
       if (!hasGlobal) {
         throw new AppError(
           403,
@@ -476,17 +475,6 @@ export async function updateRoleAssignment(
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Current role not found');
   }
 
-  if (oldRole.name === ROLE_NAMES.SUPER_ADMIN && oldRole.organizationId === null) {
-    if (await isBootstrapSuperUser(existing.userId)) {
-      throw new AppError(
-        403,
-        ErrorCode.FORBIDDEN,
-        'Bootstrap Super Admin user cannot lose Super Admin',
-      );
-    }
-    await ensureSuperAdminInvariantAfterDelete(assignmentId);
-  }
-
   const newRole = (await db.select().from(roles).where(eq(roles.id, patch.roleId)).limit(1))[0];
   if (!newRole) throw new AppError(404, ErrorCode.NOT_FOUND, 'Role not found');
   if ((newRole.organizationId ?? null) !== (existing.organizationId ?? null)) {
@@ -525,12 +513,8 @@ export async function updateRoleAssignment(
         );
       }
     } else {
-      // Global scope: check global permission
-      const hasGlobal = await hasGlobalPermission(
-        actorUserId,
-        perm.resource as Resource,
-        perm.action as Action,
-      );
+      // Global scope: check via any org context (global roles are included there)
+      const hasGlobal = await hasPermissionInAnyOrg(actorUserId, perm.resource, perm.action);
       if (!hasGlobal) {
         throw new AppError(
           403,
@@ -578,21 +562,9 @@ export async function deleteRoleAssignment(
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Role assignment not found');
   }
 
-  const role = (await db.select().from(roles).where(eq(roles.id, existing.roleId)).limit(1))[0];
-  if (role?.name === ROLE_NAMES.SUPER_ADMIN && role.organizationId === null) {
-    if (await isBootstrapSuperUser(existing.userId)) {
-      throw new AppError(
-        403,
-        ErrorCode.FORBIDDEN,
-        'Bootstrap Super Admin user cannot lose Super Admin',
-      );
-    }
-    await ensureSuperAdminInvariantAfterDelete(assignmentId);
-  }
-
   // Last-admin protection for org-scoped role assignment deletion:
-  // If this role grants organization.manage in the org, verify the target user
-  // will still have organization.manage after this role assignment is removed.
+  // If this role grants organization.update in the org, verify the target user
+  // will still have organization.update after this role assignment is removed.
   if (existing.organizationId) {
     const rolePerms = await db
       .select({ resource: permissions.resource, action: permissions.action })
@@ -600,20 +572,20 @@ export async function deleteRoleAssignment(
       .where(eq(permissions.roleId, existing.roleId));
 
     const grantsManage = rolePerms.some(
-      (p) => p.resource === 'organization' && p.action === 'manage',
+      (p) => p.resource === 'organization' && (p.action === 'update' || p.action === 'manage'),
     );
 
     if (grantsManage) {
-      // Check if the user currently has organization.manage
+      // Check if the user currently has organization.update
       const targetCurrentlyHasManage = await hasOrgPermission(
         existing.userId,
         existing.organizationId,
         'organization',
-        'manage',
+        'update',
       );
 
       if (targetCurrentlyHasManage) {
-        // After removing this assignment, check if OTHER members would still have manage
+        // After removing this assignment, check if OTHER members would still have update
         const allMembers = await db
           .select({ userId: organizationMembers.userId })
           .from(organizationMembers)
@@ -629,7 +601,7 @@ export async function deleteRoleAssignment(
             uid,
             existing.organizationId,
             'organization',
-            'manage',
+            'update',
           );
           if (hasPerm) {
             otherAdminCount++;
@@ -671,16 +643,8 @@ async function actorHasPermissionKey(
   const [resource, action, scopeToken] = permissionKey.split('.');
   if (!resource || !action || !scopeToken) return false;
 
-  if (organizationId === null) {
-    const globalRows = await db
-      .select({ roleName: roles.name })
-      .from(roleAssignments)
-      .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
-      .where(and(eq(roleAssignments.userId, actorUserId), isNull(roleAssignments.organizationId)));
-    if (globalRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN)) return true;
-  } else {
+  if (organizationId !== null) {
     const ctx = await loadPermissionContext(actorUserId, organizationId);
-    if (ctx?.hasSuperAdmin) return true;
     if (
       ctx?.effectivePermissions.some(
         (entry) => entry.resource === resource && entry.action === action,
@@ -709,7 +673,19 @@ async function actorHasPermissionKey(
   return Boolean(direct);
 }
 
-export async function listPermissionAssignments(organizationId?: string) {
+export async function listPermissionAssignments(organizationId?: string, userId?: string) {
+  // Defense-in-depth: verify the caller has permission.read.org for org-scoped queries
+  if (organizationId && userId) {
+    const canRead = await hasOrgPermission(userId, organizationId, 'permission', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to list permission assignments in this organization',
+      );
+    }
+  }
+
   return db
     .select()
     .from(permissionAssignments)
@@ -790,6 +766,7 @@ export async function createPermissionAssignment(
 export async function deletePermissionAssignment(
   actorUserId: string,
   assignmentId: string,
+  orgId?: string,
 ): Promise<void> {
   const existing = (
     await db
@@ -801,6 +778,29 @@ export async function deletePermissionAssignment(
   if (!existing) {
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Permission assignment not found');
   }
+
+  // Defense-in-depth: verify assignment belongs to the expected org scope
+  if (orgId && (existing.organizationId ?? null) !== orgId) {
+    throw new AppError(
+      400,
+      ErrorCode.BAD_REQUEST,
+      'Permission assignment does not belong to the specified organization',
+    );
+  }
+
+  // Check permission.update.org if org-scoped
+  const scopeOrgId = orgId ?? existing.organizationId ?? null;
+  if (scopeOrgId) {
+    const canUpdate = await hasOrgPermission(actorUserId, scopeOrgId, 'permission', 'update');
+    if (!canUpdate) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to delete permission assignments in this organization',
+      );
+    }
+  }
+
   await db.delete(permissionAssignments).where(eq(permissionAssignments.id, assignmentId));
   await logRbacAudit({
     actorUserId,

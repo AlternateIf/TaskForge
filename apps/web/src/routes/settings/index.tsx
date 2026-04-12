@@ -838,7 +838,7 @@ function OrgCard({
 function OrganizationsTab() {
   const { activeOrganizationId, setActiveOrganizationId } = useAuthStore();
   const permissionSet = new Set(useAuthStore.getState().user?.permissions ?? []);
-  const canCreate = permissionSet.has('organization.create.global');
+  const canCreate = permissionSet.has('organization.create.org');
 
   const orgs = useOrganizations();
   const createOrg = useCreateOrganization();

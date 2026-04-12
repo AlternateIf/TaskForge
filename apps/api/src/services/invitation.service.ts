@@ -14,7 +14,7 @@ import {
   roles,
   users,
 } from '@taskforge/db';
-import { GOVERNANCE_PERMISSION_SET } from '@taskforge/shared';
+import { PERMISSION_SET } from '@taskforge/shared';
 import bcrypt from 'bcrypt';
 import { and, eq, inArray, isNull, lt } from 'drizzle-orm';
 import { publish } from '../queues/publisher.js';
@@ -22,6 +22,7 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { createSession } from './auth.service.js';
 import type { JwtPayload, TokenPair } from './auth.service.js';
+import { hasOrgPermission } from './permission.service.js';
 
 const INVITATION_EXPIRY_HOURS = 72;
 const BCRYPT_ROUNDS = 12;
@@ -328,7 +329,7 @@ async function upsertInvitationTargetSnapshot(
   );
 
   for (const permissionKey of [...new Set(target.permissionKeys ?? [])]) {
-    if (!GOVERNANCE_PERMISSION_SET.has(permissionKey)) {
+    if (!PERMISSION_SET.has(permissionKey)) {
       throw new AppError(
         422,
         ErrorCode.UNPROCESSABLE_ENTITY,
@@ -505,7 +506,7 @@ async function applyInvitationSnapshot(
       .where(eq(invitationTargetPermissions.invitationTargetId, target.id));
 
     for (const permission of targetPermissions) {
-      if (!GOVERNANCE_PERMISSION_SET.has(permission.permissionKey)) {
+      if (!PERMISSION_SET.has(permission.permissionKey)) {
         throw new AppError(
           422,
           ErrorCode.UNPROCESSABLE_ENTITY,
@@ -633,6 +634,74 @@ export async function createInvitation(
     );
   }
 
+  // Verify each target org matches the route param (inviterOrgId)
+  for (const target of input.targets) {
+    if (target.organizationId !== inviterOrgId) {
+      throw new AppError(
+        400,
+        ErrorCode.BAD_REQUEST,
+        'Invitation target organization must match the current organization',
+      );
+    }
+  }
+
+  // Verify inviter has invitation.create.org permission
+  const canInvite = await hasOrgPermission(invitedByUserId, inviterOrgId, 'invitation', 'create');
+  if (!canInvite) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to create invitations in this organization',
+    );
+  }
+
+  // Verify inviter can assign requested roles
+  for (const target of input.targets) {
+    if (target.roleIds && target.roleIds.length > 0) {
+      const canAssignRoles = await hasOrgPermission(
+        invitedByUserId,
+        target.organizationId,
+        'role',
+        'update',
+      );
+      if (!canAssignRoles) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to assign roles in this organization',
+        );
+      }
+    }
+
+    // Verify inviter can assign requested permissions (must hold them themselves)
+    if (target.permissionKeys && target.permissionKeys.length > 0) {
+      for (const permissionKey of target.permissionKeys) {
+        const parts = permissionKey.split('.');
+        if (parts.length < 3) continue;
+        const scope = parts[parts.length - 1];
+        const action = parts[parts.length - 2];
+        const resource = parts.slice(0, -2).join('.');
+
+        // Only check org-scoped permissions against the inviter
+        if (scope === 'org') {
+          const canGrant = await hasOrgPermission(
+            invitedByUserId,
+            target.organizationId,
+            resource,
+            action,
+          );
+          if (!canGrant) {
+            throw new AppError(
+              403,
+              ErrorCode.FORBIDDEN,
+              `Insufficient permissions to grant permission '${permissionKey}' in this organization`,
+            );
+          }
+        }
+      }
+    }
+  }
+
   const targetOrgIds = [...new Set(input.targets.map((target) => target.organizationId))];
   const allowedAuthMethods = await computeAllowedAuthMethods(
     targetOrgIds,
@@ -758,7 +827,19 @@ export async function createInvitation(
   };
 }
 
-export async function listSentInvitations(orgId: string): Promise<InvitationOutput[]> {
+export async function listSentInvitations(
+  orgId: string,
+  userId: string,
+): Promise<InvitationOutput[]> {
+  const canRead = await hasOrgPermission(userId, orgId, 'invitation', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to view invitations in this organization',
+    );
+  }
+
   await cleanupExpiredInvitations();
 
   const rows = await db
@@ -781,7 +862,17 @@ export async function listSentInvitations(orgId: string): Promise<InvitationOutp
 export async function getInvitationById(
   orgId: string,
   invitationId: string,
+  userId: string,
 ): Promise<InvitationOutput> {
+  const canRead = await hasOrgPermission(userId, orgId, 'invitation', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to view invitations in this organization',
+    );
+  }
+
   await cleanupExpiredInvitations();
   const row = (
     await db
@@ -810,6 +901,15 @@ export async function resendInvitation(
   invitationId: string,
   actorUserId: string,
 ): Promise<{ invitation: InvitationOutput; token: string }> {
+  const canUpdate = await hasOrgPermission(actorUserId, orgId, 'invitation', 'update');
+  if (!canUpdate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to resend invitations in this organization',
+    );
+  }
+
   await cleanupExpiredInvitations();
 
   const row = (
@@ -873,6 +973,15 @@ export async function revokeInvitation(
   invitationId: string,
   actorUserId: string,
 ): Promise<void> {
+  const canDelete = await hasOrgPermission(actorUserId, orgId, 'invitation', 'delete');
+  if (!canDelete) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to revoke invitations in this organization',
+    );
+  }
+
   await cleanupExpiredInvitations();
 
   const row = (

@@ -38,12 +38,16 @@ export async function listProjectsHandler(
   }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const query = request.query as { status?: string; search?: string };
-  const projects = await projectService.listProjects(request.params.orgId, {
-    status: query.status,
-    search: query.search,
-  });
+  const projects = await projectService.listProjects(
+    request.params.orgId,
+    {
+      status: query.status,
+      search: query.search,
+    },
+    userId,
+  );
   return reply.status(200).send(success(projects));
 }
 
@@ -51,10 +55,10 @@ export async function getProjectHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const id = request.params.id;
   const [project, workflows, members, labels] = await Promise.all([
-    projectService.getProject(id),
+    projectService.getProject(id, userId),
     projectService.getProjectWorkflows(id),
     projectService.listProjectMembers(id),
     projectService.listLabels(id),

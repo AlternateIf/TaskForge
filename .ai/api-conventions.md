@@ -549,7 +549,7 @@ GET /api/v1/organizations/:organizationId/members/:userId/effective-permissions
 DELETE /api/v1/organizations/:organizationId/members/:memberId
 ```
 
-**Authorization**: Requires `organization.update` permission.
+**Authorization**: Requires `membership.delete.org` permission.
 
 **Cascade Behavior**: When a member is removed, the following are deleted in a single transaction:
 - `organizationMembers` row

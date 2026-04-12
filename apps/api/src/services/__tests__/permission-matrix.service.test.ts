@@ -20,13 +20,13 @@ vi.mock('@taskforge/db', () => ({
   },
 }));
 
-// We import GOVERNANCE_PERMISSION_KEYS to verify our test expectations
-import { GOVERNANCE_PERMISSION_KEYS } from '@taskforge/shared';
+// We import PERMISSION_KEYS to verify our test expectations
+import { PERMISSION_KEYS } from '@taskforge/shared';
 
 const { getPermissionMatrix } = await import('../permission-matrix.service.js');
 
 describe('getPermissionMatrix', () => {
-  it('returns categories grouped from GOVERNANCE_PERMISSION_KEYS', async () => {
+  it('returns categories grouped from PERMISSION_KEYS', async () => {
     // First call: roles query
     const rolesResult = [{ id: 'role-1', name: 'Admin', organizationId: 'org-1' }];
     // Second call: permissions query
@@ -62,8 +62,8 @@ describe('getPermissionMatrix', () => {
       expect(entries.length).toBeGreaterThan(0);
       for (const entry of entries) {
         expect(entry.key).toBeTruthy();
-        // Every key should be from GOVERNANCE_PERMISSION_KEYS
-        expect(GOVERNANCE_PERMISSION_KEYS).toContain(entry.key);
+        // Every key should be from PERMISSION_KEYS
+        expect(PERMISSION_KEYS).toContain(entry.key);
       }
     }
 
@@ -80,7 +80,7 @@ describe('getPermissionMatrix', () => {
       { id: 'org-role', name: 'Admin', organizationId: 'org-1' },
     ];
     const permsResult = [
-      { roleId: 'global-role', resource: 'organization', action: 'manage', scope: 'global' },
+      { roleId: 'global-role', resource: 'organization', action: 'manage', scope: 'organization' },
       { roleId: 'org-role', resource: 'task', action: 'create', scope: 'organization' },
     ];
 
@@ -105,8 +105,8 @@ describe('getPermissionMatrix', () => {
     expect(result.roles).toHaveLength(2);
     const superAdmin = result.roles.find((r) => r.name === 'Super Admin');
     expect(superAdmin).toBeDefined();
-    // Super Admin with organization.manage.global should map to governance key
-    expect(superAdmin?.permissions).toContain('organization.create.global');
+    // Super Admin with organization.manage (stored in DB) expands to include organization.create.org
+    expect(superAdmin?.permissions).toContain('organization.create.org');
   });
 
   it('expands manage action into individual CRUD actions', async () => {
@@ -138,12 +138,11 @@ describe('getPermissionMatrix', () => {
     expect(adminRole).toBeDefined();
 
     // manage on organization at organization scope should expand to:
-    // organization.read.org, organization.update.org, organization.delete.org
-    // (organization.create.org is governance, but .manage at org scope expands to .org keys)
+    // organization.create.org, organization.read.org, organization.update.org, organization.delete.org
+    expect(adminRole?.permissions).toContain('organization.create.org');
     expect(adminRole?.permissions).toContain('organization.read.org');
     expect(adminRole?.permissions).toContain('organization.update.org');
     expect(adminRole?.permissions).toContain('organization.delete.org');
-    // Note: organization.create.org is NOT in GOVERNANCE_PERMISSION_KEYS, only organization.create.global exists
   });
 
   it('normalizes organization scope to org in permission keys', async () => {
@@ -231,14 +230,9 @@ describe('getPermissionMatrix', () => {
     // Verify some specific category names
     const categoryNames = Object.keys(result.categories);
     expect(categoryNames).toContain('Organization');
-    expect(categoryNames).toContain('Organization → Settings');
-    expect(categoryNames).toContain('Organization → Auth Settings');
-    expect(categoryNames).toContain('Organization → Features');
     expect(categoryNames).toContain('Invitation');
     expect(categoryNames).toContain('Membership');
     expect(categoryNames).toContain('Role');
     expect(categoryNames).toContain('Permission');
-    // Note: 'Global Role Assignment' is not derivable because global_role_assignment keys
-    // have no scope part (e.g., 'global_role_assignment.create'), causing empty resource prefix
   });
 });

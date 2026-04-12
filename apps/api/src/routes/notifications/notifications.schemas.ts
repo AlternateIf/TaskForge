@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const listNotificationsQuerySchema = z.object({
+  orgId: z.string(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });

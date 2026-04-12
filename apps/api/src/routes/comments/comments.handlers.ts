@@ -23,33 +23,8 @@ function hasPermission(
   });
 }
 
-function canAccessInternalComments(ctx?: PermissionContext): boolean {
-  if (!ctx) return false;
-  if (ctx.hasSuperAdmin) return true;
-
-  if (
-    hasPermission(ctx.effectivePermissions, 'comment', 'create') ||
-    hasPermission(ctx.effectivePermissions, 'comment', 'update')
-  ) {
-    return true;
-  }
-
-  for (const projectCtx of ctx.projectCache.values()) {
-    if (
-      projectCtx &&
-      (hasPermission(projectCtx.permissions, 'comment', 'create') ||
-        hasPermission(projectCtx.permissions, 'comment', 'update'))
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function canModerateComments(ctx?: PermissionContext): boolean {
   if (!ctx) return false;
-  if (ctx.hasSuperAdmin) return true;
 
   if (
     hasPermission(ctx.effectivePermissions, 'comment', 'delete') ||
@@ -76,12 +51,7 @@ export async function createCommentHandler(
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const comment = await commentService.createComment(
-    userId,
-    request.params.taskId,
-    request.body,
-    canAccessInternalComments(request.permissionContext) ? undefined : 'Guest',
-  );
+  const comment = await commentService.createComment(userId, request.params.taskId, request.body);
   return reply.status(201).send(success(comment));
 }
 
@@ -90,10 +60,7 @@ export async function listCommentsHandler(
   reply: FastifyReply,
 ) {
   requireAuth(request);
-  const comments = await commentService.listComments(
-    request.params.taskId,
-    canAccessInternalComments(request.permissionContext) ? undefined : 'Guest',
-  );
+  const comments = await commentService.listComments(request.params.taskId);
   return reply.status(200).send(success(comments));
 }
 

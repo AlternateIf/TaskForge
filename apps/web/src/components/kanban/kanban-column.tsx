@@ -16,6 +16,8 @@ interface KanbanColumnProps {
   onTaskClick: (taskId: string) => void;
   onAddTask: (statusId: string) => void;
   isLoading?: boolean;
+  canCreateTask?: boolean;
+  canEditTask?: boolean;
 }
 
 export function KanbanColumn({
@@ -26,6 +28,8 @@ export function KanbanColumn({
   onTaskClick,
   onAddTask,
   isLoading,
+  canCreateTask = true,
+  canEditTask = true,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status.id}`,
@@ -94,23 +98,25 @@ export function KanbanColumn({
                 members={members}
                 allLabels={allLabels}
                 onClick={() => onTaskClick(task.id)}
+                canEditTask={canEditTask}
               />
             ))
           )}
         </SortableContext>
       </div>
 
-      {/* Add task */}
-      <div className="border-t border-border px-sm py-sm">
-        <button
-          type="button"
-          onClick={() => onAddTask(status.id)}
-          className="flex w-full items-center gap-xs rounded-radius-md px-sm py-xs text-body text-muted transition-colors hover:bg-surface-container hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          <Plus className="size-4" />
-          Add task
-        </button>
-      </div>
+      {canCreateTask ? (
+        <div className="border-t border-border px-sm py-sm">
+          <button
+            type="button"
+            onClick={() => onAddTask(status.id)}
+            className="flex w-full items-center gap-xs rounded-radius-md px-sm py-xs text-body text-muted transition-colors hover:bg-surface-container hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Plus className="size-4" />
+            Add task
+          </button>
+        </div>
+      ) : null}
     </GlassPanel>
   );
 }

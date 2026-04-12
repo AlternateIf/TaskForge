@@ -84,14 +84,8 @@ vi.mock('../activity.service.js', () => ({
 }));
 
 // Import after mocking
-const {
-  createComment,
-  listComments,
-  updateComment,
-  deleteComment,
-  getTaskIdForComment,
-  isRestrictedRole,
-} = await import('../comment.service.js');
+const { createComment, listComments, updateComment, deleteComment, getTaskIdForComment } =
+  await import('../comment.service.js');
 const activityService = await import('../activity.service.js');
 
 const uuid1 = '00000000-0000-0000-0000-000000000001';
@@ -475,26 +469,8 @@ describe('comment.service', () => {
     });
   });
 
-  describe('isRestrictedRole', () => {
-    it('should return true for Guest role', () => {
-      expect(isRestrictedRole('Guest')).toBe(true);
-    });
-
-    it('should return false for Team Member role', () => {
-      expect(isRestrictedRole('Team Member')).toBe(false);
-    });
-
-    it('should return false for Admin role', () => {
-      expect(isRestrictedRole('Admin')).toBe(false);
-    });
-
-    it('should return false for undefined role', () => {
-      expect(isRestrictedRole(undefined)).toBe(false);
-    });
-  });
-
   describe('createComment with visibility', () => {
-    it('should create an internal comment for Team Member', async () => {
+    it('should create an internal comment for a Backend Developer', async () => {
       let callCount = 0;
       mockLimit.mockImplementation(() => {
         callCount++;
@@ -505,23 +481,13 @@ describe('comment.service', () => {
       });
       mockValues.mockResolvedValue(undefined);
 
-      const result = await createComment(
-        uuid1,
-        uuid2,
-        { body: 'Internal note', visibility: 'internal' },
-        'Team Member',
-      );
+      const result = await createComment(uuid1, uuid2, {
+        body: 'Internal note',
+        visibility: 'internal',
+      });
 
       expect(result.visibility).toBe('internal');
       expect(result.body).toBe('Internal note');
-    });
-
-    it('should reject internal comment from Guest role', async () => {
-      mockLimit.mockImplementation(() => [{ id: uuid2 }]); // task exists
-
-      await expect(
-        createComment(uuid1, uuid2, { body: 'sneaky', visibility: 'internal' }, 'Guest'),
-      ).rejects.toThrow('Guests cannot create internal comments');
     });
 
     it('should default to public visibility', async () => {
@@ -551,7 +517,7 @@ describe('comment.service', () => {
       });
       mockValues.mockResolvedValue(undefined);
 
-      await createComment(uuid1, uuid2, { body: 'Internal', visibility: 'internal' }, 'Admin');
+      await createComment(uuid1, uuid2, { body: 'Internal', visibility: 'internal' });
 
       expect(activityService.log).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -563,32 +529,7 @@ describe('comment.service', () => {
   });
 
   describe('listComments with visibility filtering', () => {
-    it('should filter out internal comments for Guest role', async () => {
-      const publicComment = {
-        comment: {
-          id: uuid1,
-          entityType: 'task',
-          entityId: uuid2,
-          authorId: uuid3,
-          body: 'Public',
-          visibility: 'public',
-          parentCommentId: null,
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
-        },
-        authorDisplayName: 'User 1',
-      };
-      // For Guest: the SQL WHERE should include visibility='public', so only public returned
-      mockOrderBy.mockResolvedValue([publicComment]);
-
-      const result = await listComments(uuid2, 'Guest');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].visibility).toBe('public');
-    });
-
-    it('should include internal comments for Team Member role', async () => {
+    it('should include both public and internal comments for any user', async () => {
       const publicComment = {
         comment: {
           id: uuid1,
@@ -622,7 +563,7 @@ describe('comment.service', () => {
 
       mockOrderBy.mockResolvedValue([publicComment, internalComment]);
 
-      const result = await listComments(uuid2, 'Team Member');
+      const result = await listComments(uuid2);
 
       expect(result).toHaveLength(2);
     });

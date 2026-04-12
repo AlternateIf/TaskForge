@@ -14,13 +14,14 @@ export async function commentRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
   // POST /api/v1/tasks/:taskId/comments
+  // Creating a comment is treated as updating the task (task.update.project)
   fastify.post<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/comments',
     {
       preHandler: [
         authorize({
-          resource: 'comment',
-          action: 'create',
+          resource: 'task',
+          action: 'update',
           getTaskId: (req) => (req.params as { taskId: string }).taskId,
         }),
         requireFeature('comments'),
@@ -33,12 +34,13 @@ export async function commentRoutes(fastify: FastifyInstance) {
   );
 
   // GET /api/v1/tasks/:taskId/comments
+  // Reading comments is treated as reading the task (task.read.project)
   fastify.get<{ Params: { taskId: string } }>(
     '/api/v1/tasks/:taskId/comments',
     {
       preHandler: [
         authorize({
-          resource: 'comment',
+          resource: 'task',
           action: 'read',
           getTaskId: (req) => (req.params as { taskId: string }).taskId,
         }),
@@ -49,12 +51,13 @@ export async function commentRoutes(fastify: FastifyInstance) {
   );
 
   // PATCH /api/v1/comments/:id
+  // Updating a comment is treated as updating the task (task.update.project)
   fastify.patch<{ Params: { id: string } }>(
     '/api/v1/comments/:id',
     {
       preHandler: [
         authorize({
-          resource: 'comment',
+          resource: 'task',
           action: 'update',
           getTaskId: async (req) => {
             const id = (req.params as { id: string }).id;
@@ -71,13 +74,14 @@ export async function commentRoutes(fastify: FastifyInstance) {
   );
 
   // DELETE /api/v1/comments/:id
+  // Deleting a comment is treated as updating the task (task.update.project)
   fastify.delete<{ Params: { id: string } }>(
     '/api/v1/comments/:id',
     {
       preHandler: [
         authorize({
-          resource: 'comment',
-          action: 'delete',
+          resource: 'task',
+          action: 'update',
           getTaskId: async (req) => {
             const id = (req.params as { id: string }).id;
             return getTaskIdForComment(id);

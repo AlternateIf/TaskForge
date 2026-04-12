@@ -65,6 +65,12 @@ vi.mock('drizzle-orm', () => ({
   sql: Object.assign(vi.fn(), { raw: vi.fn() }),
 }));
 
+const mockHasOrgPermission = vi.fn().mockResolvedValue(true);
+
+vi.mock('../permission.service.js', () => ({
+  hasOrgPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
+}));
+
 const {
   createNotification,
   listNotifications,

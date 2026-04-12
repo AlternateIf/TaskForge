@@ -14,6 +14,7 @@ import type { CreateProjectInput, UpdateProjectInput } from '@taskforge/shared';
 import { and, count, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import { hasOrgPermission } from './permission.service.js';
 import * as searchService from './search.service.js';
 
 async function syncProjectSearch(projectId: string): Promise<void> {
@@ -120,6 +121,16 @@ export async function createProject(
   userId: string,
   input: CreateProjectInput,
 ): Promise<ProjectOutput> {
+  // Defense-in-depth: verify the user has project.create.org permission
+  const canCreate = await hasOrgPermission(userId, orgId, 'project', 'create');
+  if (!canCreate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to create projects in this organization',
+    );
+  }
+
   const projectId = crypto.randomUUID();
   const slug = await generateUniqueSlug(input.name, orgId);
   const now = new Date();
@@ -189,7 +200,20 @@ export async function createProject(
 export async function listProjects(
   orgId: string,
   filters?: { status?: string; search?: string },
+  userId?: string,
 ): Promise<ProjectOutput[]> {
+  // Defense-in-depth: verify the user has project.read.org permission
+  if (userId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'project', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to list projects in this organization',
+      );
+    }
+  }
+
   const conditions = [eq(projects.organizationId, orgId), isNull(projects.deletedAt)];
 
   if (filters?.status) {
@@ -257,7 +281,22 @@ export async function listProjects(
   }));
 }
 
-export async function getProject(projectId: string): Promise<ProjectOutput> {
+export async function getProject(projectId: string, userId?: string): Promise<ProjectOutput> {
+  // Defense-in-depth: verify the user has project.read.org permission
+  if (userId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canRead = await hasOrgPermission(userId, orgId, 'project', 'read');
+      if (!canRead) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to view this project',
+        );
+      }
+    }
+  }
+
   const project = (
     await db
       .select()
@@ -278,6 +317,21 @@ export async function updateProject(
   input: UpdateProjectInput,
   actorId?: string,
 ): Promise<ProjectOutput> {
+  // Defense-in-depth: verify the actor has project.update.org permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'project', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to update this project',
+        );
+      }
+    }
+  }
+
   const project = (
     await db
       .select()
@@ -324,6 +378,21 @@ export async function updateProject(
 }
 
 export async function archiveProject(projectId: string, actorId?: string): Promise<ProjectOutput> {
+  // Defense-in-depth: verify the actor has project.update.org permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'project', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to archive this project',
+        );
+      }
+    }
+  }
+
   const project = (
     await db
       .select()
@@ -358,6 +427,21 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
 }
 
 export async function deleteProject(projectId: string, actorId?: string): Promise<void> {
+  // Defense-in-depth: verify the actor has project.update.org permission (delete requires manage-level)
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'project', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to delete this project',
+        );
+      }
+    }
+  }
+
   const project = (
     await db
       .select()

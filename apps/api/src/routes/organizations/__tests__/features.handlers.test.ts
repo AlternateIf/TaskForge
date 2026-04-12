@@ -61,7 +61,7 @@ describe('features.handlers', () => {
 
       await getFeaturesHandler(req as FastifyRequest<{ Params: { id: string } }>, reply);
 
-      expect(mockGetFeatures).toHaveBeenCalledWith('org-1');
+      expect(mockGetFeatures).toHaveBeenCalledWith('org-1', 'user-1');
       expect(reply.status).toHaveBeenCalledWith(200);
       expect(reply.send).toHaveBeenCalledWith({
         data: features,
@@ -103,7 +103,7 @@ describe('features.handlers', () => {
         reply,
       );
 
-      expect(mockUpdateFeatures).toHaveBeenCalledWith('org-1', { file_uploads: false });
+      expect(mockUpdateFeatures).toHaveBeenCalledWith('org-1', 'user-1', { file_uploads: false });
       expect(reply.status).toHaveBeenCalledWith(200);
       expect(reply.send).toHaveBeenCalledWith({
         data: updatedFeatures,

@@ -24,7 +24,7 @@ export async function listSubtasksHandler(
   request: FastifyRequest<{ Params: { taskId: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const subtasks = await taskService.listSubtasks(request.params.taskId);
+  const userId = requireAuth(request);
+  const subtasks = await taskService.listSubtasks(request.params.taskId, userId);
   return reply.status(200).send(success(subtasks));
 }

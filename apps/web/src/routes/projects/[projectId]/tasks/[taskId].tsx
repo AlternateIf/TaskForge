@@ -2,8 +2,12 @@ import { useProject } from '@/api/projects';
 import { useTask } from '@/api/tasks';
 import { TaskDetailContent } from '@/components/data/task-detail-content';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
+import { TASK_READ_PERMISSION, TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { ChevronRight, House, LayoutGrid, Settings2 } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 
 interface ProjectTaskDetailPageProps {
   projectId: string;
@@ -12,10 +16,24 @@ interface ProjectTaskDetailPageProps {
 
 export function ProjectTaskDetailPage({ projectId, taskId }: ProjectTaskDetailPageProps) {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canReadTasks = permissionSet.has(TASK_READ_PERMISSION);
+  const canUpdateTask = permissionSet.has(TASK_UPDATE_PERMISSION);
   const { data: project } = useProject(projectId);
   const { data: task } = useTask(taskId);
 
   useDocumentTitle(task?.title ? `${task.title} — Task` : 'Task details');
+
+  useEffect(() => {
+    if (canReadTasks) return;
+    toast.error('You do not have access to this task view.');
+    void navigate({ to: '/projects', replace: true });
+  }, [canReadTasks, navigate]);
+
+  if (!canReadTasks) {
+    return null;
+  }
 
   return (
     <div className="space-y-md pb-24 md:pb-0">
@@ -48,7 +66,12 @@ export function ProjectTaskDetailPage({ projectId, taskId }: ProjectTaskDetailPa
         </span>
       </nav>
 
-      <TaskDetailContent projectId={projectId} taskId={taskId} variant="page" />
+      <TaskDetailContent
+        projectId={projectId}
+        taskId={taskId}
+        variant="page"
+        canEditTask={canUpdateTask}
+      />
 
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border/20 bg-surface-container-lowest/95 p-sm md:hidden">
         <button
@@ -73,16 +96,18 @@ export function ProjectTaskDetailPage({ projectId, taskId }: ProjectTaskDetailPa
           <House className="size-4" />
           Task
         </button>
-        <button
-          type="button"
-          className="inline-flex flex-col items-center gap-[2px] text-label text-secondary"
-          onClick={() =>
-            void navigate({ to: '/projects/$projectId/settings', params: { projectId } })
-          }
-        >
-          <Settings2 className="size-4" />
-          Settings
-        </button>
+        {canReadTasks ? (
+          <button
+            type="button"
+            className="inline-flex flex-col items-center gap-[2px] text-label text-secondary"
+            onClick={() =>
+              void navigate({ to: '/projects/$projectId/settings', params: { projectId } })
+            }
+          >
+            <Settings2 className="size-4" />
+            Settings
+          </button>
+        ) : null}
       </nav>
     </div>
   );

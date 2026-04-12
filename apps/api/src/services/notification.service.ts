@@ -1,5 +1,7 @@
 import { db, notificationPreferences, notifications } from '@taskforge/db';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { AppError, ErrorCode } from '../utils/errors.js';
+import { hasOrgPermission } from './permission.service.js';
 
 const DEFAULT_PREFERENCES: Record<string, { in_app: boolean; email: boolean }> = {
   task_assigned: { in_app: true, email: true },
@@ -34,11 +36,24 @@ export async function listNotifications(
   userId: string,
   cursor?: string,
   limit = 25,
+  orgId?: string,
 ): Promise<{
   items: (typeof notifications.$inferSelect)[];
   cursor: string | null;
   hasMore: boolean;
 }> {
+  // Defense-in-depth: if orgId is provided, verify notification.read.org permission
+  if (orgId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'notification', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to read notifications in this organization',
+      );
+    }
+  }
+
   const conditions = [eq(notifications.userId, userId)];
   if (cursor) {
     conditions.push(sql`${notifications.createdAt} < ${cursor}`);
@@ -59,21 +74,61 @@ export async function listNotifications(
   return { items, cursor: nextCursor, hasMore };
 }
 
-export async function markAsRead(notificationId: string, userId: string): Promise<void> {
+export async function markAsRead(
+  notificationId: string,
+  userId: string,
+  orgId?: string,
+): Promise<void> {
+  // Defense-in-depth: if orgId is provided, verify notification.read.org permission
+  if (orgId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'notification', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to read notifications in this organization',
+      );
+    }
+  }
+
   await db
     .update(notifications)
     .set({ readAt: new Date() })
     .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
 }
 
-export async function markAllAsRead(userId: string): Promise<void> {
+export async function markAllAsRead(userId: string, orgId?: string): Promise<void> {
+  // Defense-in-depth: if orgId is provided, verify notification.read.org permission
+  if (orgId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'notification', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to read notifications in this organization',
+      );
+    }
+  }
+
   await db
     .update(notifications)
     .set({ readAt: new Date() })
     .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
 }
 
-export async function getUnreadCount(userId: string): Promise<number> {
+export async function getUnreadCount(userId: string, orgId?: string): Promise<number> {
+  // Defense-in-depth: if orgId is provided, verify notification.read.org permission
+  if (orgId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'notification', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to read notifications in this organization',
+      );
+    }
+  }
+
   const result = await db
     .select({ count: sql<number>`count(*)` })
     .from(notifications)
@@ -86,7 +141,20 @@ export async function getUnreadCount(userId: string): Promise<number> {
 
 export async function getPreferences(
   userId: string,
+  orgId?: string,
 ): Promise<Record<string, { in_app: boolean; email: boolean }>> {
+  // Defense-in-depth: if orgId is provided, verify notification.read.org permission
+  if (orgId) {
+    const canRead = await hasOrgPermission(userId, orgId, 'notification', 'read');
+    if (!canRead) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to read notifications in this organization',
+      );
+    }
+  }
+
   const rows = await db
     .select()
     .from(notificationPreferences)

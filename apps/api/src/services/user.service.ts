@@ -11,7 +11,6 @@ import {
   sessions,
   users,
 } from '@taskforge/db';
-import { GOVERNANCE_PERMISSION_KEYS, ROLE_NAMES } from '@taskforge/shared';
 import type { UpdateProfileInput, UserOutput } from '@taskforge/shared';
 import { and, count, eq, gt, isNull, ne, or } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
@@ -141,8 +140,6 @@ async function getUserPermissionKeys(userId: string, orgId?: string): Promise<st
   const roleRows = await db
     .select({
       roleId: roleAssignments.roleId,
-      roleName: roles.name,
-      assignmentOrgId: roleAssignments.organizationId,
     })
     .from(roleAssignments)
     .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
@@ -154,11 +151,6 @@ async function getUserPermissionKeys(userId: string, orgId?: string): Promise<st
           : isNull(roleAssignments.organizationId),
       ),
     );
-
-  const hasSuperAdmin = roleRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
-  if (hasSuperAdmin) {
-    return [...GOVERNANCE_PERMISSION_KEYS];
-  }
 
   const permissionTuples =
     roleRows.length === 0

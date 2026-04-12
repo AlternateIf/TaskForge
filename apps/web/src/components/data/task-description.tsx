@@ -6,6 +6,7 @@ interface TaskDescriptionProps {
   onSave: (html: string) => void;
   fetchMentionUsers?: RichTextEditorProps['fetchMentionUsers'];
   onImageUpload?: RichTextEditorProps['onImageUpload'];
+  editable?: boolean;
 }
 
 export function TaskDescription({
@@ -13,6 +14,7 @@ export function TaskDescription({
   onSave,
   fetchMentionUsers,
   onImageUpload,
+  editable = true,
 }: TaskDescriptionProps) {
   return (
     <details
@@ -31,6 +33,7 @@ export function TaskDescription({
           fetchMentionUsers={fetchMentionUsers}
           onImageUpload={onImageUpload}
           onBlur={onSave}
+          editable={editable}
         />
       </div>
     </details>

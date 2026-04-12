@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter, useRouterState } from '@tanstack/react-router';
+import { PROJECT_READ_PERMISSION } from '@taskforge/shared';
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,10 +16,11 @@ import {
   LogOut,
   Plus,
   Settings,
+  ShieldCheck,
   Users,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -86,9 +88,15 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Personal Dashboard', path: '/dashboard', Icon: LayoutDashboard },
   { label: 'Projects', path: '/projects', Icon: FolderOpen },
   {
-    label: 'Organization & Permissions',
+    label: 'Organization Settings',
     path: '/settings/organization',
     Icon: Users,
+    requiresGovernance: true,
+  },
+  {
+    label: 'Organization Permissions',
+    path: '/settings/permissions',
+    Icon: ShieldCheck,
     requiresGovernance: true,
   },
   { label: 'Settings', path: '/settings', Icon: Settings },
@@ -153,6 +161,8 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { user, activeOrganizationId, setActiveOrganizationId } = useAuthStore();
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
   const canViewGovernanceSettings = (user?.permissions ?? []).some(
     (permission) =>
       (permission.startsWith('organization.') ||
@@ -176,7 +186,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   );
   const logout = useLogout();
   const router = useRouter();
-  const { data: currentOrgProjects = [], status: currentOrgProjectsStatus } = useProjects();
+  const { data: currentOrgProjects = [], status: currentOrgProjectsStatus } = useProjects({
+    enabled: canReadProjects,
+  });
   // useRouterState is reactive — re-renders on navigation (fixes highlight bug)
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
 
@@ -185,7 +197,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const isCurrentProjectInActiveOrg = currentOrgProjects.some(
     (project) => project.id === currentProjectId,
   );
-  const { data: currentProject } = useProject(currentProjectId ?? '');
+  const { data: currentProject } = useProject(canReadProjects ? (currentProjectId ?? '') : '');
 
   useEffect(() => {
     setRecentProjects(getRecentProjects(user?.id ?? null, activeOrganizationId));
@@ -213,11 +225,18 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     organizations[0];
 
   useEffect(() => {
+    if (!canReadProjects) return;
     if (!currentProjectId || currentOrgProjectsStatus !== 'success') return;
     if (isCurrentProjectInActiveOrg) return;
 
     void router.navigate({ to: '/projects', replace: true });
-  }, [currentProjectId, currentOrgProjectsStatus, isCurrentProjectInActiveOrg, router]);
+  }, [
+    canReadProjects,
+    currentProjectId,
+    currentOrgProjectsStatus,
+    isCurrentProjectInActiveOrg,
+    router,
+  ]);
 
   const handleOrganizationChange = useCallback(
     (organizationId: string) => {
@@ -431,7 +450,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                   onClick={() => handleNavigate(item.path)}
                 />
                 {/* Recent projects — shown indented under "Projects" */}
-                {item.path === '/projects' && recentProjects.length > 0 && (
+                {item.path === '/projects' && canReadProjects && recentProjects.length > 0 && (
                   <ul
                     className={cn(
                       'mt-1.5 flex flex-col gap-1.5',
@@ -477,6 +496,11 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                       return <li key={p.id}>{button}</li>;
                     })}
                   </ul>
+                )}
+                {item.path === '/projects' && !canReadProjects && !collapsed && (
+                  <p className="mt-1.5 pl-sm text-label text-sidebar-row-muted">
+                    No access to projects
+                  </p>
                 )}
               </li>
             ),

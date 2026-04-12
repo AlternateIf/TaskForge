@@ -3,6 +3,7 @@ import { type Task, type TaskFilters, taskKeys, useMoveTask, useTasks } from '@/
 import { KanbanCardOverlay } from '@/components/kanban/kanban-card';
 import { KanbanColumn } from '@/components/kanban/kanban-column';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   type CollisionDetection,
   DndContext,
@@ -20,6 +21,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useQueryClient } from '@tanstack/react-query';
+import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { Settings } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -32,6 +34,8 @@ interface KanbanBoardProps {
   onTaskClick: (taskId: string) => void;
   onAddTask?: (statusId: string) => void;
   onNavigateToSettings?: () => void;
+  canCreateTask?: boolean;
+  canUpdateTask?: boolean;
 }
 
 export function KanbanBoard({
@@ -43,7 +47,13 @@ export function KanbanBoard({
   onTaskClick,
   onAddTask,
   onNavigateToSettings,
+  canCreateTask = true,
+  canUpdateTask = true,
 }: KanbanBoardProps) {
+  const user = useAuthStore((state) => state.user);
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canDragAndDrop = canUpdateTask && permissionSet.has(TASK_UPDATE_PERMISSION);
+
   // Original task captured at drag start — never mutated during drag
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   // Live copy of task lists updated during drag for visual cross-column shifting
@@ -302,9 +312,9 @@ export function KanbanBoard({
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
+      onDragStart={canDragAndDrop ? handleDragStart : undefined}
+      onDragOver={canDragAndDrop ? handleDragOver : undefined}
+      onDragEnd={canDragAndDrop ? handleDragEnd : undefined}
     >
       <div
         className={cn('flex gap-md overflow-x-auto pb-md', 'snap-x snap-mandatory md:snap-none')}
@@ -318,6 +328,8 @@ export function KanbanBoard({
             allLabels={allLabels}
             onTaskClick={onTaskClick}
             onAddTask={onAddTask ?? (() => {})}
+            canCreateTask={canCreateTask}
+            canEditTask={canDragAndDrop}
             isLoading={isLoading}
           />
         ))}

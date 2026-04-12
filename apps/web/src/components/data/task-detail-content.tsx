@@ -38,14 +38,18 @@ import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
+import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+const MEMBERS_READ_PERMISSION = 'membership.read.org';
 
 interface TaskDetailContentProps {
   projectId: string;
   taskId: string;
   variant: 'panel' | 'page';
+  canEditTask?: boolean;
   onClose?: () => void;
   onOpenFullPage?: () => void;
 }
@@ -106,10 +110,14 @@ export function TaskDetailContent({
   projectId,
   taskId,
   variant,
+  canEditTask = true,
   onClose,
   onOpenFullPage,
 }: TaskDetailContentProps) {
   const { user, activeOrganizationId } = useAuthStore();
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canViewOrgMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
+  const canUpdateTask = canEditTask && permissionSet.has(TASK_UPDATE_PERMISSION);
 
   const { data: project } = useProject(projectId);
   const { data: task, isLoading } = useTask(taskId);
@@ -120,7 +128,9 @@ export function TaskDetailContent({
   const { data: activity = [] } = useTaskActivity(taskId);
   const { data: attachments = [] } = useAttachments(taskId);
 
-  const { data: orgMembers = [] } = useOrgMembers(activeOrganizationId ?? user?.organizationId);
+  const { data: orgMembers = [] } = useOrgMembers(
+    canViewOrgMembers ? (activeOrganizationId ?? user?.organizationId) : undefined,
+  );
 
   const updateTask = useUpdateTask(taskId);
   const toggleChecklistItem = useToggleItem();
@@ -151,12 +161,12 @@ export function TaskDetailContent({
 
   const memberUsers: MentionUser[] = useMemo(
     () =>
-      orgMembers.map((member) => ({
+      (canViewOrgMembers ? orgMembers : (project?.members ?? [])).map((member) => ({
         id: member.userId,
         displayName: member.displayName,
-        email: member.email,
+        email: 'email' in member && typeof member.email === 'string' ? member.email : '',
       })),
-    [orgMembers],
+    [canViewOrgMembers, orgMembers, project?.members],
   );
 
   const timelineItems = useMemo(
@@ -188,6 +198,7 @@ export function TaskDetailContent({
   }
 
   function handleTaskUpdate(patch: Partial<Task> & { labelIds?: string[] }) {
+    if (!canUpdateTask) return;
     if (!localTask) return;
 
     const previous = localTask;
@@ -223,6 +234,7 @@ export function TaskDetailContent({
   }
 
   function handleChecklistToggle(itemId: string, isCompleted: boolean) {
+    if (!canUpdateTask) return;
     const previous = localChecklists;
 
     setPendingChecklistIds((current) => new Set(current).add(itemId));
@@ -247,6 +259,10 @@ export function TaskDetailContent({
   }
 
   async function handleCreateComment(body: string) {
+    if (!canUpdateTask) {
+      return;
+    }
+
     try {
       await createComment.mutateAsync({ body });
     } catch (error) {
@@ -313,6 +329,7 @@ export function TaskDetailContent({
         createdAt={localTask.createdAt}
         showOpenFullPage={isPanel}
         showCloseButton={isPanel}
+        canEditTask={canUpdateTask}
         onTitleSave={(title) => handleTaskUpdate({ title })}
         onStatusChange={(statusId) => handleTaskUpdate({ statusId })}
         onOpenFullPage={onOpenFullPage}
@@ -334,11 +351,22 @@ export function TaskDetailContent({
           <div className={cn('space-y-xl', isPanel ? 'md:col-span-6' : 'xl:col-span-8')}>
             {!isPanel ? (
               <section className="grid grid-cols-2 gap-sm md:hidden">
-                <AssigneePicker
-                  taskId={localTask.id}
-                  assigneeId={localTask.assigneeId}
-                  members={project?.members ?? []}
-                >
+                {canUpdateTask ? (
+                  <AssigneePicker
+                    taskId={localTask.id}
+                    assigneeId={localTask.assigneeId}
+                    members={project?.members ?? []}
+                  >
+                    <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
+                      <p className="text-label font-bold uppercase tracking-widest text-secondary">
+                        Assignee
+                      </p>
+                      <p className="line-clamp-1 text-small font-medium text-foreground">
+                        {assigneeDisplay ?? 'Unassigned'}
+                      </p>
+                    </div>
+                  </AssigneePicker>
+                ) : (
                   <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
                     <p className="text-label font-bold uppercase tracking-widest text-secondary">
                       Assignee
@@ -347,9 +375,20 @@ export function TaskDetailContent({
                       {assigneeDisplay ?? 'Unassigned'}
                     </p>
                   </div>
-                </AssigneePicker>
+                )}
 
-                <PriorityPicker taskId={localTask.id} priority={localTask.priority}>
+                {canUpdateTask ? (
+                  <PriorityPicker taskId={localTask.id} priority={localTask.priority}>
+                    <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
+                      <p className="text-label font-bold uppercase tracking-widest text-secondary">
+                        Priority
+                      </p>
+                      <p className="line-clamp-1 text-small font-medium capitalize text-foreground">
+                        {localTask.priority}
+                      </p>
+                    </div>
+                  </PriorityPicker>
+                ) : (
                   <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
                     <p className="text-label font-bold uppercase tracking-widest text-secondary">
                       Priority
@@ -358,9 +397,20 @@ export function TaskDetailContent({
                       {localTask.priority}
                     </p>
                   </div>
-                </PriorityPicker>
+                )}
 
-                <DueDatePicker taskId={localTask.id} dueDate={localTask.dueDate}>
+                {canUpdateTask ? (
+                  <DueDatePicker taskId={localTask.id} dueDate={localTask.dueDate}>
+                    <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
+                      <p className="text-label font-bold uppercase tracking-widest text-secondary">
+                        Due date
+                      </p>
+                      <p className="line-clamp-1 text-small font-medium text-foreground">
+                        {formatMobileDate(localTask.dueDate)}
+                      </p>
+                    </div>
+                  </DueDatePicker>
+                ) : (
                   <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
                     <p className="text-label font-bold uppercase tracking-widest text-secondary">
                       Due date
@@ -369,13 +419,26 @@ export function TaskDetailContent({
                       {formatMobileDate(localTask.dueDate)}
                     </p>
                   </div>
-                </DueDatePicker>
+                )}
 
-                <LabelPicker
-                  taskId={localTask.id}
-                  selectedLabels={localTask.labels ?? []}
-                  allLabels={project?.labels ?? []}
-                >
+                {canUpdateTask ? (
+                  <LabelPicker
+                    taskId={localTask.id}
+                    selectedLabels={localTask.labels ?? []}
+                    allLabels={project?.labels ?? []}
+                  >
+                    <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
+                      <p className="text-label font-bold uppercase tracking-widest text-secondary">
+                        Labels
+                      </p>
+                      <p className="line-clamp-1 text-small font-medium text-foreground">
+                        {(localTask.labels ?? []).length > 0
+                          ? (localTask.labels ?? []).map((label) => label.name).join(', ')
+                          : 'No labels'}
+                      </p>
+                    </div>
+                  </LabelPicker>
+                ) : (
                   <div className="space-y-sm rounded-radius-lg border border-border/20 bg-surface-container-low/50 p-md text-left">
                     <p className="text-label font-bold uppercase tracking-widest text-secondary">
                       Labels
@@ -386,8 +449,14 @@ export function TaskDetailContent({
                         : 'No labels'}
                     </p>
                   </div>
-                </LabelPicker>
+                )}
               </section>
+            ) : null}
+
+            {!canViewOrgMembers ? (
+              <p className="rounded-radius-md border border-border/30 bg-surface-container-low px-md py-sm text-label text-muted">
+                Member directory access is limited. Mentions are available for project members only.
+              </p>
             ) : null}
 
             <TaskDescription
@@ -395,34 +464,38 @@ export function TaskDetailContent({
               onSave={(description) => handleTaskUpdate({ description })}
               fetchMentionUsers={fetchMentionUsers}
               onImageUpload={uploadForEditor}
+              editable={canUpdateTask}
             />
 
             <ChecklistSection
               checklists={localChecklists}
               pendingItemIds={pendingChecklistIds}
               onToggleItem={handleChecklistToggle}
+              readOnly={!canUpdateTask}
             />
 
             <DependencyList
               projectId={projectId}
               dependencies={dependencies}
-              onAddDependency={() => setDependencyDialogOpen(true)}
+              onAddDependency={canUpdateTask ? () => setDependencyDialogOpen(true) : undefined}
             />
 
             <CommentThread
               comments={comments}
               currentUserId={user?.id}
               composer={
-                <div className="hidden md:block">
-                  <CommentInput
-                    currentUserName={user?.displayName}
-                    currentUserId={user?.id}
-                    loading={createComment.isPending}
-                    onSubmit={handleCreateComment}
-                    fetchMentionUsers={fetchMentionUsers}
-                    onImageUpload={uploadForEditor}
-                  />
-                </div>
+                canUpdateTask ? (
+                  <div className="hidden md:block">
+                    <CommentInput
+                      currentUserName={user?.displayName}
+                      currentUserId={user?.id}
+                      loading={createComment.isPending}
+                      onSubmit={handleCreateComment}
+                      fetchMentionUsers={fetchMentionUsers}
+                      onImageUpload={uploadForEditor}
+                    />
+                  </div>
+                ) : null
               }
             />
 
@@ -431,7 +504,7 @@ export function TaskDetailContent({
               subtasks={subtasks}
               subtaskCount={localTask.progress?.subtaskCount ?? subtasks.length}
               subtaskCompletedCount={localTask.progress?.subtaskCompletedCount ?? 0}
-              onCreateSubtask={() => setSubtaskDialogOpen(true)}
+              onCreateSubtask={canUpdateTask ? () => setSubtaskDialogOpen(true) : undefined}
             />
 
             {!isPanel ? <ActivityFeed items={timelineItems} /> : null}
@@ -453,6 +526,7 @@ export function TaskDetailContent({
                   attachments={attachments}
                   uploadProgress={uploadProgress}
                   watching={watching}
+                  canEditTask={canUpdateTask}
                   onWatchToggle={() => {
                     void handleWatchToggle();
                   }}
@@ -479,6 +553,7 @@ export function TaskDetailContent({
               attachments={attachments}
               uploadProgress={uploadProgress}
               watching={watching}
+              canEditTask={canUpdateTask}
               onWatchToggle={() => {
                 void handleWatchToggle();
               }}
@@ -495,42 +570,48 @@ export function TaskDetailContent({
         </div>
       </div>
 
-      <div
-        className={cn(
-          'border-t border-border/20 bg-surface-container-lowest px-md pb-md pt-sm md:hidden',
-          isPanel ? 'sticky bottom-0' : 'sticky bottom-0',
-        )}
-      >
-        <CommentInput
-          currentUserName={user?.displayName}
-          currentUserId={user?.id}
-          loading={createComment.isPending}
-          onSubmit={handleCreateComment}
-          fetchMentionUsers={fetchMentionUsers}
-          onImageUpload={uploadForEditor}
-          stickyMobile
+      {canUpdateTask ? (
+        <div
+          className={cn(
+            'border-t border-border/20 bg-surface-container-lowest px-md pb-md pt-sm md:hidden',
+            isPanel ? 'sticky bottom-0' : 'sticky bottom-0',
+          )}
+        >
+          <CommentInput
+            currentUserName={user?.displayName}
+            currentUserId={user?.id}
+            loading={createComment.isPending}
+            onSubmit={handleCreateComment}
+            fetchMentionUsers={fetchMentionUsers}
+            onImageUpload={uploadForEditor}
+            stickyMobile
+          />
+        </div>
+      ) : null}
+
+      {canUpdateTask ? (
+        <CreateTaskDialog
+          open={subtaskDialogOpen}
+          onOpenChange={setSubtaskDialogOpen}
+          projectId={projectId}
+          parentTaskId={taskId}
+          dialogTitle="Create Subtask"
+          dialogDescription="Add a child task under the current task."
+          submitLabel="Create Subtask"
+          statuses={project?.statuses ?? []}
+          members={project?.members ?? []}
+          labels={project?.labels ?? []}
         />
-      </div>
+      ) : null}
 
-      <CreateTaskDialog
-        open={subtaskDialogOpen}
-        onOpenChange={setSubtaskDialogOpen}
-        projectId={projectId}
-        parentTaskId={taskId}
-        dialogTitle="Create Subtask"
-        dialogDescription="Add a child task under the current task."
-        submitLabel="Create Subtask"
-        statuses={project?.statuses ?? []}
-        members={project?.members ?? []}
-        labels={project?.labels ?? []}
-      />
-
-      <AddDependencyDialog
-        open={dependencyDialogOpen}
-        onOpenChange={setDependencyDialogOpen}
-        projectId={projectId}
-        taskId={taskId}
-      />
+      {canUpdateTask ? (
+        <AddDependencyDialog
+          open={dependencyDialogOpen}
+          onOpenChange={setDependencyDialogOpen}
+          projectId={projectId}
+          taskId={taskId}
+        />
+      ) : null}
     </div>
   );
 }

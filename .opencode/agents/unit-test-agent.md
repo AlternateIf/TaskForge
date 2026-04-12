@@ -1,7 +1,7 @@
 ---
 description: Creates and updates unit tests with minimal production refactors when testability requires it
 mode: subagent
-model: ollama-cloud/minimax-m2.7
+model: ollama-cloud/glm-5.1
 temperature: 0.1
 permission:
   edit: allow

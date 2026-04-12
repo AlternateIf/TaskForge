@@ -4,9 +4,12 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
+import { PROJECT_CREATE_PERMISSION, PROJECT_READ_PERMISSION } from '@taskforge/shared';
 import { FolderOpen, Plus, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -93,7 +96,7 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyProjects({ onCreate }: { onCreate: () => void }) {
+function EmptyProjects({ onCreate, canCreate }: { onCreate: () => void; canCreate: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <FolderOpen className="mb-lg size-16 text-muted" strokeWidth={1} />
@@ -101,10 +104,12 @@ function EmptyProjects({ onCreate }: { onCreate: () => void }) {
       <p className="mb-lg max-w-96 text-body text-secondary">
         Create your first project to start organizing tasks and collaborating with your team.
       </p>
-      <Button variant="primary" onClick={onCreate}>
-        <Plus className="size-4" />
-        Create Project
-      </Button>
+      {canCreate && (
+        <Button variant="primary" onClick={onCreate}>
+          <Plus className="size-4" />
+          Create Project
+        </Button>
+      )}
     </div>
   );
 }
@@ -116,7 +121,21 @@ export function ProjectsPage() {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
+  const canCreateProjects = permissionSet.has(PROJECT_CREATE_PERMISSION);
   const { data: projects, isLoading } = useProjects();
+
+  useEffect(() => {
+    if (canReadProjects) return;
+    toast.error('You do not have access to project task views.');
+    void navigate({ to: '/dashboard', replace: true });
+  }, [canReadProjects, navigate]);
+
+  if (!canReadProjects) {
+    return null;
+  }
 
   const filtered = useMemo(() => {
     if (!projects || !search.trim()) return projects ?? [];
@@ -143,10 +162,12 @@ export function ProjectsPage() {
       {/* Page header */}
       <div className="mb-lg flex flex-wrap items-center justify-between gap-sm">
         <h1 className="text-heading-1 font-bold text-foreground">Projects</h1>
-        <Button variant="primary" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          New Project
-        </Button>
+        {canCreateProjects && (
+          <Button variant="primary" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            New Project
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -174,7 +195,7 @@ export function ProjectsPage() {
           )}
         </div>
       ) : filtered.length === 0 && projects?.length === 0 ? (
-        <EmptyProjects onCreate={() => setCreateOpen(true)} />
+        <EmptyProjects onCreate={() => setCreateOpen(true)} canCreate={canCreateProjects} />
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-body text-muted">No projects match "{search}"</p>

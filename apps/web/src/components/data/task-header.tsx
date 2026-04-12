@@ -24,6 +24,7 @@ interface TaskHeaderProps {
   createdAt?: string;
   showOpenFullPage?: boolean;
   showCloseButton?: boolean;
+  canEditTask?: boolean;
   onTitleSave: (title: string) => void;
   onStatusChange: (statusId: string) => void;
   onOpenFullPage?: () => void;
@@ -55,6 +56,7 @@ export function TaskHeader({
   createdAt,
   showOpenFullPage,
   showCloseButton,
+  canEditTask = true,
   onTitleSave,
   onStatusChange,
   onOpenFullPage,
@@ -128,7 +130,11 @@ export function TaskHeader({
                   ? 'mt-xs w-full rounded-radius-md px-xs py-xs text-left text-4xl font-extrabold tracking-tight text-foreground hover:bg-surface-container-low'
                   : 'mt-xs w-full rounded-radius-md px-xs py-xs text-left text-heading-2 font-bold text-foreground hover:bg-surface-container-low'
               }
-              onClick={() => setIsEditingTitle(true)}
+              onClick={() => {
+                if (!canEditTask) return;
+                setIsEditingTitle(true);
+              }}
+              disabled={!canEditTask}
             >
               {title}
             </button>
@@ -144,14 +150,44 @@ export function TaskHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-sm">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                'inline-flex h-9 items-center gap-xs rounded-radius-md border border-border/60 bg-surface-container-lowest px-sm text-small font-semibold tracking-wide text-foreground shadow-inner',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-              )}
-              aria-label="Task status"
-            >
+          {canEditTask ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  'inline-flex h-9 items-center gap-xs rounded-radius-md border border-border/60 bg-surface-container-lowest px-sm text-small font-semibold tracking-wide text-foreground shadow-inner',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                )}
+                aria-label="Task status"
+              >
+                {status ? (
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: status.color }}
+                    aria-hidden
+                  />
+                ) : null}
+                <span>{status?.name ?? 'Status'}</span>
+                <ChevronDown className="size-4 text-muted" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="left-0 right-auto min-w-[10rem]">
+                {statuses.map((item) => (
+                  <DropdownMenuItem
+                    key={item.id}
+                    className={cn(item.id === statusId && 'bg-surface-container-low')}
+                    onClick={() => onStatusChange(item.id)}
+                  >
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                      aria-hidden
+                    />
+                    <span>{item.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="inline-flex h-9 items-center gap-xs rounded-radius-md border border-border/60 bg-surface-container-lowest px-sm text-small font-semibold tracking-wide text-foreground shadow-inner">
               {status ? (
                 <span
                   className="size-2 rounded-full"
@@ -160,27 +196,10 @@ export function TaskHeader({
                 />
               ) : null}
               <span>{status?.name ?? 'Status'}</span>
-              <ChevronDown className="size-4 text-muted" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="left-0 right-auto min-w-[10rem]">
-              {statuses.map((item) => (
-                <DropdownMenuItem
-                  key={item.id}
-                  className={cn(item.id === statusId && 'bg-surface-container-low')}
-                  onClick={() => onStatusChange(item.id)}
-                >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                    aria-hidden
-                  />
-                  <span>{item.name}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
+          )}
 
-          {isPage ? (
+          {isPage && canEditTask ? (
             <PriorityPicker taskId={taskId} priority={priority}>
               <div className="hidden h-9 cursor-pointer items-center gap-xs rounded-radius-md border border-border/60 bg-transparent px-sm transition-colors hover:bg-surface-container-lowest/80 md:inline-flex">
                 <PriorityBadge priority={priority} showDot showLabel appearance="plain" />

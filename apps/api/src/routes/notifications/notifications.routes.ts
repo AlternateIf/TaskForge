@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { authorize } from '../../hooks/authorize.hook.js';
 import {
   getPreferencesHandler,
   getUnreadCountHandler,
@@ -12,27 +13,105 @@ import { listNotificationsQuerySchema, updatePreferencesSchema } from './notific
 export async function notificationRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
-  fastify.get('/api/v1/notifications', async (request, reply) => {
-    request.query = listNotificationsQuerySchema.parse(request.query);
-    return listNotificationsHandler(
-      request as Parameters<typeof listNotificationsHandler>[0],
-      reply,
-    );
-  });
+  // GET /api/v1/notifications
+  fastify.get(
+    '/api/v1/notifications',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    async (request, reply) => {
+      request.query = listNotificationsQuerySchema.parse(request.query);
+      return listNotificationsHandler(
+        request as Parameters<typeof listNotificationsHandler>[0],
+        reply,
+      );
+    },
+  );
 
-  fastify.patch<{ Params: { id: string } }>('/api/v1/notifications/:id/read', markAsReadHandler);
+  // PATCH /api/v1/notifications/:id/read
+  fastify.patch<{ Params: { id: string } }>(
+    '/api/v1/notifications/:id/read',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    markAsReadHandler,
+  );
 
-  fastify.post('/api/v1/notifications/read-all', markAllAsReadHandler);
+  // POST /api/v1/notifications/read-all
+  fastify.post(
+    '/api/v1/notifications/read-all',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    markAllAsReadHandler,
+  );
 
-  fastify.get('/api/v1/notifications/unread-count', getUnreadCountHandler);
+  // GET /api/v1/notifications/unread-count
+  fastify.get(
+    '/api/v1/notifications/unread-count',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    getUnreadCountHandler,
+  );
 
-  fastify.get('/api/v1/notification-preferences', getPreferencesHandler);
+  // GET /api/v1/notification-preferences
+  fastify.get(
+    '/api/v1/notification-preferences',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    getPreferencesHandler,
+  );
 
-  fastify.patch('/api/v1/notification-preferences', async (request, reply) => {
-    request.body = updatePreferencesSchema.parse(request.body);
-    return updatePreferencesHandler(
-      request as Parameters<typeof updatePreferencesHandler>[0],
-      reply,
-    );
-  });
+  // PATCH /api/v1/notification-preferences
+  fastify.patch(
+    '/api/v1/notification-preferences',
+    {
+      preHandler: [
+        authorize({
+          resource: 'notification',
+          action: 'read',
+          getOrgId: (req) => (req.query as { orgId?: string }).orgId,
+        }),
+      ],
+    },
+    async (request, reply) => {
+      request.body = updatePreferencesSchema.parse(request.body);
+      return updatePreferencesHandler(
+        request as Parameters<typeof updatePreferencesHandler>[0],
+        reply,
+      );
+    },
+  );
 }

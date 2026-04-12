@@ -5,7 +5,6 @@ import {
   db,
   organizationMembers,
   projects,
-  roles,
   tasks,
   users,
 } from '@taskforge/db';
@@ -45,9 +44,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 };
 
 export type CommentVisibility = 'public' | 'internal';
-
-/** Roles that cannot see or create internal comments. */
-const RESTRICTED_ROLES = new Set(['Guest']);
 
 async function syncCommentSearch(commentId: string): Promise<void> {
   try {
@@ -102,10 +98,6 @@ function toOutput(row: CommentWithAuthor, mentionUserIds: string[] = []): Commen
   };
 }
 
-export function isRestrictedRole(roleName: string | undefined): boolean {
-  return RESTRICTED_ROLES.has(roleName ?? '');
-}
-
 function parseMentions(body: string): string[] {
   const matches = body.match(/@(\w+)/g);
   if (!matches) return [];
@@ -137,15 +129,6 @@ async function resolveUsernames(
   return map;
 }
 
-async function getRestrictedUserIds(organizationId: string): Promise<Set<string>> {
-  const rows = await db
-    .select({ userId: organizationMembers.userId })
-    .from(organizationMembers)
-    .innerJoin(roles, eq(roles.id, organizationMembers.roleId))
-    .where(and(eq(organizationMembers.organizationId, organizationId), eq(roles.name, 'Guest')));
-  return new Set(rows.map((r) => r.userId));
-}
-
 async function getOrganizationIdForTask(taskId: string): Promise<string> {
   const result = await db
     .select({ orgId: projects.organizationId })
@@ -164,14 +147,9 @@ export async function createComment(
   userId: string,
   taskId: string,
   input: CreateCommentInput,
-  callerRole?: string,
 ): Promise<CommentOutput> {
   const visibility: CommentVisibility = (input.visibility as CommentVisibility) ?? 'public';
 
-  // Only Team Member+ can create internal comments
-  if (visibility === 'internal' && isRestrictedRole(callerRole)) {
-    throw new AppError(403, ErrorCode.FORBIDDEN, 'Guests cannot create internal comments');
-  }
   // Validate task exists
   const taskResult = await db
     .select({ id: tasks.id })
@@ -230,11 +208,8 @@ export async function createComment(
   try {
     const mentionedUsernames = parseMentions(sanitizedBody);
     const resolvedMentions = await resolveUsernames(mentionedUsernames, organizationId);
-    const restrictedUsers =
-      visibility === 'internal' ? await getRestrictedUserIds(organizationId) : new Set<string>();
 
     for (const [, mentionedUserId] of resolvedMentions) {
-      if (restrictedUsers.has(mentionedUserId)) continue;
       mentionUserIds.push(mentionedUserId);
       await db.insert(commentMentions).values({
         id: crypto.randomUUID(),
@@ -289,13 +264,8 @@ export async function createComment(
   };
 }
 
-export async function listComments(taskId: string, callerRole?: string): Promise<CommentOutput[]> {
+export async function listComments(taskId: string): Promise<CommentOutput[]> {
   const conditions = [eq(comments.entityType, 'task'), eq(comments.entityId, taskId)];
-
-  // Restricted roles only see public comments
-  if (isRestrictedRole(callerRole)) {
-    conditions.push(eq(comments.visibility, 'public'));
-  }
 
   const rows = await db
     .select({

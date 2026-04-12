@@ -39,9 +39,16 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useNavigate } from '@tanstack/react-router';
+import {
+  PROJECT_DELETE_PERMISSION,
+  PROJECT_READ_PERMISSION,
+  PROJECT_UPDATE_PERMISSION,
+} from '@taskforge/shared';
 import { ArrowLeft, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+const MEMBERS_READ_PERMISSION = 'membership.read.org';
 
 // ─── Color picker popover (swatch trigger + picker dropdown) ─────────────────
 
@@ -149,21 +156,26 @@ function MemberCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const userPermissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const permissionSet = useMemo(() => new Set(userPermissions), [userPermissions]);
+  const canViewOrgMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
   const orgId = useAuthStore((s) => s.activeOrganizationId ?? s.user?.organizationId ?? undefined);
-  const { data: orgMembers = [] } = useOrgMembers(orgId);
+  const { data: orgMembers = [] } = useOrgMembers(canViewOrgMembers ? orgId : undefined);
   const close = useCallback(() => {
     setOpen(false);
     setSearch('');
   }, []);
 
   const existingIds = new Set(projectMembers.map((m) => m.userId));
-  const filtered = orgMembers
-    .filter((m) => !existingIds.has(m.userId))
-    .filter((m) => {
-      const q = search.toLowerCase();
-      return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
-    })
-    .slice(0, 8);
+  const filtered = canViewOrgMembers
+    ? orgMembers
+        .filter((m) => !existingIds.has(m.userId))
+        .filter((m) => {
+          const q = search.toLowerCase();
+          return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+        })
+        .slice(0, 8)
+    : [];
 
   return (
     <PickerPopover
@@ -197,7 +209,11 @@ function MemberCombobox({
           className="h-7 w-full rounded-radius-md border border-border bg-surface-container-high px-sm text-body text-foreground placeholder:text-muted focus:outline-2 focus:outline-ring"
         />
       </div>
-      {filtered.length > 0 ? (
+      {!canViewOrgMembers ? (
+        <p className="px-sm py-xs text-label text-muted">
+          You need membership.read.org to view organization members.
+        </p>
+      ) : filtered.length > 0 ? (
         filtered.map((m) => (
           <button
             key={m.userId}
@@ -230,10 +246,12 @@ function MemberCombobox({
 function GeneralTab({
   projectId,
   canEdit,
+  canDelete,
   onColorChange,
 }: {
   projectId: string;
   canEdit: boolean;
+  canDelete: boolean;
   onColorChange: (color: string) => void;
 }) {
   const { data: project } = useProject(projectId);
@@ -346,7 +364,7 @@ function GeneralTab({
             )}
           </div>
 
-          {canEdit && (
+          {canDelete && (
             <div className="rounded-radius-xl border border-danger/30 bg-danger/5 p-xl">
               <h2 className="mb-xs text-heading-3 font-semibold text-danger">Danger Zone</h2>
               <p className="mb-lg text-body text-secondary">
@@ -645,8 +663,11 @@ function MembersTab({ projectId }: { projectId: string }) {
   const { data: project } = useProject(projectId);
   const addMember = useAddProjectMember(projectId);
   const removeMember = useRemoveProjectMember(projectId);
+  const userPermissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const permissionSet = useMemo(() => new Set(userPermissions), [userPermissions]);
+  const canViewOrgMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
   const orgId = useAuthStore((s) => s.activeOrganizationId ?? s.user?.organizationId ?? undefined);
-  const { data: orgMembers = [] } = useOrgMembers(orgId);
+  const { data: orgMembers = [] } = useOrgMembers(canViewOrgMembers ? orgId : undefined);
 
   const orgMemberMap = new Map(orgMembers.map((m) => [m.userId, m]));
   const members = project?.members ?? [];
@@ -662,20 +683,26 @@ function MembersTab({ projectId }: { projectId: string }) {
               {members.length} member{members.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <MemberCombobox
-            projectMembers={members}
-            onAdd={(userId) =>
-              addMember.mutate(
-                { userId },
-                {
-                  onError: (error) => {
-                    toast.error(error.message || 'Failed to add member');
+          {canViewOrgMembers ? (
+            <MemberCombobox
+              projectMembers={members}
+              onAdd={(userId) =>
+                addMember.mutate(
+                  { userId },
+                  {
+                    onError: (error) => {
+                      toast.error(error.message || 'Failed to add member');
+                    },
                   },
-                },
-              )
-            }
-            isPending={addMember.isPending}
-          />
+                )
+              }
+              isPending={addMember.isPending}
+            />
+          ) : (
+            <p className="text-label text-muted">
+              You need membership.read.org to add members from the organization directory.
+            </p>
+          )}
         </div>
 
         {/* Members table */}
@@ -791,10 +818,10 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
   const { data: project } = useProject(projectId);
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const canEdit = useMemo(
-    () => new Set(user?.permissions ?? []).has('project.update.org'),
-    [user?.permissions],
-  );
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
+  const canEdit = useMemo(() => permissionSet.has(PROJECT_UPDATE_PERMISSION), [permissionSet]);
+  const canDelete = useMemo(() => permissionSet.has(PROJECT_DELETE_PERMISSION), [permissionSet]);
   const tabs = useMemo(() => ALL_TABS.filter((t) => !t.requiresEdit || canEdit), [canEdit]);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [liveColor, setLiveColor] = useState<string | null>(null);
@@ -802,6 +829,16 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
   const dotColor = liveColor ?? project?.color ?? '#94a3b8';
 
   useDocumentTitle(project?.name ? `${project.name} — Settings` : 'Settings');
+
+  useEffect(() => {
+    if (canReadProjects) return;
+    toast.error('You do not have access to project settings.');
+    void navigate({ to: '/projects', replace: true });
+  }, [canReadProjects, navigate]);
+
+  if (!canReadProjects) {
+    return null;
+  }
 
   return (
     <div className="p-lg">
@@ -856,7 +893,12 @@ export function ProjectSettingsPage({ projectId }: ProjectSettingsPageProps) {
       {/* Tab panels */}
       <div id={`tab-panel-${activeTab}`} role="tabpanel" aria-labelledby={activeTab}>
         {activeTab === 'general' && (
-          <GeneralTab projectId={projectId} canEdit={canEdit} onColorChange={setLiveColor} />
+          <GeneralTab
+            projectId={projectId}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onColorChange={setLiveColor}
+          />
         )}
         {activeTab === 'workflow' && <WorkflowTab projectId={projectId} canEdit={canEdit} />}
         {activeTab === 'labels' && <LabelsTab projectId={projectId} canEdit={canEdit} />}

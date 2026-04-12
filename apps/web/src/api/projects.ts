@@ -62,13 +62,17 @@ export const projectKeys = {
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
-export function useProjects() {
+interface UseProjectsOptions {
+  enabled?: boolean;
+}
+
+export function useProjects(options?: UseProjectsOptions) {
   const orgId = useAuthStore((s) => s.activeOrganizationId);
   return useQuery({
     queryKey: projectKeys.byOrganization(orgId ?? ''),
     queryFn: () =>
       apiClient.get<ApiEnvelope<Project[]>>(`/organizations/${orgId}/projects`).then((r) => r.data),
-    enabled: !!orgId,
+    enabled: Boolean(orgId && (options?.enabled ?? true)),
   });
 }
 

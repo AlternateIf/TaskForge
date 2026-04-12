@@ -19,7 +19,7 @@ import { fileTypeFromBuffer } from 'file-type';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { isEmailDomainAllowed } from './org-auth-settings.service.js';
-import { hasOrgPermission } from './permission.service.js';
+import { getOrgCreatePermission, hasOrgPermission } from './permission.service.js';
 
 const TRIAL_DAYS = 14;
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
@@ -87,6 +87,12 @@ export async function createOrganization(
   name: string,
   creatorUserId: string,
 ): Promise<{ organization: OrganizationOutput; roles: { id: string; name: string }[] }> {
+  // Defense-in-depth: verify the user has the org-scoped permission to create orgs
+  const canCreate = await getOrgCreatePermission(creatorUserId);
+  if (!canCreate) {
+    throw new AppError(403, ErrorCode.FORBIDDEN, 'Insufficient permissions to create organization');
+  }
+
   const orgId = crypto.randomUUID();
   const slug = await generateUniqueSlug(name);
   const now = new Date();
@@ -146,22 +152,36 @@ export async function listUserOrganizations(userId: string): Promise<Organizatio
 
   const orgIds = memberships.map((m) => m.organizationId);
 
+  // Filter to orgs where user has organization.read.org permission
+  const readableOrgIds: string[] = [];
+  for (const orgId of orgIds) {
+    const canRead = await hasOrgPermission(userId, orgId, 'organization', 'read');
+    if (canRead) {
+      readableOrgIds.push(orgId);
+    }
+  }
+
+  if (readableOrgIds.length === 0) return [];
+
   const [orgs, memberCounts, userRoles] = await Promise.all([
     db
       .select()
       .from(organizations)
-      .where(and(isNull(organizations.deletedAt), inArray(organizations.id, orgIds))),
+      .where(and(isNull(organizations.deletedAt), inArray(organizations.id, readableOrgIds))),
     db
       .select({ organizationId: organizationMembers.organizationId, count: count() })
       .from(organizationMembers)
-      .where(inArray(organizationMembers.organizationId, orgIds))
+      .where(inArray(organizationMembers.organizationId, readableOrgIds))
       .groupBy(organizationMembers.organizationId),
     db
       .select({ organizationId: roleAssignments.organizationId, roleName: roles.name })
       .from(roleAssignments)
       .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
       .where(
-        and(eq(roleAssignments.userId, userId), inArray(roleAssignments.organizationId, orgIds)),
+        and(
+          eq(roleAssignments.userId, userId),
+          inArray(roleAssignments.organizationId, readableOrgIds),
+        ),
       ),
   ]);
 
@@ -177,6 +197,16 @@ export async function listUserOrganizations(userId: string): Promise<Organizatio
 
 export async function getOrganization(orgId: string, userId: string): Promise<OrganizationOutput> {
   await requireMembership(orgId, userId);
+
+  // Defense-in-depth: verify the user has read permission for this org
+  const canRead = await hasOrgPermission(userId, orgId, 'organization', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to view this organization',
+    );
+  }
 
   const org = (
     await db
@@ -199,6 +229,16 @@ export async function updateOrganization(
   input: UpdateOrganizationInput,
 ): Promise<OrganizationOutput> {
   await requireMembership(orgId, userId);
+
+  // Defense-in-depth: verify the user has update permission for this org
+  const canUpdate = await hasOrgPermission(userId, orgId, 'organization', 'update');
+  if (!canUpdate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to update this organization',
+    );
+  }
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   if (input.name !== undefined) updateData.name = input.name;
@@ -234,6 +274,16 @@ export async function updateOrganization(
 
 export async function deleteOrganization(orgId: string, userId: string): Promise<void> {
   await requireMembership(orgId, userId);
+
+  // Defense-in-depth: verify the user has delete permission for this org
+  const canDelete = await hasOrgPermission(userId, orgId, 'organization', 'delete');
+  if (!canDelete) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to delete this organization',
+    );
+  }
 
   const org = (
     await db
@@ -278,6 +328,16 @@ export async function uploadOrganizationLogo(
   declaredMime: string,
 ): Promise<OrganizationOutput> {
   await requireMembership(orgId, userId);
+
+  // Defense-in-depth: verify the user has update permission for this org
+  const canUpdate = await hasOrgPermission(userId, orgId, 'organization', 'update');
+  if (!canUpdate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to update this organization',
+    );
+  }
 
   if (fileBuffer.length > LOGO_MAX_BYTES) {
     throw new AppError(413, ErrorCode.FILE_TOO_LARGE, 'Logo must be 5 MB or smaller');
@@ -365,6 +425,15 @@ export async function getOrganizationLogoFilePath(
 
 export async function listMembers(orgId: string, userId: string): Promise<MemberOutput[]> {
   await requireMembership(orgId, userId);
+
+  const canRead = await hasOrgPermission(userId, orgId, 'membership', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to view members in this organization',
+    );
+  }
 
   const members = await db
     .select({
@@ -492,6 +561,15 @@ export async function updateMemberRole(
 ): Promise<MemberOutput> {
   await requireMembership(orgId, actorUserId);
 
+  const canUpdate = await hasOrgPermission(actorUserId, orgId, 'membership', 'update');
+  if (!canUpdate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to update member roles in this organization',
+    );
+  }
+
   const member = (
     await db
       .select()
@@ -532,20 +610,20 @@ export async function updateMemberRole(
       )[0]
     : null;
 
-  // Last-admin protection: if demoting a member who currently has organization.manage,
-  // check that at least one other member still holds organization.manage
+  // Last-admin protection: if demoting a member who currently has organization.update,
+  // check that at least one other member still holds organization.update
   const targetCurrentlyHasManage = await hasOrgPermission(
     member.userId,
     orgId,
     'organization',
-    'manage',
+    'update',
   );
 
   const isDemotion =
     targetCurrentlyHasManage &&
     // Demotion scenarios: removing role entirely (roleId=null),
-    // or changing to a role that doesn't grant organization.manage
-    (roleId === null || !(await doesRoleGrantPermission(roleId, 'organization', 'manage', orgId)));
+    // or changing to a role that doesn't grant organization.update
+    (roleId === null || !(await doesRoleGrantPermission(roleId, 'organization', 'update', orgId)));
 
   if (isDemotion) {
     // Check other members
@@ -558,7 +636,7 @@ export async function updateMemberRole(
 
     let otherAdminCount = 0;
     for (const uid of otherMemberIds) {
-      const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'manage');
+      const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'update');
       if (hasPerm) {
         otherAdminCount++;
       }
@@ -612,6 +690,16 @@ export async function removeMember(
 ): Promise<void> {
   await requireMembership(orgId, actorUserId);
 
+  // Defense-in-depth: verify the actor has membership.delete.org permission
+  const canDelete = await hasOrgPermission(actorUserId, orgId, 'membership', 'delete');
+  if (!canDelete) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to remove members from this organization',
+    );
+  }
+
   const member = (
     await db
       .select()
@@ -629,7 +717,7 @@ export async function removeMember(
   const targetUserId = member.userId;
 
   // Last-admin protection: check if removing this user would leave the org
-  // with zero members who have organization.manage permission
+  // with zero members who have organization.update permission
   const allMembers = await db
     .select({ userId: organizationMembers.userId })
     .from(organizationMembers)
@@ -639,13 +727,13 @@ export async function removeMember(
 
   let otherAdminCount = 0;
   for (const uid of otherMemberIds) {
-    const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'manage');
+    const hasPerm = await hasOrgPermission(uid, orgId, 'organization', 'update');
     if (hasPerm) {
       otherAdminCount++;
     }
   }
 
-  const targetHasManage = await hasOrgPermission(targetUserId, orgId, 'organization', 'manage');
+  const targetHasManage = await hasOrgPermission(targetUserId, orgId, 'organization', 'update');
   if (targetHasManage && otherAdminCount === 0) {
     throw new AppError(
       403,

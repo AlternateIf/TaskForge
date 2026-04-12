@@ -155,3 +155,196 @@ Useful Control Messages
 
 - strict attempt mode now
 - Do option 2 only (check recent auth-related commits), do not apply hardening patch without repro, then stop.
+
+
+  Objective:
+  Audit each permission one-by-one and decide whether to keep, remove, or fix usage/coverage.
+
+  Scope:
+    organization.create.global
+    organization.read.org
+    organization.update.org
+    organization.delete.org
+    invitation.create.org
+    invitation.read.org
+    invitation.update.org
+    invitation.delete.org
+    membership.read.org
+    membership.update.org
+    membership.delete.org
+    role.create.org
+    role.read.org
+    role.update.org
+    role.delete.org
+    permission.read.org
+    permission.update.org
+    project.create.org
+    project.read.org
+    project.update.org
+    project.delete.org
+    notification.create.org
+    notification.read.org
+    notification.delete.org
+    task.create.project
+    task.read.project
+    task.update.project
+    task.delete.project
+
+  Permission Gating Audit (Batch=10, Delegate-Only)
+
+  Objective:
+  Audit permissions in batches of 10, identify frontend/backend places that should be gated, ask user for per-
+  permission decisions, then implement and validate.
+
+  Mode:
+  - Delegate-only orchestration.
+  - No local read/grep/glob/list/symbol work in orch-custom.
+
+  Scope:
+  - Process permissions in user-provided order, sequential batches of 10.
+  - Discovery runs in parallel.
+  - Implementation runs in parallel only for disjoint file sets; if overlap exists, enforce sequential execution for
+  overlapping items.
+
+  Batch workflow (strict gates):
+  1) Select next 10 permissions.
+  2) For each permission, run 2 parallel discovery tasks:
+  - `explorer` Round A
+  - `reviewer-frontend` + `reviewer-backend` (parallel) for “missing gate” candidate detection
+  3) Aggregate into `PERMISSION_GATING_REPORT` per permission:
+  - candidate place/feature to gate
+  - exact code locations
+  - current coverage: frontend/backend/both/missing
+  - rationale for gating
+  - confidence: high/medium/low
+  - overlap/alias note (e.g. `*.manage.*` vs granular permission)
+  4) Ask user for per-permission decision (all 10 at once):
+  - `GATE`
+  - `NO_GATE`
+  5) Execute changes:
+  - `GATE`: delegate to frontend/backend implementers to add gating and wiring
+  - `NO_GATE`: no code changes
+  - Parallelize only when file ownership is disjoint
+  6) Validation loop (changed scopes only):
+  - run `tester-frontend` / `tester-backend` in parallel where applicable
+  - run lint + tests
+  - if failing, route fixes back to implementers and repeat until green
+  7) Unit tests:
+  - delegate `unit-test-agent` to add/update tests for each newly added gate
+  8) Documentation:
+  - delegate `docs-contract-agent` to append permission gating notes to `.ai/permissions.md` (create if missing)
+  9) Batch completion gate:
+  - all 10 permissions = implemented (if needed), tests green, docs updated
+  - then move to next batch
+
+  Mandatory rules:
+  - First response must dispatch tasks (no analysis-only response).
+  - Dispatch independent tasks in the same turn.
+  - No bootstrap (docker/startup/seed) unless health check fails; ask first.
+  - Manual merge only.
+
+  Required output format:
+  `PERMISSION_GATING_REPORT`
+  - Permission
+  - Existing gating locations
+  - Missing gating candidates
+  - FE/BE coverage
+  - Rationale
+  - Confidence
+  - User decision
+  - Implementation status
+  - Test status
+  - Docs status
+  - Final status: COMPLETE | BLOCKED
+
+
+--------------------------
+
+
+permission end
+
+Permissions Documentation Matrix Workflow (Delegate-Only)
+
+  Objective:
+  Read existing `.ai/permissions.md` (if present), audit the listed permission keys below, and produce/update `.ai/
+  permissions.md` with a clean matrix:
+
+  `Permission Key | What This Permission Is Used For`
+
+  Target permissions (exact):
+  organization.create.org
+  organization.read.org
+  organization.update.org
+  organization.delete.org
+  invitation.create.org
+  invitation.read.org
+  invitation.update.org
+  invitation.delete.org
+  membership.read.org
+  membership.update.org
+  membership.delete.org
+  role.create.org
+  role.read.org
+  role.update.org
+  role.delete.org
+  permission.read.org
+  permission.update.org
+  project.create.org
+  project.read.org
+  project.update.org
+  project.delete.org
+  notification.create.org
+  notification.read.org
+  notification.delete.org
+  task.create.project
+  task.read.project
+  task.update.project
+  task.delete.project
+
+  Mode:
+  - Delegate-only orchestration.
+  - No local read/grep/glob/list/symbol work in orch-custom.
+
+  Workflow:
+  1) Discovery (parallel):
+  - explorer round A: find where each permission is used (routes/services/hooks/frontend gates/tests)
+  - explorer round B: independent cross-check
+  - reviewer-backend + reviewer-frontend: summarize actual behavior each permission enables
+
+  2) Docs synthesis:
+  - docs-contract-agent reads current `.ai/permissions.md` (if exists)
+  - merge existing notes with discovered usage
+  - rewrite `.ai/permissions.md` into a canonical matrix format
+
+  3) Matrix rules:
+  - Include ALL target permissions, even if unused.
+  - If unused, mark usage as: `UNUSED (no active checks found)`.
+  - If found only in tests/docs, mark clearly.
+  - Use concise, user-facing “used for” descriptions (1 short sentence each).
+  - Keep table sorted by permission key.
+  - Preserve any useful existing notes in a short section below the table: `Notes / Caveats`.
+
+  Required `.ai/permissions.md` structure:
+  1. Title: `# Permissions Matrix`
+  2. Short scope note
+  3. Markdown table:
+
+  | Permission Key | What This Permission Is Used For |
+  |---|---|
+  | organization.create.global | ... |
+
+  4. Optional section: `## Notes / Caveats`
+
+  Required output format to orchestrator:
+  `PERMISSIONS_DOC_REPORT`
+  - Existing file found: yes/no
+  - Permissions documented: 28/28
+  - Unused permissions:
+  - Ambiguous permissions needing user input:
+  - File updated: `.ai/permissions.md`
+  - Final status: COMPLETE | BLOCKED
+
+  Mandatory rules:
+  - First response must dispatch tasks (no analysis-only response).
+  - Dispatch independent tasks in the same turn.
+  - Manual merge only.

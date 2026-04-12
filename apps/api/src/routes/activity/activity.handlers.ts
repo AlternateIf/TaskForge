@@ -14,7 +14,6 @@ function requireAuth(request: FastifyRequest): string {
 
 function canAccessInternalComments(ctx?: PermissionContext): boolean {
   if (!ctx) return false;
-  if (ctx.hasSuperAdmin) return true;
 
   const hasCommentPower = (permissions: Array<{ resource: string; action: string }>) =>
     permissions.some(

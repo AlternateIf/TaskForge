@@ -18,6 +18,7 @@ import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { computeBlockedStatus, createDependency } from './dependency.service.js';
+import { hasOrgPermission } from './permission.service.js';
 import * as searchService from './search.service.js';
 
 const POSITION_GAP = 1000;
@@ -254,6 +255,19 @@ export async function createTask(
   userId: string,
   input: CreateTaskInput,
 ): Promise<TaskOutput> {
+  // Defense-in-depth: verify task.create.project permission
+  const orgId = await getOrgIdForProject(projectId);
+  if (orgId) {
+    const canCreate = await hasOrgPermission(userId, orgId, 'task', 'create');
+    if (!canCreate) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to create tasks in this project',
+      );
+    }
+  }
+
   const statusId = input.statusId ?? (await getInitialStatusId(projectId));
 
   await validateStatusBelongsToProject(statusId, projectId);
@@ -313,7 +327,6 @@ export async function createTask(
 
   const created = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 
-  const orgId = await getOrgIdForProject(projectId);
   if (orgId) {
     await activityService.log({
       organizationId: orgId,
@@ -329,7 +342,26 @@ export async function createTask(
   return toTaskOutput(created[0], statusRow[0]?.name);
 }
 
-export async function listTasks(projectId: string, filters: TaskFilters): Promise<TaskOutput[]> {
+export async function listTasks(
+  projectId: string,
+  filters: TaskFilters,
+  userId?: string,
+): Promise<TaskOutput[]> {
+  // Defense-in-depth: verify task.read.project permission
+  if (userId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canRead = await hasOrgPermission(userId, orgId, 'task', 'read');
+      if (!canRead) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to read tasks in this project',
+        );
+      }
+    }
+  }
+
   const conditions: ReturnType<typeof eq>[] = [
     eq(tasks.projectId, projectId),
     isNull(tasks.deletedAt),
@@ -452,7 +484,29 @@ export async function listTasks(projectId: string, filters: TaskFilters): Promis
   );
 }
 
-export async function getTask(taskId: string): Promise<TaskOutput> {
+export async function getTask(taskId: string, userId?: string): Promise<TaskOutput> {
+  // Defense-in-depth: verify task.read.project permission
+  if (userId) {
+    const taskProject = await db
+      .select({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .limit(1);
+    if (taskProject.length > 0) {
+      const orgId = await getOrgIdForProject(taskProject[0].projectId);
+      if (orgId) {
+        const canRead = await hasOrgPermission(userId, orgId, 'task', 'read');
+        if (!canRead) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            'Insufficient permissions to read tasks in this project',
+          );
+        }
+      }
+    }
+  }
+
   const result = await db
     .select({
       task: tasks,
@@ -504,6 +558,21 @@ export async function updateTask(
   input: UpdateTaskInput,
   actorId?: string,
 ): Promise<TaskOutput> {
+  // Defense-in-depth: verify task.update.project permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to update tasks in this project',
+        );
+      }
+    }
+  }
+
   const existing = await db
     .select()
     .from(tasks)
@@ -594,6 +663,28 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string, actorId?: string): Promise<void> {
+  // Defense-in-depth: verify task.update.project permission (delete is a mutation)
+  if (actorId) {
+    const taskProject = await db
+      .select({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(eq(tasks.id, taskId))
+      .limit(1);
+    if (taskProject.length > 0) {
+      const orgId = await getOrgIdForProject(taskProject[0].projectId);
+      if (orgId) {
+        const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+        if (!canUpdate) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            'Insufficient permissions to delete tasks in this project',
+          );
+        }
+      }
+    }
+  }
+
   const existing = await db
     .select({ id: tasks.id, projectId: tasks.projectId })
     .from(tasks)
@@ -626,7 +717,23 @@ export async function assignTask(
   taskId: string,
   projectId: string,
   assigneeId: string | null,
+  actorId?: string,
 ): Promise<TaskOutput> {
+  // Defense-in-depth: verify task.update.project permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to assign tasks in this project',
+        );
+      }
+    }
+  }
+
   const existing = await db
     .select()
     .from(tasks)
@@ -717,6 +824,21 @@ export async function addTaskLabel(
   projectId: string,
   actorId?: string,
 ): Promise<void> {
+  // Defense-in-depth: verify task.update.project permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to modify task labels in this project',
+        );
+      }
+    }
+  }
+
   // Verify task exists
   const task = await db
     .select({ id: tasks.id })
@@ -774,6 +896,22 @@ export async function removeTaskLabel(
   labelId: string,
   actorId?: string,
 ): Promise<void> {
+  // Defense-in-depth: verify task.update.project permission
+  if (actorId) {
+    const projectId = await getProjectIdForTask(taskId);
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to modify task labels in this project',
+        );
+      }
+    }
+  }
+
   await db
     .delete(taskLabels)
     .where(and(eq(taskLabels.taskId, taskId), eq(taskLabels.labelId, labelId)));
@@ -801,7 +939,23 @@ export async function updateTaskPosition(
   projectId: string,
   position: number,
   statusId?: string,
+  actorId?: string,
 ): Promise<TaskOutput> {
+  // Defense-in-depth: verify task.update.project permission
+  if (actorId) {
+    const orgId = await getOrgIdForProject(projectId);
+    if (orgId) {
+      const canUpdate = await hasOrgPermission(actorId, orgId, 'task', 'update');
+      if (!canUpdate) {
+        throw new AppError(
+          403,
+          ErrorCode.FORBIDDEN,
+          'Insufficient permissions to update task position in this project',
+        );
+      }
+    }
+  }
+
   const existing = await db
     .select()
     .from(tasks)
@@ -873,6 +1027,19 @@ export async function createSubtask(
     );
   }
 
+  // Defense-in-depth: verify task.create.project permission
+  const orgId = await getOrgIdForProject(parent[0].projectId);
+  if (orgId) {
+    const canCreate = await hasOrgPermission(userId, orgId, 'task', 'create');
+    if (!canCreate) {
+      throw new AppError(
+        403,
+        ErrorCode.FORBIDDEN,
+        'Insufficient permissions to create tasks in this project',
+      );
+    }
+  }
+
   const subtask = await createTask(parent[0].projectId, userId, {
     ...input,
     parentTaskId,
@@ -891,7 +1058,29 @@ export async function createSubtask(
   return subtask;
 }
 
-export async function listSubtasks(parentTaskId: string): Promise<TaskOutput[]> {
+export async function listSubtasks(parentTaskId: string, userId?: string): Promise<TaskOutput[]> {
+  // Defense-in-depth: verify task.read.project permission
+  if (userId) {
+    const parentTask = await db
+      .select({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(eq(tasks.id, parentTaskId))
+      .limit(1);
+    if (parentTask.length > 0) {
+      const orgId = await getOrgIdForProject(parentTask[0].projectId);
+      if (orgId) {
+        const canRead = await hasOrgPermission(userId, orgId, 'task', 'read');
+        if (!canRead) {
+          throw new AppError(
+            403,
+            ErrorCode.FORBIDDEN,
+            'Insufficient permissions to read tasks in this project',
+          );
+        }
+      }
+    }
+  }
+
   const result = await db
     .select({
       task: tasks,

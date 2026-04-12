@@ -6,12 +6,14 @@ interface ChecklistSectionProps {
   checklists: Checklist[];
   pendingItemIds?: Set<string>;
   onToggleItem: (itemId: string, isCompleted: boolean) => void;
+  readOnly?: boolean;
 }
 
 export function ChecklistSection({
   checklists,
   pendingItemIds,
   onToggleItem,
+  readOnly = false,
 }: ChecklistSectionProps) {
   return (
     <details
@@ -55,7 +57,7 @@ export function ChecklistSection({
                       >
                         <Checkbox
                           checked={item.isCompleted}
-                          disabled={pending}
+                          disabled={pending || readOnly}
                           onChange={(event) => onToggleItem(item.id, event.target.checked)}
                           aria-label={`Checklist item ${item.title}`}
                         />

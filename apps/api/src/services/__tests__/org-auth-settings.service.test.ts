@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSelect, mockUpdate, mockInsert } = vi.hoisted(() => ({
+const { mockSelect, mockUpdate, mockInsert, mockHasOrgPermission } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
   mockInsert: vi.fn(),
+  mockHasOrgPermission: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@taskforge/db', () => ({
@@ -36,6 +37,10 @@ vi.mock('@taskforge/db', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ _type: 'eq', left: a, right: b })),
+}));
+
+vi.mock('../permission.service.js', () => ({
+  hasOrgPermission: mockHasOrgPermission,
 }));
 
 vi.mock('../activity.service.js', () => ({
@@ -108,6 +113,7 @@ describe('org-auth-settings.service', () => {
     vi.resetAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(now);
+    mockHasOrgPermission.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -119,7 +125,7 @@ describe('org-auth-settings.service', () => {
       setupSelectChain([{ id: orgId }]); // org exists
       setupSelectChain([]); // no settings row
 
-      const result = await getAuthSettings(orgId);
+      const result = await getAuthSettings(orgId, actorId);
 
       expect(result.organizationId).toBe(orgId);
       expect(result.passwordAuthEnabled).toBe(true);
@@ -141,7 +147,7 @@ describe('org-auth-settings.service', () => {
         }),
       ]);
 
-      const result = await getAuthSettings(orgId);
+      const result = await getAuthSettings(orgId, actorId);
 
       expect(result.passwordAuthEnabled).toBe(false);
       expect(result.googleOauthEnabled).toBe(true);
@@ -152,7 +158,29 @@ describe('org-auth-settings.service', () => {
     it('should throw 404 for non-existent organization', async () => {
       setupSelectChain([]); // org not found
 
-      await expect(getAuthSettings('nonexistent')).rejects.toThrow('Organization not found');
+      await expect(getAuthSettings('nonexistent', actorId)).rejects.toThrow(
+        'Organization not found',
+      );
+    });
+
+    it('should throw 403 FORBIDDEN when user lacks organization.read permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(false);
+
+      await expect(getAuthSettings(orgId, actorId)).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'Insufficient permissions to view auth settings for this organization',
+      });
+    });
+
+    it('should succeed when user has organization.read permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(true);
+      setupSelectChain([{ id: orgId }]); // org exists
+      setupSelectChain([]); // no settings row
+
+      const result = await getAuthSettings(orgId, actorId);
+
+      expect(result.organizationId).toBe(orgId);
     });
   });
 
@@ -275,6 +303,30 @@ describe('org-auth-settings.service', () => {
       await expect(updateAuthSettings('bad-id', actorId, {})).rejects.toThrow(
         'Organization not found',
       );
+    });
+
+    it('should throw 403 FORBIDDEN when user lacks organization.update permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(false);
+
+      await expect(
+        updateAuthSettings(orgId, actorId, { passwordAuthEnabled: false }),
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'Insufficient permissions to update auth settings for this organization',
+      });
+    });
+
+    it('should succeed when user has organization.update permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(true);
+      setupSelectChain([{ id: orgId }]); // org exists
+      setupSelectChain([makeSettingsRow({ googleOauthEnabled: true })]); // existing settings with google enabled
+      setupUpdateChain();
+      setupSelectChain([makeSettingsRow({ passwordAuthEnabled: false, googleOauthEnabled: true })]);
+
+      const result = await updateAuthSettings(orgId, actorId, { passwordAuthEnabled: false });
+
+      expect(result.passwordAuthEnabled).toBe(false);
     });
   });
 

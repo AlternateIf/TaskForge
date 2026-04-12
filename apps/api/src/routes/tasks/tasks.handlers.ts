@@ -45,19 +45,23 @@ export async function listTasksHandler(
   }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const q = request.query;
-  const tasks = await taskService.listTasks(request.params.projectId, {
-    status: q.status ? (Array.isArray(q.status) ? q.status : [q.status]) : undefined,
-    priority: q.priority ? (Array.isArray(q.priority) ? q.priority : [q.priority]) : undefined,
-    assigneeId: q.assigneeId,
-    labelId: q.labelId ? (Array.isArray(q.labelId) ? q.labelId : [q.labelId]) : undefined,
-    dueDateFrom: q.dueDateFrom,
-    dueDateTo: q.dueDateTo,
-    search: q.search,
-    sort: q.sort,
-    order: q.order,
-  });
+  const tasks = await taskService.listTasks(
+    request.params.projectId,
+    {
+      status: q.status ? (Array.isArray(q.status) ? q.status : [q.status]) : undefined,
+      priority: q.priority ? (Array.isArray(q.priority) ? q.priority : [q.priority]) : undefined,
+      assigneeId: q.assigneeId,
+      labelId: q.labelId ? (Array.isArray(q.labelId) ? q.labelId : [q.labelId]) : undefined,
+      dueDateFrom: q.dueDateFrom,
+      dueDateTo: q.dueDateTo,
+      search: q.search,
+      sort: q.sort,
+      order: q.order,
+    },
+    userId,
+  );
   return reply.status(200).send(success(tasks));
 }
 
@@ -65,8 +69,8 @@ export async function getTaskHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const task = await taskService.getTask(request.params.id);
+  const userId = requireAuth(request);
+  const task = await taskService.getTask(request.params.id, userId);
   return reply.status(200).send(success(task));
 }
 
@@ -95,9 +99,14 @@ export async function assignTaskHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: AssignTaskInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const projectId = await taskService.getProjectIdForTask(request.params.id);
-  const task = await taskService.assignTask(request.params.id, projectId, request.body.assigneeId);
+  const task = await taskService.assignTask(
+    request.params.id,
+    projectId,
+    request.body.assigneeId,
+    userId,
+  );
   return reply.status(200).send(success(task));
 }
 
@@ -159,13 +168,14 @@ export async function updateTaskPositionHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: UpdateTaskPositionInput }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
+  const userId = requireAuth(request);
   const projectId = await taskService.getProjectIdForTask(request.params.id);
   const task = await taskService.updateTaskPosition(
     request.params.id,
     projectId,
     request.body.position,
     request.body.statusId,
+    userId,
   );
   return reply.status(200).send(success(task));
 }

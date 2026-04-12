@@ -133,28 +133,81 @@ pnpm --filter @taskforge/api dev:worker
 The deterministic seed fixtures (`NODE_ENV=development pnpm test-seed`) create these identities.
 
 Shared password (all password-enabled users): `Taskforge123!`
-Shared TOTP secret (MFA users): `JBSWY3DPEHPK3PXP` — add to any authenticator app
-Organizations: **Acme** = `Acme Product Group` · **Globex** = `Globex Operations`
+MFA status: disabled for all seeded users by default.
 
-| Email | Global Role | Acme Role | Globex Role | Auth Notes |
-|---|---|---|---|---|
-| `owner@acme.taskforge.local` | Super Admin | Acme Owner | — | MFA enabled |
-| `admin@acme.taskforge.local` | Global Admin | Acme Admin | Globex Member | — |
-| `member@acme.taskforge.local` | — | Acme Member ¹ | Globex Viewer | — |
-| `owner@globex.taskforge.local` | — | — | Globex Owner | MFA enabled |
-| `admin@globex.taskforge.local` | — | — | Globex Admin | — |
-| `member@globex.taskforge.local` | — | Acme Viewer ² | Globex Member | Password (GitHub OAuth is DB fixture only) |
-| `qa@taskforge.local` | — | Acme Admin | Globex Admin | — |
-| `viewer@acme.taskforge.local` | — | Acme Viewer ³ | — | — |
-| `contractor@globex.taskforge.local` | — | — | Globex Viewer ⁴ | — |
-| `support@taskforge.local` | Global Auditor | Acme Support | Globex Support | — |
-| `integration.bot@taskforge.local` | direct: `organization.create` ⁵ | Acme Viewer | — | No password — not for interactive login |
+### Global
 
-¹ + direct grant: `invitation.read` in Acme
-² + direct grant: `invitation.create` in Acme
-³ + direct grant: `membership.update` in Acme
-⁴ + direct grant: `invitation.read` in Globex
-⁵ `organization.create.global` granted directly, no global role assigned
+| Role | Email |
+|---|---|
+| Super Admin | `superadmin@taskforge.local` |
+
+### TaskForge Agency (4 projects)
+
+| Role | Email |
+|---|---|
+| Org Owner | `owner@taskforge-agency.taskforge.local` |
+| Project Admin | `projectadmin@taskforge-agency.taskforge.local` |
+| Backend Developer | `backend1@taskforge-agency.taskforge.local` |
+| Frontend Developer | `frontend1@taskforge-agency.taskforge.local` |
+| Designer | `designer1@taskforge-agency.taskforge.local` |
+| QA Engineer | `qa1@taskforge-agency.taskforge.local` |
+| DevOps/SRE | `devops1@taskforge-agency.taskforge.local` |
+| Support Engineer | `support1@taskforge-agency.taskforge.local` |
+| Product Manager | `pm1@taskforge-agency.taskforge.local` |
+| SEO Specialist | `seo1@taskforge-agency.taskforge.local` |
+| Auth Flow Manager | `auth1@taskforge-agency.taskforge.local` |
+
+### Acme Corp (6 projects)
+
+| Role | Email |
+|---|---|
+| Org Owner | `owner@acme.taskforge.local` |
+| Project Admin | `projectadmin@acme.taskforge.local` |
+| Backend Developer | `backend1@acme.taskforge.local` |
+| Frontend Developer | `frontend1@acme.taskforge.local` |
+| Designer | `designer1@acme.taskforge.local` |
+| QA Engineer | `qa1@acme.taskforge.local` |
+| DevOps/SRE | `devops1@acme.taskforge.local` |
+| Product Manager | `pm1@acme.taskforge.local` |
+| Customer Reporter | `reporter1@acme.taskforge.local` |
+| Customer Stakeholder | `stakeholder1@acme.taskforge.local` |
+
+### Globex Inc (5 projects)
+
+| Role | Email |
+|---|---|
+| Org Owner | `owner@globex.taskforge.local` |
+| Project Admin | `projectadmin@globex.taskforge.local` |
+| Backend Developer | `backend1@globex.taskforge.local` |
+| Frontend Developer | `frontend1@globex.taskforge.local` |
+| Designer | `designer1@globex.taskforge.local` |
+| SEO Specialist | `seo1@globex.taskforge.local` |
+| Product Manager | `pm1@globex.taskforge.local` |
+| Customer Reporter | `reporter1@globex.taskforge.local` |
+| Customer Stakeholder | `stakeholder1@globex.taskforge.local` |
+
+### Soylent Corp (4 projects)
+
+| Role | Email |
+|---|---|
+| Org Owner | `owner@soylent.taskforge.local` |
+| Project Admin | `projectadmin@soylent.taskforge.local` |
+| Backend Developer | `backend1@soylent.taskforge.local` |
+| Support Engineer | `support1@soylent.taskforge.local` |
+| Customer Reporter | `reporter1@soylent.taskforge.local` |
+| Customer Stakeholder | `stakeholder1@soylent.taskforge.local` |
+
+### Umbrella Corp (3 projects)
+
+| Role | Email |
+|---|---|
+| Org Owner | `owner@umbrella.taskforge.local` |
+| Project Admin | `projectadmin@umbrella.taskforge.local` |
+| Backend Developer | `backend1@umbrella.taskforge.local` |
+| QA Engineer | `qa1@umbrella.taskforge.local` |
+| DevOps/SRE | `devops1@umbrella.taskforge.local` |
+| Customer Reporter | `reporter1@umbrella.taskforge.local` |
+| Customer Stakeholder | `stakeholder1@umbrella.taskforge.local` |
 
 See [`.ai/setup.md`](.ai/setup.md) for the full role-permission breakdown.
 

@@ -6,6 +6,7 @@ interface TaskDetailPanelProps {
   taskId: string;
   onClose: () => void;
   onOpenFullPage: () => void;
+  canEditTask?: boolean;
 }
 
 export function TaskDetailPanel({
@@ -13,6 +14,7 @@ export function TaskDetailPanel({
   taskId,
   onClose,
   onOpenFullPage,
+  canEditTask = true,
 }: TaskDetailPanelProps) {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -44,6 +46,7 @@ export function TaskDetailPanel({
           projectId={projectId}
           taskId={taskId}
           variant="panel"
+          canEditTask={canEditTask}
           onClose={onClose}
           onOpenFullPage={onOpenFullPage}
         />

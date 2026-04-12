@@ -16,6 +16,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
+import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { ChevronDown, ChevronUp, ChevronsUpDown, ClipboardList, Loader2, X } from 'lucide-react';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
@@ -30,6 +32,9 @@ interface TaskTableProps {
   onTaskClick: (taskId: string) => void;
   filters?: TaskFilters;
   onFiltersChange?: (filters: TaskFilters) => void;
+  canEditTask?: boolean;
+  canCreateTask?: boolean;
+  onCreateTask?: () => void;
 }
 
 interface ColumnDef {
@@ -170,7 +175,14 @@ export function TaskTable({
   onTaskClick,
   filters: externalFilters,
   onFiltersChange: externalOnFiltersChange,
+  canEditTask = true,
+  canCreateTask = true,
+  onCreateTask,
 }: TaskTableProps) {
+  const user = useAuthStore((state) => state.user);
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canUpdateTask = canEditTask && permissionSet.has(TASK_UPDATE_PERMISSION);
+
   const [internalFilters, setInternalFilters] = useState<TaskFilters>({});
   const filters = externalFilters ?? internalFilters;
   const setFilters = externalOnFiltersChange ?? setInternalFilters;
@@ -251,7 +263,7 @@ export function TaskTable({
       )}
 
       {/* Bulk action toolbar */}
-      {selectedIds.size > 0 && (
+      {canUpdateTask && selectedIds.size > 0 && (
         <div
           className={cn(
             'z-10 flex flex-wrap items-center gap-sm rounded-radius-lg border border-border bg-surface-container p-sm shadow-2',
@@ -352,6 +364,7 @@ export function TaskTable({
                     if (el) el.indeterminate = someSelected;
                   }}
                   onChange={toggleSelectAll}
+                  disabled={!canUpdateTask}
                   className="rounded accent-brand-primary"
                   aria-label={allSelected ? 'Deselect all' : 'Select all'}
                 />
@@ -400,7 +413,7 @@ export function TaskTable({
                   {hasActiveFilters ? (
                     <EmptyNoResults onClear={() => setFilters({})} />
                   ) : (
-                    <EmptyNoTasks />
+                    <EmptyNoTasks onCreate={canCreateTask ? onCreateTask : undefined} />
                   )}
                 </td>
               </tr>
@@ -417,6 +430,7 @@ export function TaskTable({
                   selected={selectedIds.has(task.id)}
                   onSelect={() => toggleSelect(task.id)}
                   onClick={() => onTaskClick(task.id)}
+                  canEditTask={canUpdateTask}
                 />
               ))}
             </tbody>

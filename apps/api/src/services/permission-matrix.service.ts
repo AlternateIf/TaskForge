@@ -1,5 +1,5 @@
 import { db, permissions, roles } from '@taskforge/db';
-import { GOVERNANCE_PERMISSION_KEYS } from '@taskforge/shared';
+import { PERMISSION_KEYS } from '@taskforge/shared';
 import { eq, isNull, or } from 'drizzle-orm';
 
 export interface PermissionMatrixCategoryEntry {
@@ -20,7 +20,7 @@ export interface PermissionMatrixResult {
 
 /**
  * Derives a human-readable category name from the resource portion
- * of a governance permission key.
+ * of a permission key.
  *
  * Key format: `{resource}.{action}.{scope}` where:
  *   - scope is the last segment (e.g., "org", "global")
@@ -30,13 +30,11 @@ export interface PermissionMatrixResult {
  * Example category mapping:
  *   "organization"           → "Organization"
  *   "organization.settings"  → "Organization Settings"
- *   "organization.auth_settings" → "Organization Auth Settings"
  *   "organization.features"  → "Organization Features"
  *   "invitation"             → "Invitations"
  *   "membership"             → "Membership"
  *   "role"                   → "Roles"
  *   "permission"             → "Permissions"
- *   "global_role_assignment" → "Global Role Assignment"
  */
 function deriveCategoryName(resourcePrefix: string): string {
   return resourcePrefix
@@ -51,13 +49,13 @@ function deriveCategoryName(resourcePrefix: string): string {
 }
 
 /**
- * Build the categories map from GOVERNANCE_PERMISSION_KEYS.
+ * Build the categories map from PERMISSION_KEYS.
  * Groups each key by its resource prefix.
  */
 function buildCategories(): Record<string, PermissionMatrixCategoryEntry[]> {
   const categories: Record<string, PermissionMatrixCategoryEntry[]> = {};
 
-  for (const key of GOVERNANCE_PERMISSION_KEYS) {
+  for (const key of PERMISSION_KEYS) {
     const parts = key.split('.');
     // Last part = scope, second-to-last = action, rest = resource
     const resourceParts = parts.slice(0, -2);
@@ -92,7 +90,7 @@ function expandPermissionKeys(
 ): string[] {
   const keys = new Set<string>();
 
-  const governanceKeySet = new Set<string>(GOVERNANCE_PERMISSION_KEYS);
+  const permissionKeySet = new Set<string>(PERMISSION_KEYS);
 
   for (const perm of rolePermissions) {
     // Build the dot-notation key for this permission
@@ -106,8 +104,8 @@ function expandPermissionKeys(
 
     for (const action of actions) {
       const key = `${perm.resource}.${action}.${scopeToken}`;
-      // Only include keys that are in the governance permission set
-      if (governanceKeySet.has(key)) {
+      // Only include keys that are in the canonical permission key set
+      if (permissionKeySet.has(key)) {
         keys.add(key);
       }
     }
@@ -122,7 +120,7 @@ function expandPermissionKeys(
  * each role in the organization has.
  */
 export async function getPermissionMatrix(organizationId: string): Promise<PermissionMatrixResult> {
-  // 1. Build categories from the static governance permission keys
+  // 1. Build categories from the static permission keys
   const categories = buildCategories();
 
   // 2. Fetch all roles for this organization + global roles (organizationId = null)

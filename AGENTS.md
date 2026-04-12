@@ -49,3 +49,10 @@ Use this as the default context routing for agent prompts:
 - `backend-implementer`, `reviewer-backend`, `tester-backend`: `.ai/stack.md`, `.ai/api-conventions.md`, `.ai/project-structure.md`
 - `unit-test-agent`, `tester-full`, `reviewer-full`: `.ai/stack.md`, `.ai/project-structure.md`, plus scope-specific docs above
 - `docs-contract-agent`: `.ai/api-conventions.md`, relevant route/service docs, swagger/openapi-related plugin/spec files
+
+## Permissions Source Of Truth (Agent Rule)
+- Permission definitions must only live in:
+  - `packages/shared/src/constants/permission.ts`
+  - `packages/shared/src/constants/permissions.ts`
+- Do not create additional `permission.ts`/`permissions.ts` files in `apps/*` or `packages/*`.
+- Consumers must import permission constants/types from `@taskforge/shared` (or the two files above inside `packages/shared`), not local wrappers.

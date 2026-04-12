@@ -4,6 +4,7 @@ import type { UpdateAuthSettingsInput } from '@taskforge/shared';
 import { eq } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import { hasOrgPermission } from './permission.service.js';
 
 export interface AuthSettingsOutput {
   organizationId: string;
@@ -59,7 +60,12 @@ async function ensureOrgExists(orgId: string): Promise<void> {
   }
 }
 
-export async function getAuthSettings(orgId: string): Promise<AuthSettingsOutput> {
+/**
+ * Internal: fetch auth settings without permission checks.
+ * Used by utility functions (isAuthMethodEnabled, isEmailDomainAllowed, etc.)
+ * and within this module where authorization is handled at a higher level.
+ */
+async function getAuthSettingsInternal(orgId: string): Promise<AuthSettingsOutput> {
   await ensureOrgExists(orgId);
 
   const rows = await db
@@ -80,11 +86,35 @@ export async function getAuthSettings(orgId: string): Promise<AuthSettingsOutput
   return toOutput(rows[0]);
 }
 
+export async function getAuthSettings(orgId: string, userId: string): Promise<AuthSettingsOutput> {
+  // Defense-in-depth: verify the user has read permission for this org
+  const canRead = await hasOrgPermission(userId, orgId, 'organization', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to view auth settings for this organization',
+    );
+  }
+
+  return getAuthSettingsInternal(orgId);
+}
+
 export async function updateAuthSettings(
   orgId: string,
   actorId: string,
   input: UpdateAuthSettingsInput,
 ): Promise<AuthSettingsOutput> {
+  // Defense-in-depth: verify the user has update permission for this org
+  const canUpdate = await hasOrgPermission(actorId, orgId, 'organization', 'update');
+  if (!canUpdate) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to update auth settings for this organization',
+    );
+  }
+
   await ensureOrgExists(orgId);
 
   const existing = await db
@@ -230,7 +260,7 @@ export async function isAuthMethodEnabled(
   orgId: string,
   method: 'password' | 'google' | 'github',
 ): Promise<boolean> {
-  const settings = await getAuthSettings(orgId);
+  const settings = await getAuthSettingsInternal(orgId);
   switch (method) {
     case 'password':
       return settings.passwordAuthEnabled;
@@ -246,7 +276,7 @@ export async function isAuthMethodEnabled(
  * Returns true if no domain restriction is set.
  */
 export async function isEmailDomainAllowed(orgId: string, email: string): Promise<boolean> {
-  const settings = await getAuthSettings(orgId);
+  const settings = await getAuthSettingsInternal(orgId);
   if (!settings.allowedEmailDomains || settings.allowedEmailDomains.length === 0) {
     return true;
   }
@@ -260,7 +290,7 @@ export async function isEmailDomainAllowed(orgId: string, email: string): Promis
  * Returns true if MFA is not enforced or the grace period hasn't expired.
  */
 export async function isWithinMfaGracePeriod(orgId: string): Promise<boolean> {
-  const settings = await getAuthSettings(orgId);
+  const settings = await getAuthSettingsInternal(orgId);
   if (!settings.mfaEnforced || !settings.mfaEnforcedAt) return true;
 
   const enforcedAt = new Date(settings.mfaEnforcedAt);

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSelect, mockUpdate } = vi.hoisted(() => ({
+const { mockSelect, mockUpdate, mockHasOrgPermission } = vi.hoisted(() => ({
   mockSelect: vi.fn(),
   mockUpdate: vi.fn(),
+  mockHasOrgPermission: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@taskforge/db', () => ({
@@ -19,6 +20,10 @@ vi.mock('@taskforge/db', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ _type: 'eq', left: a, right: b })),
+}));
+
+vi.mock('../permission.service.js', () => ({
+  hasOrgPermission: mockHasOrgPermission,
 }));
 
 import type { FeatureMap } from '../feature-toggle.service.js';
@@ -56,6 +61,7 @@ function setupUpdateChain() {
 describe('feature-toggle.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasOrgPermission.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -66,7 +72,7 @@ describe('feature-toggle.service', () => {
     it('should return default features when org has no settings', async () => {
       setupSelectChain([{ settings: null }]);
 
-      const result = await getFeatures('org-1');
+      const result = await getFeatures('org-1', 'user-1');
 
       expect(mockSelect).toHaveBeenCalled();
       expect(result).toEqual({
@@ -83,7 +89,7 @@ describe('feature-toggle.service', () => {
     it('should return default features when settings has no features key', async () => {
       setupSelectChain([{ settings: { someOtherKey: 'value' } }]);
 
-      const result = await getFeatures('org-1');
+      const result = await getFeatures('org-1', 'user-1');
 
       expect(result.notifications).toBe(true);
       expect(result.file_uploads).toBe(true);
@@ -92,7 +98,7 @@ describe('feature-toggle.service', () => {
     it('should merge stored features with defaults', async () => {
       setupSelectChain([{ settings: { features: { comments: false, search: false } } }]);
 
-      const result = await getFeatures('org-1');
+      const result = await getFeatures('org-1', 'user-1');
 
       expect(result.comments).toBe(false);
       expect(result.search).toBe(false);
@@ -103,7 +109,7 @@ describe('feature-toggle.service', () => {
     it('should ignore unknown feature keys in stored settings', async () => {
       setupSelectChain([{ settings: { features: { unknown_feature: false, comments: false } } }]);
 
-      const result = await getFeatures('org-1');
+      const result = await getFeatures('org-1', 'user-1');
 
       expect(result.comments).toBe(false);
       expect('unknown_feature' in result).toBe(false);
@@ -112,7 +118,7 @@ describe('feature-toggle.service', () => {
     it('should ignore non-boolean values in stored settings', async () => {
       setupSelectChain([{ settings: { features: { comments: 'yes', search: 42 } } }]);
 
-      const result = await getFeatures('org-1');
+      const result = await getFeatures('org-1', 'user-1');
 
       expect(result.comments).toBe(true);
       expect(result.search).toBe(true);
@@ -121,7 +127,26 @@ describe('feature-toggle.service', () => {
     it('should throw 404 when organization not found', async () => {
       setupSelectChain([]);
 
-      await expect(getFeatures('nonexistent')).rejects.toThrow('Organization not found');
+      await expect(getFeatures('nonexistent', 'user-1')).rejects.toThrow('Organization not found');
+    });
+
+    it('should throw 403 FORBIDDEN when user lacks organization.read permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(false);
+
+      await expect(getFeatures('org-1', 'user-1')).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'Insufficient permissions to view features for this organization',
+      });
+    });
+
+    it('should succeed when user has organization.read permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(true);
+      setupSelectChain([{ settings: null }]);
+
+      const result = await getFeatures('org-1', 'user-1');
+
+      expect(result).toBeDefined();
     });
   });
 
@@ -130,7 +155,7 @@ describe('feature-toggle.service', () => {
       setupSelectChain([{ settings: { features: { comments: true } } }]);
       setupUpdateChain();
 
-      const result = await updateFeatures('org-1', { comments: false, search: false });
+      const result = await updateFeatures('org-1', 'user-1', { comments: false, search: false });
 
       expect(result.comments).toBe(false);
       expect(result.search).toBe(false);
@@ -143,7 +168,7 @@ describe('feature-toggle.service', () => {
       setupUpdateChain();
 
       const updates = { comments: false, unknown_key: true } as Partial<FeatureMap>;
-      const result = await updateFeatures('org-1', updates);
+      const result = await updateFeatures('org-1', 'user-1', updates);
 
       expect(result.comments).toBe(false);
       expect('unknown_key' in result).toBe(false);
@@ -152,7 +177,7 @@ describe('feature-toggle.service', () => {
     it('should throw 404 when organization not found', async () => {
       setupSelectChain([]);
 
-      await expect(updateFeatures('nonexistent', { comments: false })).rejects.toThrow(
+      await expect(updateFeatures('nonexistent', 'user-1', { comments: false })).rejects.toThrow(
         'Organization not found',
       );
     });
@@ -161,10 +186,30 @@ describe('feature-toggle.service', () => {
       setupSelectChain([{ settings: null }]);
       setupUpdateChain();
 
-      const result = await updateFeatures('org-1', { mfa: false });
+      const result = await updateFeatures('org-1', 'user-1', { mfa: false });
 
       expect(result.mfa).toBe(false);
       expect(result.notifications).toBe(true);
+    });
+
+    it('should throw 403 FORBIDDEN when user lacks organization.update permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(false);
+
+      await expect(updateFeatures('org-1', 'user-1', { comments: false })).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'Insufficient permissions to update features for this organization',
+      });
+    });
+
+    it('should succeed when user has organization.update permission', async () => {
+      mockHasOrgPermission.mockResolvedValueOnce(true);
+      setupSelectChain([{ settings: {} }]);
+      setupUpdateChain();
+
+      const result = await updateFeatures('org-1', 'user-1', { comments: false });
+
+      expect(result.comments).toBe(false);
     });
   });
 

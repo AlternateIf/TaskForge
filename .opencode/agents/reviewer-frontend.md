@@ -33,3 +33,5 @@ Required output:
 - Affected scope: `frontend`
 - Findings (ordered by severity)
 - Missing tests (if any)
+
+

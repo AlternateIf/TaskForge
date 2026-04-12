@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter } from '@tanstack/react-router';
+import { NOTIFICATION_READ_PERMISSION } from '@taskforge/shared';
+import { PROJECT_READ_PERMISSION, TASK_CREATE_PERMISSION } from '@taskforge/shared';
 import { Bell, Menu, Moon, Search, Settings, Sun } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -74,14 +76,20 @@ export function Header({
   const [createTaskProjectId, setCreateTaskProjectId] = useState<string | null>(null);
   const open = commandPaletteOpen;
   const onOpenChange = onCommandPaletteOpenChange;
+  const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
+  const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
+  const canCreateTasks = permissionSet.has(TASK_CREATE_PERMISSION);
+  const canReadNotifications = permissionSet.has(NOTIFICATION_READ_PERMISSION);
   const currentProjectId = useMemo(() => {
     const match = router.state.location.pathname.match(/^\/projects\/([^/]+)/);
     return match?.[1];
   }, [router.state.location.pathname]);
-  const { data: projects = [] } = useProjects();
+  const { data: projects = [] } = useProjects({ enabled: canReadProjects });
   const resolvedCreateTaskProjectId =
-    createTaskProjectId ?? currentProjectId ?? projects[0]?.id ?? null;
-  const { data: createTaskProject } = useProject(resolvedCreateTaskProjectId ?? '');
+    createTaskProjectId ?? currentProjectId ?? (canReadProjects ? projects[0]?.id : null) ?? null;
+  const { data: createTaskProject } = useProject(
+    canReadProjects ? (resolvedCreateTaskProjectId ?? '') : '',
+  );
   const activeOrganizationName = useMemo(() => {
     if (!user) {
       return undefined;
@@ -104,7 +112,6 @@ export function Header({
 
     return activeOrg?.name;
   }, [activeOrganizationId, user]);
-
   const handleNavigate = useCallback(
     (path: string) => {
       void router.navigate({ to: path });
@@ -163,7 +170,13 @@ export function Header({
       }
 
       if (actionId === 'create-task') {
-        const projectId = currentProjectId ?? projects[0]?.id;
+        if (!canCreateTasks) {
+          return;
+        }
+
+        const projectId = canReadProjects
+          ? (currentProjectId ?? projects[0]?.id)
+          : (currentProjectId ?? null);
         if (!projectId) {
           void router.navigate({ to: '/projects' });
           return;
@@ -181,7 +194,7 @@ export function Header({
         void handleNavigate('/settings');
       }
     },
-    [currentProjectId, handleNavigate, projects, router],
+    [canCreateTasks, canReadProjects, currentProjectId, handleNavigate, projects, router],
   );
 
   const handleNotificationClick = useCallback(
@@ -257,55 +270,57 @@ export function Header({
         {/* Right actions */}
         <div className="ml-auto flex items-center gap-xs">
           {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Notifications"
-              className="relative flex items-center justify-center rounded-radius-md p-sm text-muted transition-colors hover:bg-surface-container-low"
-            >
-              <Bell className="size-6" />
-              {unreadCount > 0 ? (
-                <span
-                  className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-0.75 text-[9px] font-bold text-white"
-                  aria-label={`${unreadCount} unread notifications`}
-                >
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              ) : null}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80">
-              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {notifications.length === 0 ? (
-                <p className="px-sm py-md text-small text-muted">No notifications</p>
-              ) : (
-                notifications.map((notification) => (
-                  <DropdownMenuItem
-                    key={notification.id}
-                    onClick={() => void handleNotificationClick(notification)}
-                    className="flex-col items-start gap-1 py-sm"
+          {canReadNotifications ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Notifications"
+                className="relative flex items-center justify-center rounded-radius-md p-sm text-muted transition-colors hover:bg-surface-container-low"
+              >
+                <Bell className="size-6" />
+                {unreadCount > 0 ? (
+                  <span
+                    className="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-danger px-0.75 text-[9px] font-bold text-white"
+                    aria-label={`${unreadCount} unread notifications`}
                   >
-                    <p
-                      className={
-                        notification.readAt
-                          ? 'line-clamp-1 text-small font-medium text-foreground'
-                          : 'line-clamp-1 text-small font-semibold text-foreground'
-                      }
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-80">
+                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <p className="px-sm py-md text-small text-muted">No notifications</p>
+                ) : (
+                  notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      onClick={() => void handleNotificationClick(notification)}
+                      className="flex-col items-start gap-1 py-sm"
                     >
-                      {notification.title}
-                    </p>
-                    {notification.body ? (
-                      <p className="line-clamp-2 text-label text-secondary">
-                        {stripHtml(notification.body)}
+                      <p
+                        className={
+                          notification.readAt
+                            ? 'line-clamp-1 text-small font-medium text-foreground'
+                            : 'line-clamp-1 text-small font-semibold text-foreground'
+                        }
+                      >
+                        {notification.title}
                       </p>
-                    ) : null}
-                    <p className="text-label text-muted">
-                      {formatNotificationDate(notification.createdAt)}
-                    </p>
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                      {notification.body ? (
+                        <p className="line-clamp-2 text-label text-secondary">
+                          {stripHtml(notification.body)}
+                        </p>
+                      ) : null}
+                      <p className="text-label text-muted">
+                        {formatNotificationDate(notification.createdAt)}
+                      </p>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           {/* User menu */}
           <DropdownMenu>
@@ -366,7 +381,7 @@ export function Header({
         }}
       />
 
-      {resolvedCreateTaskProjectId ? (
+      {canCreateTasks && resolvedCreateTaskProjectId ? (
         <CreateTaskDialog
           open={Boolean(createTaskProjectId)}
           onOpenChange={(nextOpen) => {

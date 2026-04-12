@@ -1,5 +1,6 @@
 import {
   db,
+  organizationMembers,
   permissionAssignments,
   permissions,
   projectMembers,
@@ -8,13 +9,12 @@ import {
   roles,
   tasks,
 } from '@taskforge/db';
-import { MANAGE_ACTIONS, ROLE_NAMES } from '@taskforge/shared';
+import { MANAGE_ACTIONS } from '@taskforge/shared';
 import type { Action, Resource } from '@taskforge/shared';
 import { and, eq, isNull, or } from 'drizzle-orm';
 
 export interface PermissionContext {
   orgId: string;
-  hasSuperAdmin: boolean;
   effectivePermissions: { resource: string; action: string; scope: string }[];
   /** Cached project-level overrides: projectId -> permissions */
   projectCache: Map<
@@ -51,7 +51,6 @@ export async function loadPermissionContext(
   const assignedRoleRows = await db
     .select({
       roleId: roleAssignments.roleId,
-      roleName: roles.name,
     })
     .from(roleAssignments)
     .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
@@ -61,8 +60,6 @@ export async function loadPermissionContext(
         or(eq(roleAssignments.organizationId, orgId), isNull(roleAssignments.organizationId)),
       ),
     );
-
-  const hasSuperAdmin = assignedRoleRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
 
   const rolePermissionRows =
     assignedRoleRows.length === 0
@@ -103,13 +100,12 @@ export async function loadPermissionContext(
     effectivePermissions.push(tuple);
   }
 
-  if (!hasSuperAdmin && effectivePermissions.length === 0) {
+  if (effectivePermissions.length === 0) {
     return null;
   }
 
   return {
     orgId,
-    hasSuperAdmin,
     effectivePermissions,
     projectCache: new Map(),
   };
@@ -176,8 +172,6 @@ export async function checkPermission(
   action: Action,
   projectId?: string,
 ): Promise<boolean> {
-  if (ctx.hasSuperAdmin) return true;
-
   if (projectId) {
     if (!ctx.projectCache.has(projectId)) {
       const projectPerms = await loadProjectPermissions(userId, projectId);
@@ -185,7 +179,6 @@ export async function checkPermission(
     }
     const projectCtx = ctx.projectCache.get(projectId);
     if (projectCtx) {
-      if (projectCtx.roleName === ROLE_NAMES.SUPER_ADMIN) return true;
       if (hasPermission(projectCtx.permissions, resource, action)) {
         return true;
       }
@@ -223,46 +216,36 @@ export async function getProjectIdFromTask(
   return result ?? null;
 }
 
-export async function hasGlobalPermission(
-  userId: string,
-  resource: Resource,
-  action: Action,
-): Promise<boolean> {
-  const globalRoles = await db
-    .select({
-      roleId: roleAssignments.roleId,
-      roleName: roles.name,
-    })
-    .from(roleAssignments)
-    .innerJoin(roles, eq(roleAssignments.roleId, roles.id))
-    .where(and(eq(roleAssignments.userId, userId), isNull(roleAssignments.organizationId)));
+/**
+ * Check if a user has permission to create an organization.
+ * Uses the org-scoped `organization.create.org` permission.
+ * If the user has any existing org membership, they must hold
+ * `organization.create.org` in at least one of their orgs.
+ * Users with no org memberships (first org) are allowed to create one.
+ */
+export async function getOrgCreatePermission(userId: string): Promise<boolean> {
+  // Get all org memberships for the user
+  const memberships = await db
+    .select({ organizationId: organizationMembers.organizationId })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.userId, userId));
 
-  if (globalRoles.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN)) {
+  // If the user has no org memberships, allow them to create their first org
+  if (memberships.length === 0) {
     return true;
   }
 
-  if (globalRoles.length > 0) {
-    const rolePerms = await db
-      .select({
-        resource: permissions.resource,
-        action: permissions.action,
-      })
-      .from(permissions)
-      .where(or(...globalRoles.map((row) => eq(permissions.roleId, row.roleId))));
-    if (hasPermission(rolePerms, resource, action)) return true;
+  // Check if the user has organization.create.org in any of their orgs
+  const orgIds = memberships.map((m) => m.organizationId);
+
+  for (const orgId of orgIds) {
+    const hasCreate = await hasOrgPermission(userId, orgId, 'organization', 'create');
+    if (hasCreate) {
+      return true;
+    }
   }
 
-  const directPerms = await db
-    .select({ permissionKey: permissionAssignments.permissionKey })
-    .from(permissionAssignments)
-    .where(
-      and(eq(permissionAssignments.userId, userId), isNull(permissionAssignments.organizationId)),
-    );
-  const tuples = directPerms
-    .map((row) => permissionKeyToTuple(row.permissionKey))
-    .filter((row): row is { resource: string; action: string; scope: string } => row !== null);
-
-  return hasPermission(tuples, resource, action);
+  return false;
 }
 
 export interface EffectivePermissionSource {
@@ -283,7 +266,6 @@ export interface EffectivePermissionsResult {
   organizationId: string;
   permissions: EffectivePermissionEntry[];
   roles: Array<{ roleId: string; roleName: string; scope: 'organization' }>;
-  isSuperAdmin: boolean;
 }
 
 /**
@@ -310,8 +292,6 @@ export async function getEffectivePermissions(
         or(eq(roleAssignments.organizationId, orgId), isNull(roleAssignments.organizationId)),
       ),
     );
-
-  const isSuperAdmin = assignedRoleRows.some((row) => row.roleName === ROLE_NAMES.SUPER_ADMIN);
 
   const rolesList: Array<{ roleId: string; roleName: string; scope: 'organization' }> =
     assignedRoleRows
@@ -414,7 +394,6 @@ export async function getEffectivePermissions(
     organizationId: orgId,
     permissions: Array.from(permMap.values()),
     roles: rolesList,
-    isSuperAdmin,
   };
 }
 
@@ -430,7 +409,6 @@ export async function hasOrgPermission(
 ): Promise<boolean> {
   const ctx = await loadPermissionContext(userId, orgId);
   if (!ctx) return false;
-  if (ctx.hasSuperAdmin) return true;
   return ctx.effectivePermissions.some(
     (entry) =>
       entry.resource === resource &&

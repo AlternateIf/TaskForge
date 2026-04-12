@@ -15,8 +15,8 @@ export async function getFeaturesHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const features = await getFeatures(request.params.id);
+  const userId = requireAuth(request);
+  const features = await getFeatures(request.params.id, userId);
   return reply.status(200).send(success(features));
 }
 
@@ -24,7 +24,7 @@ export async function updateFeaturesHandler(
   request: FastifyRequest<{ Params: { id: string }; Body: Partial<FeatureMap> }>,
   reply: FastifyReply,
 ) {
-  requireAuth(request);
-  const features = await updateFeatures(request.params.id, request.body);
+  const userId = requireAuth(request);
+  const features = await updateFeatures(request.params.id, userId, request.body);
   return reply.status(200).send(success(features));
 }

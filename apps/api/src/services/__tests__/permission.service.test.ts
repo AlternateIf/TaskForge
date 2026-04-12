@@ -63,7 +63,6 @@ describe('permission.service checkPermission', () => {
   it('allows explicit org-level task.read permission', async () => {
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: false,
       effectivePermissions: [{ resource: 'task', action: 'read', scope: 'organization' }],
       projectCache: new Map(),
     };
@@ -75,7 +74,6 @@ describe('permission.service checkPermission', () => {
   it('denies when neither project-level nor org-level permission exists', async () => {
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: false,
       effectivePermissions: [{ resource: 'organization', action: 'read', scope: 'organization' }],
       projectCache: new Map(),
     };
@@ -94,7 +92,6 @@ describe('permission.service checkPermission', () => {
 
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: false,
       effectivePermissions: [],
       projectCache: new Map(),
     };
@@ -111,7 +108,6 @@ describe('permission.service checkPermission', () => {
 
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: false,
       effectivePermissions: [{ resource: 'task', action: 'read', scope: 'organization' }],
       projectCache: new Map(),
     };
@@ -128,7 +124,6 @@ describe('permission.service checkPermission', () => {
 
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: false,
       effectivePermissions: [{ resource: 'organization', action: 'read', scope: 'organization' }],
       projectCache: new Map(),
     };
@@ -137,16 +132,18 @@ describe('permission.service checkPermission', () => {
     expect(allowed).toBe(false);
   });
 
-  it('allows everything for super admin', async () => {
+  it('denies when user has no matching permission even with many permissions', async () => {
     const ctx = {
       orgId: 'org-1',
-      hasSuperAdmin: true,
-      effectivePermissions: [],
+      effectivePermissions: [
+        { resource: 'organization', action: 'manage', scope: 'organization' },
+        { resource: 'project', action: 'create', scope: 'organization' },
+      ],
       projectCache: new Map(),
     };
 
-    const allowed = await checkPermission(ctx, 'user-1', 'task', 'delete', 'project-1');
-    expect(allowed).toBe(true);
+    const allowed = await checkPermission(ctx, 'user-1', 'task', 'delete');
+    expect(allowed).toBe(false);
   });
 });
 
@@ -189,19 +186,10 @@ describe('permission.service getEffectivePermissions', () => {
 
     expect(result.userId).toBe('user-1');
     expect(result.organizationId).toBe('org-1');
-    expect(result.isSuperAdmin).toBe(false);
     expect(result.roles).toEqual([
       { roleId: 'role-admin', roleName: 'Admin', scope: 'organization' },
     ]);
     expect(result.permissions.length).toBeGreaterThanOrEqual(3);
-
-    const orgManagePerm = result.permissions.find(
-      (p) => p.key === 'organization.manage.organization',
-    );
-    expect(orgManagePerm).toBeDefined();
-    if (orgManagePerm) {
-      expect(orgManagePerm.sources.some((s) => s.type === 'role')).toBe(true);
-    }
 
     const projectCreatePerm = result.permissions.find(
       (p) => p.key === 'project.create.organization',
@@ -212,7 +200,7 @@ describe('permission.service getEffectivePermissions', () => {
     }
   });
 
-  it('returns isSuperAdmin true when user has Super Admin role', async () => {
+  it('does not return isSuperAdmin field (Super Admin concept removed)', async () => {
     mockDbSelect
       .mockImplementationOnce(() => {
         return makeQueryChain([
@@ -233,7 +221,8 @@ describe('permission.service getEffectivePermissions', () => {
 
     const result = await getEffectivePermissions('user-1', 'org-1');
 
-    expect(result.isSuperAdmin).toBe(true);
+    // isSuperAdmin field no longer exists in the result
+    expect('isSuperAdmin' in result).toBe(false);
   });
 });
 
@@ -263,7 +252,7 @@ describe('permission.service hasOrgPermission', () => {
   it('returns false when user has no matching permission', async () => {
     mockDbSelect
       .mockImplementationOnce(() => {
-        return makeQueryChain([{ roleId: 'role-1', roleName: 'Guest' }]);
+        return makeQueryChain([{ roleId: 'role-1', roleName: 'Customer Stakeholder' }]);
       })
       .mockImplementationOnce(() => {
         return makeQueryChain([

@@ -14,6 +14,8 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
   // POST /api/v1/attachments (multipart upload)
+  // Authorization is handled inline in the handler because entityId (taskId)
+  // comes from multipart form fields, which are not available at preHandler time.
   fastify.post(
     '/api/v1/attachments',
     {
@@ -29,7 +31,7 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
     {
       preHandler: [
         authorize({
-          resource: 'attachment',
+          resource: 'task',
           action: 'read',
           getTaskId: async (req) => {
             const id = (req.params as { id: string }).id;
@@ -48,7 +50,7 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
     {
       preHandler: [
         authorize({
-          resource: 'attachment',
+          resource: 'task',
           action: 'read',
           getTaskId: async (req) => {
             const id = (req.params as { id: string }).id;
@@ -67,8 +69,8 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
     {
       preHandler: [
         authorize({
-          resource: 'attachment',
-          action: 'delete',
+          resource: 'task',
+          action: 'update',
           getTaskId: async (req) => {
             const id = (req.params as { id: string }).id;
             return getTaskIdForAttachment(id);
@@ -86,7 +88,7 @@ export async function attachmentRoutes(fastify: FastifyInstance) {
     {
       preHandler: [
         authorize({
-          resource: 'attachment',
+          resource: 'task',
           action: 'read',
           getTaskId: (req) => (req.params as { taskId: string }).taskId,
         }),
