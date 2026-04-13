@@ -16,7 +16,6 @@ import {
   LogOut,
   Plus,
   Settings,
-  ShieldCheck,
   Users,
   X,
 } from 'lucide-react';
@@ -91,12 +90,6 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Organization Settings',
     path: '/settings/organization',
     Icon: Users,
-    requiresGovernance: true,
-  },
-  {
-    label: 'Organization Permissions',
-    path: '/settings/permissions',
-    Icon: ShieldCheck,
     requiresGovernance: true,
   },
   { label: 'Settings', path: '/settings', Icon: Settings },

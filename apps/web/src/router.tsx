@@ -22,7 +22,6 @@ import { ProjectSettingsPage } from '@/routes/projects/[projectId]/settings';
 import { ProjectTaskDetailPage } from '@/routes/projects/[projectId]/tasks/[taskId]';
 import { SettingsPage } from '@/routes/settings';
 import { OrganizationSettingsPage } from '@/routes/settings/organization';
-import { OrganizationPermissionsPage } from '@/routes/settings/permissions';
 import { useAuthStore } from '@/stores/auth.store';
 import {
   Outlet,
@@ -142,12 +141,6 @@ const organizationSettingsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/settings/organization',
   component: OrganizationSettingsPage,
-});
-
-const organizationPermissionsRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
-  path: '/settings/permissions',
-  component: OrganizationPermissionsPage,
 });
 
 const forcePasswordRoute = createRoute({
@@ -284,7 +277,6 @@ const routeTree = rootRoute.addChildren([
     projectSettingsRoute,
     settingsRoute,
     organizationSettingsRoute,
-    organizationPermissionsRoute,
     notFoundRoute,
   ]),
   forcePasswordRoute,
