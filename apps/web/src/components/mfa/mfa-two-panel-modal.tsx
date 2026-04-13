@@ -152,7 +152,7 @@ export function MfaTwoPanelModal({
     }
 
     if (apiError.status === 500) {
-      setErrorMessage('Something went wrong on our side. Please try again in a moment.');
+      setErrorMessage('MFA request failed due to a server issue. Please try again shortly.');
       return;
     }
 

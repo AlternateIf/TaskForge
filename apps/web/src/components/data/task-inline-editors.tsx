@@ -8,7 +8,6 @@ import { useAuthStore } from '@/stores/auth.store';
 import { X } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { toast } from 'sonner';
 
 const MEMBERS_READ_PERMISSION = 'membership.read.org';
 
@@ -127,14 +126,7 @@ export function StatusPicker({
             s.id === statusId && 'bg-surface-container-low',
           )}
           onClick={() => {
-            update.mutate(
-              { statusId: s.id },
-              {
-                onError: (error) => {
-                  toast.error(error.message || 'Failed to update status');
-                },
-              },
-            );
+            update.mutate({ statusId: s.id });
             close();
           }}
         >
@@ -191,14 +183,7 @@ export function PriorityPicker({
             p === priority && 'bg-surface-container-low',
           )}
           onClick={() => {
-            update.mutate(
-              { priority: p },
-              {
-                onError: (error) => {
-                  toast.error(error.message || 'Failed to update priority');
-                },
-              },
-            );
+            update.mutate({ priority: p });
             close();
           }}
         >
@@ -232,14 +217,7 @@ export function LabelPicker({
     const next = selectedIds.has(labelId)
       ? [...selectedIds].filter((id) => id !== labelId)
       : [...selectedIds, labelId];
-    update.mutate(
-      { labelIds: next },
-      {
-        onError: (error) => {
-          toast.error(error.message || 'Failed to update labels');
-        },
-      },
-    );
+    update.mutate({ labelIds: next });
   }
 
   if (allLabels.length === 0) return <>{children}</>;
@@ -309,9 +287,6 @@ export function DueDatePicker({
       { dueDate: value ? new Date(value).toISOString() : null },
       {
         onSettled: close,
-        onError: (error) => {
-          toast.error(error.message || 'Failed to update due date');
-        },
       },
     );
   }
@@ -351,9 +326,6 @@ export function DueDatePicker({
                 { dueDate: null },
                 {
                   onSettled: close,
-                  onError: (error) => {
-                    toast.error(error.message || 'Failed to update due date');
-                  },
                 },
               )
             }
@@ -409,9 +381,6 @@ export function AssigneePicker({
       { assigneeId: userId },
       {
         onSettled: close,
-        onError: (error) => {
-          toast.error(error.message || 'Failed to update assignee');
-        },
       },
     );
   }

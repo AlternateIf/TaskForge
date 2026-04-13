@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NOTIFICATION_READ_PERMISSION } from '@taskforge/shared';
@@ -69,6 +70,11 @@ export function useMarkNotificationRead() {
       apiClient.patch(`/notifications/${notificationId}/read?orgId=${orgId}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update notification status. Please try again.', {
+        id: 'mark-notification-read-error',
+      });
     },
   });
 }

@@ -1,5 +1,7 @@
 import { queryClient } from '@/api/client';
+import { AppErrorBoundary } from '@/components/error-boundary';
 import { ThemeProvider } from '@/components/theme-provider';
+import { showErrorToast } from '@/lib/error-toast';
 import { router } from '@/router';
 import { useAuthStore } from '@/stores/auth.store';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +14,11 @@ function AuthExpiredListener() {
 
   useEffect(() => {
     function handleExpired() {
+      showErrorToast(
+        new Error('Your session has expired. Please log in again.'),
+        'Your session has expired. Please log in again.',
+        { id: 'auth-expired' },
+      );
       clearAuth();
       void router.navigate({ to: '/auth/login', search: { redirect: undefined } });
     }
@@ -27,7 +34,9 @@ export function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthExpiredListener />
-        <RouterProvider router={router} />
+        <AppErrorBoundary>
+          <RouterProvider router={router} />
+        </AppErrorBoundary>
         <Toaster
           position="bottom-right"
           toastOptions={{

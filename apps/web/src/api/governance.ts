@@ -1,4 +1,5 @@
 import { apiClient, queryClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 interface ApiEnvelope<T> {
@@ -149,6 +150,11 @@ export function useUpdateOrganization(orgId: string | null) {
       void queryClient.invalidateQueries({ queryKey: governanceKeys.organization(orgId) });
       void queryClient.invalidateQueries({ queryKey: governanceKeys.organizations });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update organization. Please try again.', {
+        id: 'gov-update-organization-error',
+      });
+    },
   });
 }
 
@@ -170,6 +176,11 @@ export function useUpdateOrganizationAuthSettings(orgId: string | null) {
     onSuccess: () => {
       if (!orgId) return;
       void queryClient.invalidateQueries({ queryKey: governanceKeys.authSettings(orgId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update authentication settings. Please try again.', {
+        id: 'gov-update-auth-settings-error',
+      });
     },
   });
 }
@@ -203,6 +214,11 @@ export function useCreateInvitation(orgId: string | null) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.sentInvites(orgId) });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to send invite. Please try again.', {
+        id: 'gov-create-invitation-error',
+      });
+    },
   });
 }
 
@@ -215,6 +231,11 @@ export function useResendInvitation(orgId: string | null) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.sentInvites(orgId) });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to resend invite. Please try again.', {
+        id: 'gov-resend-invitation-error',
+      });
+    },
   });
 }
 
@@ -226,6 +247,11 @@ export function useRevokeInvitation(orgId: string | null) {
       if (orgId) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.sentInvites(orgId) });
       }
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to revoke invite. Please try again.', {
+        id: 'gov-revoke-invitation-error',
+      });
     },
   });
 }
@@ -244,6 +270,11 @@ export function useCreateOrganization() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: governanceKeys.organizations });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to create organization. Please try again.', {
+        id: 'gov-create-organization-error',
+      });
+    },
   });
 }
 
@@ -252,6 +283,11 @@ export function useDeleteOrganization() {
     mutationFn: (organizationId: string) => apiClient.delete(`/organizations/${organizationId}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: governanceKeys.organizations });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to delete organization. Please try again.', {
+        id: 'gov-delete-organization-error',
+      });
     },
   });
 }
@@ -282,6 +318,11 @@ export function useCreateRole(orgId: string | null) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.roles(orgId) });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to create role. Please try again.', {
+        id: 'gov-create-role-error',
+      });
+    },
   });
 }
 
@@ -292,6 +333,11 @@ export function useDeleteRole(orgId: string | null) {
       if (orgId) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.roles(orgId) });
       }
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to delete role. Please try again.', {
+        id: 'gov-delete-role-error',
+      });
     },
   });
 }
@@ -319,6 +365,11 @@ export function useUpdateRole(orgId: string | null) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.roles(orgId) });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update role. Please try again.', {
+        id: 'gov-update-role-error',
+      });
+    },
   });
 }
 
@@ -341,6 +392,11 @@ export function useCreateRoleAssignment(orgId: string | null) {
       if (!orgId) return;
       void queryClient.invalidateQueries({ queryKey: governanceKeys.roleAssignments(orgId) });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to assign role. Please try again.', {
+        id: 'gov-create-role-assignment-error',
+      });
+    },
   });
 }
 
@@ -351,6 +407,11 @@ export function useDeleteRoleAssignment(orgId: string | null) {
     onSuccess: () => {
       if (!orgId) return;
       void queryClient.invalidateQueries({ queryKey: governanceKeys.roleAssignments(orgId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to remove role assignment. Please try again.', {
+        id: 'gov-delete-role-assignment-error',
+      });
     },
   });
 }
@@ -379,6 +440,11 @@ export function useCreatePermissionAssignment(orgId: string | null) {
         });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to assign permission. Please try again.', {
+        id: 'gov-create-permission-assignment-error',
+      });
+    },
   });
 }
 
@@ -403,6 +469,11 @@ export function useDeletePermissionAssignment(orgId: string | null) {
           queryKey: governanceKeys.permissionAssignments(orgId),
         });
       }
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to remove permission assignment. Please try again.', {
+        id: 'gov-delete-permission-assignment-error',
+      });
     },
   });
 }
@@ -433,6 +504,11 @@ export function useUploadOrganizationLogo(orgId: string | null) {
         void queryClient.invalidateQueries({ queryKey: governanceKeys.organization(orgId) });
         void queryClient.invalidateQueries({ queryKey: governanceKeys.organizations });
       }
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to upload organization logo. Please try again.', {
+        id: 'gov-upload-organization-logo-error',
+      });
     },
   });
 }

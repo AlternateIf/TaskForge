@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ApiEnvelope<T> {
@@ -53,6 +54,11 @@ export function useAddDependency(taskId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dependencyKeys.byTask(taskId) });
       void queryClient.invalidateQueries({ queryKey: ['tasks', 'detail', taskId] });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to add dependency. Please try again.', {
+        id: 'add-dependency-error',
+      });
     },
   });
 }

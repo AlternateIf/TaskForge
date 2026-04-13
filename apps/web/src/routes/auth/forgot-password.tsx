@@ -1,10 +1,9 @@
 import { useForgotPassword } from '@/api/auth';
-import type { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
+import { showErrorToast } from '@/lib/error-toast';
 import { useNavigate } from '@tanstack/react-router';
 import { Mail } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { toast } from 'sonner';
 import { AuthMobileHeader } from './auth-mobile-header';
 import { AuthBrandPanel } from './brand-panel';
 
@@ -21,8 +20,9 @@ export function ForgotPasswordPage() {
       await forgotPassword.mutateAsync(email);
       setSubmitted(true);
     } catch (err) {
-      const msg = (err as ApiError).message ?? 'Something went wrong';
-      toast.error(msg);
+      showErrorToast(err, 'Failed to send reset email. Please try again.', {
+        id: 'forgot-password-error',
+      });
     }
   }
 

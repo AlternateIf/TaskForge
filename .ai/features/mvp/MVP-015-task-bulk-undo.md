@@ -50,12 +50,7 @@ Bulk operations on multiple tasks (assign, move, change status, delete) and undo
 ```
 
 ### Undo support (API side)
-- Each mutating task action returns an `undoToken` in the response
-- `POST /api/v1/tasks/undo` with `{ undoToken }` reverses the action
-- Undo tokens expire after 30 seconds
-- Stored in Redis: `undo:<token>` → `{ action, entityId, previousState }`
-- Only the user who performed the action can undo it
-- Supports: status change, assignment, priority change, label add/remove, position change
+_(Undo functionality removed in current release)_
 
 ### Files to create/modify
 ```

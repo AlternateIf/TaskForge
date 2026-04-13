@@ -66,7 +66,8 @@ pnpm --filter @taskforge/api dev:worker
 - Meilisearch: `http://localhost:7700`
 - Mailpit: `http://localhost:8025`
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001`
+- Grafana: `http://localhost:3002`
+- Loki: `http://localhost:3100`
 
 ## Seed And Reset Workflows
 
@@ -147,3 +148,29 @@ RabbitMQ startup lag:
 
 Stale local state:
 - Use `NODE_ENV=development pnpm test-seed` for a full reset.
+
+## Logging Configuration
+
+Docker and Loki logging can be configured via environment variables in `docker/env/common.env`:
+
+### Docker Log Rotation
+
+```bash
+DOCKER_LOG_MAX_SIZE=10m      # Max size per log file (default: 10m)
+DOCKER_LOG_MAX_FILE=5        # Number of rotated files to keep (default: 5)
+DOCKER_LOG_COMPRESS=true    # Compress rotated logs (default: true)
+```
+
+These apply to all services via `x-logging-defaults` in `docker/docker-compose.yml`.
+
+### Loki Log Retention
+
+```bash
+LOKI_RETENTION_PERIOD=7d           # Delete logs older than 7 days
+LOKI_REJECT_OLD_SAMPLES_MAX_AGE=168h  # Reject samples older than 7 days
+LOKI_COMPACTION_INTERVAL=10m      # Run compactor every 10 minutes
+```
+
+The compactor is enabled by default with `working_directory: /loki/compactor` in `docker/loki/loki-config.yml`.
+
+To disable retention, set `LOKI_RETENTION_PERIOD=0` or remove the variable.

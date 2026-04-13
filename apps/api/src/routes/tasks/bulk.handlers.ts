@@ -1,7 +1,6 @@
-import type { BulkActionInput, UndoInput } from '@taskforge/shared';
+import type { BulkActionInput } from '@taskforge/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { executeBulkAction } from '../../services/bulk.service.js';
-import { executeUndo } from '../../services/undo.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 
 function requireAuth(request: FastifyRequest): string {
@@ -28,13 +27,4 @@ export async function bulkActionHandler(
       failed: result.failed.length,
     },
   });
-}
-
-export async function undoHandler(
-  request: FastifyRequest<{ Body: UndoInput }>,
-  reply: FastifyReply,
-) {
-  const userId = requireAuth(request);
-  await executeUndo(request.body.undoToken, userId);
-  return reply.status(204).send();
 }

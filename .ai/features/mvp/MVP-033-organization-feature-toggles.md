@@ -15,10 +15,7 @@ Allow organization admins to enable/disable optional features (notifications, fi
 ## Scope
 
 ### API Endpoints
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/v1/organizations/:orgId/features` | Get enabled features for the organization |
-| PATCH | `/api/v1/organizations/:orgId/features` | Update feature toggles (Admin only) |
+_(Feature toggles removed in current release)_
 
 ### Toggleable features (MVP)
 | Feature Key | Default | Description |

@@ -1,3 +1,4 @@
+import { showErrorToast } from '@/lib/error-toast';
 import { type AuthUser, useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from './client';
@@ -25,6 +26,11 @@ export function useRevokeSession() {
   return useMutation({
     mutationFn: (sessionId: string) =>
       apiClient.delete<{ data: { revoked: number } }>(`/users/me/sessions/${sessionId}`),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to revoke session. Please try again.', {
+        id: 'revoke-session-error',
+      });
+    },
   });
 }
 
@@ -65,6 +71,11 @@ export function useUpdateProfile() {
     onSuccess: (res) => {
       setUser(res.data);
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update profile. Please try again.', {
+        id: 'update-profile-error',
+      });
+    },
   });
 }
 
@@ -80,6 +91,11 @@ export function useUploadAvatar() {
     onSuccess: (res) => {
       setUser(res.data);
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to upload profile photo. Please try again.', {
+        id: 'upload-avatar-error',
+      });
+    },
   });
 }
 
@@ -87,6 +103,11 @@ export function useRequestEmailChange() {
   return useMutation({
     mutationFn: (input: { newEmail: string; currentPassword: string }) =>
       apiClient.post<{ data: { message: string } }>('/users/me/email', input),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to request email change. Please try again.', {
+        id: 'request-email-change-error',
+      });
+    },
   });
 }
 
@@ -94,12 +115,22 @@ export function useConfirmEmailChange() {
   return useMutation({
     mutationFn: (token: string) =>
       apiClient.post<{ data: { message: string } }>('/auth/confirm-email-change', { token }),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to confirm email change. Please request a new link.', {
+        id: 'confirm-email-change-error',
+      });
+    },
   });
 }
 
 export function useRevokeOtherSessions() {
   return useMutation({
     mutationFn: () => apiClient.delete<{ data: { revoked: number } }>('/users/me/sessions'),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to revoke other sessions. Please try again.', {
+        id: 'revoke-other-sessions-error',
+      });
+    },
   });
 }
 
@@ -110,6 +141,11 @@ export function useRemoveAvatar() {
     mutationFn: () => apiClient.delete<MeResponse>('/users/me/avatar'),
     onSuccess: (res) => {
       setUser(res.data);
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to remove profile photo. Please try again.', {
+        id: 'remove-avatar-error',
+      });
     },
   });
 }

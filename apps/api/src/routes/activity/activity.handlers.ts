@@ -51,31 +51,3 @@ export async function getTaskActivityHandler(
   });
   return reply.status(200).send(paginated(items, cursor, hasMore));
 }
-
-export async function getProjectActivityHandler(
-  request: FastifyRequest<{ Params: { projectId: string }; Querystring: ActivityQuery }>,
-  reply: FastifyReply,
-) {
-  requireAuth(request);
-  const { items, cursor, hasMore } = await activityService.listActivity({
-    entityType: 'project',
-    entityId: request.params.projectId,
-    cursor: request.query.cursor,
-    limit: request.query.limit,
-    excludeInternalComments: !canAccessInternalComments(request.permissionContext),
-  });
-  return reply.status(200).send(paginated(items, cursor, hasMore));
-}
-
-export async function getOrgActivityHandler(
-  request: FastifyRequest<{ Params: { orgId: string }; Querystring: ActivityQuery }>,
-  reply: FastifyReply,
-) {
-  requireAuth(request);
-  const { items, cursor, hasMore } = await activityService.listOrgActivity({
-    organizationId: request.params.orgId,
-    cursor: request.query.cursor,
-    limit: request.query.limit,
-  });
-  return reply.status(200).send(paginated(items, cursor, hasMore));
-}

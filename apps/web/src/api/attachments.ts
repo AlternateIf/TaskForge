@@ -1,4 +1,5 @@
 import { type ApiError, apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -61,7 +62,7 @@ export async function fetchAttachmentBlob(url: string): Promise<Blob> {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to load attachment');
+    throw new Error('Unable to load this file. Please try again.');
   }
 
   return response.blob();
@@ -143,6 +144,11 @@ export function useUploadFile(taskId: string) {
       void queryClient.invalidateQueries({ queryKey: attachmentKeys.byTask(taskId) });
       void queryClient.invalidateQueries({ queryKey: ['activity', 'task', taskId] });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to upload file. Please try again.', {
+        id: 'upload-file-error',
+      });
+    },
   });
 }
 
@@ -154,6 +160,11 @@ export function useDeleteAttachment(taskId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: attachmentKeys.byTask(taskId) });
       void queryClient.invalidateQueries({ queryKey: ['activity', 'task', taskId] });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to delete file. Please try again.', {
+        id: 'delete-attachment-error',
+      });
     },
   });
 }

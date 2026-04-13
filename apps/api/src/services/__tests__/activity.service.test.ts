@@ -50,7 +50,7 @@ vi.mock('@taskforge/db', () => ({
   },
 }));
 
-const { log, listActivity, listOrgActivity } = await import('../activity.service.js');
+const { log, listActivity } = await import('../activity.service.js');
 
 const uuid1 = '00000000-0000-0000-0000-000000000001';
 const uuid2 = '00000000-0000-0000-0000-000000000002';
@@ -222,54 +222,6 @@ describe('activity.service', () => {
 
       // Should have added a lt condition — verified by where being called
       expect(mockWhere).toHaveBeenCalled();
-    });
-  });
-
-  describe('listOrgActivity', () => {
-    it('should return paginated results by organization', async () => {
-      const rows = [
-        {
-          id: uuid1,
-          organizationId: orgId,
-          actorId: uuid2,
-          actorDisplay: 'Jane',
-          entityType: 'project',
-          entityId: uuid2,
-          action: 'created',
-          changes: null,
-          createdAt: now,
-        },
-      ];
-
-      mockLimit.mockResolvedValue(rows);
-
-      const result = await listOrgActivity({ organizationId: orgId });
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].organizationId).toBe(orgId);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('should return hasMore=true with pagination', async () => {
-      const rows = Array.from({ length: 26 }, (_, i) => ({
-        id: `id-${i}`,
-        organizationId: orgId,
-        actorId: uuid1,
-        actorDisplay: 'Jane',
-        entityType: 'task',
-        entityId: uuid2,
-        action: 'updated',
-        changes: null,
-        createdAt: new Date(now.getTime() - i * 1000),
-      }));
-
-      mockLimit.mockResolvedValue(rows);
-
-      const result = await listOrgActivity({ organizationId: orgId });
-
-      expect(result.items).toHaveLength(25);
-      expect(result.hasMore).toBe(true);
-      expect(result.cursor).toBeTruthy();
     });
   });
 });

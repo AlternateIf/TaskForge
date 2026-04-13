@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ApiEnvelope<T> {
@@ -56,6 +57,11 @@ export function useCreateComment(taskId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: commentKeys.byTask(taskId) });
       void queryClient.invalidateQueries({ queryKey: ['activity', 'task', taskId] });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to post comment. Please try again.', {
+        id: 'create-comment-error',
+      });
     },
   });
 }

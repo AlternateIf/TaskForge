@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordStrength, meetsAllRequirements } from '@/components/ui/password-strength';
+import { showErrorToast } from '@/lib/error-toast';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useQueryClient } from '@tanstack/react-query';
@@ -95,10 +96,12 @@ function ProfileTab() {
           setPreviewUrl(null); // store now has the real URL
           toast.success('Profile photo updated.');
         },
-        onError: () => {
+        onError: (error) => {
           setPreviewUrl(null);
-          toast.error(
+          showErrorToast(
+            error,
             "Couldn't upload photo. Make sure it's a JPEG, PNG, GIF, or WebP under 5 MB.",
+            { id: 'upload-avatar-error' },
           );
         },
       });
@@ -129,7 +132,10 @@ function ProfileTab() {
       { displayName },
       {
         onSuccess: () => toast.success('Profile updated.'),
-        onError: () => toast.error("Couldn't save changes. Please try again."),
+        onError: (error) =>
+          showErrorToast(error, "Couldn't save changes. Please try again.", {
+            id: 'update-profile-error',
+          }),
       },
     );
   }
@@ -141,7 +147,10 @@ function ProfileTab() {
   function handleRemove() {
     removeAvatar.mutate(undefined, {
       onSuccess: () => toast.success('Profile photo removed.'),
-      onError: () => toast.error("Couldn't remove photo. Please try again."),
+      onError: (error) =>
+        showErrorToast(error, "Couldn't remove photo. Please try again.", {
+          id: 'remove-avatar-error',
+        }),
     });
   }
 
@@ -513,9 +522,9 @@ function SecurityTab() {
           setPasswordChanged(true);
         },
         onError: (err: unknown) => {
-          const message =
-            err instanceof Error ? err.message : 'Could not change password. Please try again.';
-          toast.error(message);
+          showErrorToast(err, 'Could not change password. Please try again.', {
+            id: 'change-password-error',
+          });
         },
       },
     );
@@ -713,7 +722,10 @@ function SecurityTab() {
                     void security.refetch();
                     void queryClient.invalidateQueries({ queryKey: ['sessions'] });
                   },
-                  onError: () => toast.error("Couldn't revoke sessions. Please try again."),
+                  onError: (error) =>
+                    showErrorToast(error, "Couldn't revoke sessions. Please try again.", {
+                      id: 'revoke-other-sessions-error',
+                    }),
                 })
               }
             >
@@ -758,7 +770,10 @@ function SecurityTab() {
                             void security.refetch();
                             void queryClient.invalidateQueries({ queryKey: ['sessions'] });
                           },
-                          onError: () => toast.error("Couldn't revoke session."),
+                          onError: (error) =>
+                            showErrorToast(error, "Couldn't revoke session.", {
+                              id: 'revoke-session-error',
+                            }),
                         })
                       }
                     >
@@ -855,7 +870,10 @@ function OrganizationsTab() {
           setShowForm(false);
           toast.success('Organization created.');
         },
-        onError: () => toast.error("Couldn't create organization. Please try again."),
+        onError: (error) =>
+          showErrorToast(error, "Couldn't create organization. Please try again.", {
+            id: 'gov-create-organization-error',
+          }),
       },
     );
   }

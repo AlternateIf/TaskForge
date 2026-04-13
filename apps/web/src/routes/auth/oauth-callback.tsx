@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
@@ -29,6 +30,9 @@ export function OAuthCallbackPage() {
     const token = params.get('token');
 
     if (!token) {
+      showErrorToast(null, 'OAuth sign-in failed. Please try again.', {
+        id: 'oauth-callback-error',
+      });
       useAuthStore.getState().clearAuth();
       void navigate({ to: '/auth/login', search: { redirect: undefined } });
       return;
@@ -52,7 +56,10 @@ export function OAuthCallbackPage() {
           permissions: me.permissions ?? [],
           mustChangePassword: me.mustChangePassword ?? false,
         });
-      } catch {
+      } catch (error) {
+        showErrorToast(error, 'OAuth sign-in failed. Please try again.', {
+          id: 'oauth-callback-error',
+        });
         // If profile fetch fails, keep the token flow conservative and require re-login.
         useAuthStore.getState().clearAuth();
         void navigate({ to: '/auth/login', search: { redirect: undefined } });

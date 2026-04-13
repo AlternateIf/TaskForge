@@ -19,6 +19,7 @@ import { ColorPicker } from '@/components/ui/color-picker';
 import { Label as FormLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { showErrorToast } from '@/lib/error-toast';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -286,7 +287,9 @@ function GeneralTab({
         void navigate({ to: '/dashboard' });
       },
       onError: (error) => {
-        toast.error(error.message || 'Failed to delete project');
+        showErrorToast(error, 'Failed to delete project. Please try again.', {
+          id: 'delete-project-error',
+        });
       },
     });
   }
@@ -691,7 +694,9 @@ function MembersTab({ projectId }: { projectId: string }) {
                   { userId },
                   {
                     onError: (error) => {
-                      toast.error(error.message || 'Failed to add member');
+                      showErrorToast(error, 'Failed to add member. Please try again.', {
+                        id: 'add-project-member-error',
+                      });
                     },
                   },
                 )
@@ -777,7 +782,13 @@ function MembersTab({ projectId }: { projectId: string }) {
                           onClick={() =>
                             removeMember.mutate(member.userId, {
                               onError: (error) => {
-                                toast.error(error.message || 'Failed to remove member');
+                                showErrorToast(
+                                  error,
+                                  'Failed to remove member. Please try again.',
+                                  {
+                                    id: 'remove-project-member-error',
+                                  },
+                                );
                               },
                             })
                           }

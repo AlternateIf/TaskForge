@@ -1,3 +1,4 @@
+import { showErrorToast } from '@/lib/error-toast';
 import { type AuthUser, useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -98,6 +99,11 @@ export function useVerifyMfa() {
       const { accessToken, user } = res.data;
       setAuth(accessToken, user);
     },
+    onError: (error) => {
+      showErrorToast(error, 'Verification failed. Please try again or request a new code.', {
+        id: 'verify-mfa-error',
+      });
+    },
   });
 }
 
@@ -178,6 +184,11 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: () => apiClient.post<void>('/auth/logout'),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to log out. Please try again.', {
+        id: 'logout-error',
+      });
+    },
     onSettled: () => {
       clearAuth();
       queryClient.clear();
@@ -201,6 +212,13 @@ export function useMe() {
     if (query.data) setUser(query.data);
   }, [query.data, setUser]);
 
+  useEffect(() => {
+    if (!query.error) return;
+    showErrorToast(query.error, 'Failed to load your account. Please refresh and try again.', {
+      id: 'use-me-error',
+    });
+  }, [query.error]);
+
   return query;
 }
 
@@ -210,6 +228,11 @@ export function useForgotPassword() {
   return useMutation({
     mutationFn: (email: string) =>
       apiClient.post<MessageResponse>('/auth/forgot-password', { email }),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to send reset email. Please try again.', {
+        id: 'forgot-password-error',
+      });
+    },
   });
 }
 
@@ -224,6 +247,11 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: (input: ResetPasswordInput) =>
       apiClient.post<MessageResponse>('/auth/reset-password', input),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to reset password. The link may have expired.', {
+        id: 'reset-password-error',
+      });
+    },
   });
 }
 
@@ -245,6 +273,11 @@ export function useChangePassword() {
       } catch {
         // Ignore hydration failure; guard will refresh on next route load.
       }
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to change password. Please try again.', {
+        id: 'change-password-error',
+      });
     },
   });
 }

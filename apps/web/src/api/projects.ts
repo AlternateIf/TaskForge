@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -97,6 +98,11 @@ export function useCreateProject() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to create project. Please try again.', {
+        id: 'create-project-error',
+      });
+    },
   });
 }
 
@@ -108,6 +114,11 @@ export function useUpdateProject(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update project. Please try again.', {
+        id: 'update-project-error',
+      });
     },
   });
 }
@@ -122,6 +133,11 @@ export function useUpdateProjectStatuses(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update statuses. Please try again.', {
+        id: 'update-project-statuses-error',
+      });
+    },
   });
 }
 
@@ -134,6 +150,11 @@ export function useUpdateProjectLabels(projectId: string) {
         .then((r) => r.data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update labels. Please try again.', {
+        id: 'update-project-labels-error',
+      });
     },
   });
 }
@@ -151,6 +172,11 @@ export function useAddProjectMember(projectId: string) {
     onSuccess: (updated) => {
       queryClient.setQueryData(projectKeys.detail(projectId), updated);
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to add member. Please try again.', {
+        id: 'add-project-member-error',
+      });
+    },
   });
 }
 
@@ -161,6 +187,11 @@ export function useDeleteProject(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
       void queryClient.removeQueries({ queryKey: projectKeys.detail(projectId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to delete project. Please try again.', {
+        id: 'delete-project-error',
+      });
     },
   });
 }
@@ -174,6 +205,11 @@ export function useRemoveProjectMember(projectId: string) {
         .then((r) => r.data),
     onSuccess: (updated) => {
       queryClient.setQueryData(projectKeys.detail(projectId), updated);
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to remove member. Please try again.', {
+        id: 'remove-project-member-error',
+      });
     },
   });
 }

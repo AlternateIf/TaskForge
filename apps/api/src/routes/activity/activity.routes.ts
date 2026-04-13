@@ -1,10 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
-import {
-  getOrgActivityHandler,
-  getProjectActivityHandler,
-  getTaskActivityHandler,
-} from './activity.handlers.js';
+import { getTaskActivityHandler } from './activity.handlers.js';
 import type { ActivityQuery } from './activity.schemas.js';
 
 export async function activityRoutes(fastify: FastifyInstance) {
@@ -21,31 +17,5 @@ export async function activityRoutes(fastify: FastifyInstance) {
       }),
     },
     getTaskActivityHandler,
-  );
-
-  // GET /api/v1/projects/:projectId/activity
-  fastify.get<{ Params: { projectId: string }; Querystring: ActivityQuery }>(
-    '/api/v1/projects/:projectId/activity',
-    {
-      preHandler: authorize({
-        resource: 'project',
-        action: 'read',
-        getProjectId: (req) => (req.params as { projectId: string }).projectId,
-      }),
-    },
-    getProjectActivityHandler,
-  );
-
-  // GET /api/v1/organizations/:orgId/activity (admin only)
-  fastify.get<{ Params: { orgId: string }; Querystring: ActivityQuery }>(
-    '/api/v1/organizations/:orgId/activity',
-    {
-      preHandler: authorize({
-        resource: 'organization',
-        action: 'manage',
-        getOrgId: (req) => (req.params as { orgId: string }).orgId,
-      }),
-    },
-    getOrgActivityHandler,
   );
 }

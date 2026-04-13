@@ -226,9 +226,8 @@ export function TaskDetailContent({
     });
 
     updateTask.mutate(patch, {
-      onError: (error) => {
+      onError: (_error) => {
         setLocalTask(previous);
-        toast.error(error.message || 'Failed to update task');
       },
     });
   }
@@ -243,9 +242,8 @@ export function TaskDetailContent({
     toggleChecklistItem.mutate(
       { itemId, isCompleted, taskId },
       {
-        onError: (error) => {
+        onError: (_error) => {
           setLocalChecklists(previous);
-          toast.error(error.message || 'Failed to update checklist item');
         },
         onSettled: () => {
           setPendingChecklistIds((current) => {
@@ -263,12 +261,7 @@ export function TaskDetailContent({
       return;
     }
 
-    try {
-      await createComment.mutateAsync({ body });
-    } catch (error) {
-      toast.error((error as Error).message || 'Failed to post comment');
-      throw error;
-    }
+    await createComment.mutateAsync({ body });
   }
 
   async function handleWatchToggle() {
@@ -283,7 +276,6 @@ export function TaskDetailContent({
       }
     } catch (error) {
       setWatching(!next);
-      toast.error((error as Error).message || 'Failed to update watch state');
     }
   }
 
@@ -532,11 +524,7 @@ export function TaskDetailContent({
                   }}
                   onUploadFiles={handleUploadFiles}
                   onDeleteAttachment={(attachmentId) => {
-                    deleteAttachment.mutate(attachmentId, {
-                      onError: (error) => {
-                        toast.error(error.message || 'Failed to delete attachment');
-                      },
-                    });
+                    deleteAttachment.mutate(attachmentId);
                   }}
                 />
               </div>
@@ -559,11 +547,7 @@ export function TaskDetailContent({
               }}
               onUploadFiles={handleUploadFiles}
               onDeleteAttachment={(attachmentId) => {
-                deleteAttachment.mutate(attachmentId, {
-                  onError: (error) => {
-                    toast.error(error.message || 'Failed to delete attachment');
-                  },
-                });
+                deleteAttachment.mutate(attachmentId);
               }}
             />
           </div>

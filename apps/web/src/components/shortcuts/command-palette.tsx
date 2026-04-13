@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { showErrorToast } from '@/lib/error-toast';
 import { cn } from '@/lib/utils';
 import {
   CheckSquare,
@@ -270,7 +271,10 @@ export function CommandPalette({
 
     onSearch(debouncedQuery)
       .then(setSearchResults)
-      .catch(() => setSearchResults(EMPTY_RESULTS));
+      .catch((error) => {
+        showErrorToast(error, 'Search failed. Please try again.', { id: 'command-search-error' });
+        setSearchResults(EMPTY_RESULTS);
+      });
   }, [debouncedQuery, onSearch]);
 
   // Build flat item list

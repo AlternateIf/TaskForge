@@ -11,11 +11,9 @@ import type {
 } from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
 import { authorize } from '../../hooks/authorize.hook.js';
-import type { FeatureMap } from '../../services/feature-toggle.service.js';
 import { getOrgCreatePermission } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { getAuthSettingsHandler, updateAuthSettingsHandler } from './auth-settings.handlers.js';
-import { getFeaturesHandler, updateFeaturesHandler } from './features.handlers.js';
 import {
   createOrganizationHandler,
   deleteOrganizationHandler,
@@ -143,19 +141,6 @@ export async function organizationRoutes(fastify: FastifyInstance) {
     '/api/v1/organizations/:id/members/:userId/effective-permissions',
     { preHandler: authorize({ resource: 'organization', action: 'update' }) },
     getEffectivePermissionsHandler,
-  );
-
-  // Feature toggles
-  fastify.get<{ Params: { id: string } }>(
-    '/api/v1/organizations/:id/features',
-    { preHandler: authorize({ resource: 'organization', action: 'read' }) },
-    getFeaturesHandler,
-  );
-
-  fastify.patch<{ Params: { id: string }; Body: Partial<FeatureMap> }>(
-    '/api/v1/organizations/:id/features',
-    { preHandler: authorize({ resource: 'organization', action: 'update' }) },
-    updateFeaturesHandler,
   );
 
   // Auth settings

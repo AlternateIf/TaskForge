@@ -1,6 +1,7 @@
 import { useVerifyMfa } from '@/api/auth';
-import type { ApiError } from '@/api/client';
+import { isApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
+import { showErrorToast } from '@/lib/error-toast';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { ShieldCheck } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
@@ -92,8 +93,13 @@ export function MfaPage() {
       await verifyMfa.mutateAsync({ mfaToken, code });
       void navigate({ to: '/dashboard' });
     } catch (err) {
-      const msg = (err as ApiError).message ?? 'Invalid code';
-      toast.error(msg);
+      if (isApiError(err)) {
+        showErrorToast(err, err.message, { id: 'verify-mfa-error' });
+      } else {
+        showErrorToast(err, 'Verification failed. Please try again or request a new code.', {
+          id: 'verify-mfa-error',
+        });
+      }
       setCode('');
     }
   }

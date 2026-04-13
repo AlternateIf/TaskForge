@@ -1,5 +1,6 @@
 import { useConfirmEmailChange } from '@/api/users';
 import { Button } from '@/components/ui/button';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle, XCircle } from 'lucide-react';
@@ -18,7 +19,12 @@ export function ConfirmEmailChangePage() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional one-time effect on mount
   useEffect(() => {
     if (!token) {
-      setError('Missing confirmation token.');
+      const message = showErrorToast(
+        null,
+        'This confirmation link is invalid. Please request a new email change link.',
+        { id: 'confirm-email-change-error' },
+      );
+      setError(message);
       return;
     }
     confirm.mutate(token, {
@@ -27,7 +33,10 @@ export function ConfirmEmailChangePage() {
         setDone(true);
       },
       onError: (err) => {
-        setError(err instanceof Error ? err.message : 'Invalid or expired confirmation link.');
+        const message = showErrorToast(err, 'Invalid or expired confirmation link.', {
+          id: 'confirm-email-change-error',
+        });
+        setError(message);
       },
     });
   }, []);

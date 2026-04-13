@@ -26,8 +26,6 @@ Threaded comments with @mentions on tasks, rich text support, and a comprehensiv
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/tasks/:taskId/activity` | Get task activity log |
-| GET | `/api/v1/projects/:projectId/activity` | Get project activity log |
-| GET | `/api/v1/organizations/:orgId/activity` | Get org activity log (admin only) |
 
 ### Files to create
 ```

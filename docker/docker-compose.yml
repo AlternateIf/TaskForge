@@ -1,8 +1,16 @@
 name: taskforge
 
+x-logging-defaults: &logging-defaults
+  driver: json-file
+  options:
+    max-size: '${DOCKER_LOG_MAX_SIZE:-10m}'
+    max-file: '${DOCKER_LOG_MAX_FILE:-5}'
+    compress: '${DOCKER_LOG_COMPRESS:-true}'
+
 services:
   # ── Application ──────────────────────────────────────────────
   api:
+    logging: *logging-defaults
     build:
       context: ..
       dockerfile: docker/api/Dockerfile
@@ -36,6 +44,7 @@ services:
       - taskforge
 
   worker:
+    logging: *logging-defaults
     build:
       context: ..
       dockerfile: docker/worker/Dockerfile
@@ -59,6 +68,7 @@ services:
       - taskforge
 
   web:
+    logging: *logging-defaults
     build:
       context: ..
       dockerfile: docker/web/Dockerfile
@@ -76,6 +86,7 @@ services:
 
   # ── Data stores ──────────────────────────────────────────────
   mariadb:
+    logging: *logging-defaults
     image: mariadb:11
     ports:
       - '3306:3306'
@@ -92,6 +103,7 @@ services:
       - taskforge
 
   redis:
+    logging: *logging-defaults
     image: redis:7-alpine
     ports:
       - '6379:6379'
@@ -106,6 +118,7 @@ services:
       - taskforge
 
   rabbitmq:
+    logging: *logging-defaults
     image: rabbitmq:3-management
     ports:
       - '5672:5672'
@@ -123,6 +136,7 @@ services:
       - taskforge
 
   meilisearch:
+    logging: *logging-defaults
     image: getmeili/meilisearch:v1
     ports:
       - '7700:7700'
@@ -140,6 +154,7 @@ services:
 
   # ── Email ────────────────────────────────────────────────────
   mailpit:
+    logging: *logging-defaults
     image: axllent/mailpit
     ports:
       - '8025:8025'
@@ -149,6 +164,7 @@ services:
 
   # ── Monitoring ───────────────────────────────────────────────
   prometheus:
+    logging: *logging-defaults
     image: prom/prometheus
     ports:
       - '9090:9090'
@@ -164,6 +180,7 @@ services:
       - taskforge
 
   grafana:
+    logging: *logging-defaults
     image: grafana/grafana
     ports:
       - '3002:3000'
@@ -185,7 +202,15 @@ services:
       - taskforge
 
   loki:
-    image: grafana/loki
+    logging: *logging-defaults
+    image: grafana/loki:2.9.2
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+      - -config.expand-env=true
+    environment:
+      - LOKI_REJECT_OLD_SAMPLES_MAX_AGE=${LOKI_REJECT_OLD_SAMPLES_MAX_AGE:-168h}
+      - LOKI_RETENTION_PERIOD=${LOKI_RETENTION_PERIOD:-168h}
+      - LOKI_COMPACTION_INTERVAL=${LOKI_COMPACTION_INTERVAL:-10m}
     ports:
       - '3100:3100'
     volumes:
@@ -195,6 +220,7 @@ services:
       - taskforge
 
   promtail:
+    logging: *logging-defaults
     image: grafana/promtail
     volumes:
       - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro

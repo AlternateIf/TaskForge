@@ -52,9 +52,6 @@ export function AddDependencyDialog({
       onSuccess: () => {
         onOpenChange(false);
       },
-      onError: (error) => {
-        toast.error(error.message || 'Failed to add dependency');
-      },
     });
   }
 

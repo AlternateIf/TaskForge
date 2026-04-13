@@ -2,6 +2,7 @@ import { type Attachment, fetchAttachmentBlob } from '@/api/attachments';
 import { FileDropzone } from '@/components/data/file-dropzone';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { showErrorToast } from '@/lib/error-toast';
 import { cn } from '@/lib/utils';
 import {
   Download,
@@ -13,7 +14,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 
 interface AttachmentListProps {
   attachments: Attachment[];
@@ -102,8 +102,10 @@ export function AttachmentList({
       link.download = attachment.filename;
       link.click();
       URL.revokeObjectURL(downloadUrl);
-    } catch {
-      toast.error(`Failed to download ${attachment.filename}`);
+    } catch (error) {
+      showErrorToast(error, `Failed to download ${attachment.filename}. Please try again.`, {
+        id: `attachment-download-error-${attachment.id}`,
+      });
     }
   }
 

@@ -1,9 +1,9 @@
-import { bulkActionSchema, undoSchema } from '@taskforge/shared';
-import type { BulkActionInput, UndoInput } from '@taskforge/shared';
+import { bulkActionSchema } from '@taskforge/shared';
+import type { BulkActionInput } from '@taskforge/shared';
 import type { FastifyInstance } from 'fastify';
 import { validateBulkTaskAccess } from '../../services/bulk.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
-import { bulkActionHandler, undoHandler } from './bulk.handlers.js';
+import { bulkActionHandler } from './bulk.handlers.js';
 
 export async function bulkRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
@@ -23,16 +23,5 @@ export async function bulkRoutes(fastify: FastifyInstance) {
       },
     },
     bulkActionHandler,
-  );
-
-  // POST /api/v1/tasks/undo
-  fastify.post<{ Body: UndoInput }>(
-    '/api/v1/tasks/undo',
-    {
-      preHandler: async (request) => {
-        request.body = undoSchema.parse(request.body);
-      },
-    },
-    undoHandler,
   );
 }

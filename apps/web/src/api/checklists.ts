@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ApiEnvelope<T> {
@@ -75,10 +76,13 @@ export function useToggleItem() {
 
       return { previous, taskId };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previous && context.taskId) {
         queryClient.setQueryData(checklistKeys.byTask(context.taskId), context.previous);
       }
+      showErrorToast(error, 'Failed to update checklist item. Please try again.', {
+        id: 'toggle-checklist-item-error',
+      });
     },
     onSettled: (_data, _error, { taskId }) => {
       void queryClient.invalidateQueries({ queryKey: checklistKeys.byTask(taskId) });

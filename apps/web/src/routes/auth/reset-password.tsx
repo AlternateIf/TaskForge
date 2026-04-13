@@ -1,6 +1,6 @@
 import { useResetPassword } from '@/api/auth';
-import type { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
+import { showErrorToast } from '@/lib/error-toast';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -33,8 +33,9 @@ export function ResetPasswordPage() {
       await resetPassword.mutateAsync({ token, password });
       setDone(true);
     } catch (err) {
-      const msg = (err as ApiError).message ?? 'Reset failed. The link may have expired.';
-      toast.error(msg);
+      showErrorToast(err, 'Failed to reset password. The link may have expired.', {
+        id: 'reset-password-error',
+      });
     }
   }
 

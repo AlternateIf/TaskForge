@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter } from '@tanstack/react-router';
 import { NOTIFICATION_READ_PERMISSION } from '@taskforge/shared';
@@ -217,7 +218,10 @@ export function Header({
             },
           });
           return;
-        } catch {
+        } catch (error) {
+          showErrorToast(error, 'Unable to open notification. Redirecting to dashboard.', {
+            id: 'notification-open-error',
+          });
           await router.navigate({ to: '/dashboard' });
           return;
         }

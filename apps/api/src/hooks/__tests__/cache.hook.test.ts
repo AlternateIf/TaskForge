@@ -8,10 +8,6 @@ describe('cache.hook', () => {
       expect(getCacheControl('/api/v1/users/me')).toBe('private, max-age=300');
     });
 
-    it('should return private max-age=60 for feature toggles', () => {
-      expect(getCacheControl('/api/v1/organizations/org-1/features')).toBe('private, max-age=60');
-    });
-
     it('should return private max-age=60 for auth settings', () => {
       expect(getCacheControl('/api/v1/organizations/org-1/auth-settings')).toBe(
         'private, max-age=60',

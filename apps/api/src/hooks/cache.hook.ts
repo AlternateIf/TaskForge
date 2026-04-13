@@ -9,9 +9,9 @@ const CACHE_POLICIES: { pattern: RegExp; cacheControl: string }[] = [
   // User profile — private, cache for 5 minutes
   { pattern: /^\/api\/v1\/users\/me$/, cacheControl: 'private, max-age=300' },
 
-  // Feature toggles and org auth settings — short cache
+  // Org auth settings — short cache
   {
-    pattern: /^\/api\/v1\/organizations\/[^/]+\/(features|auth-settings)$/,
+    pattern: /^\/api\/v1\/organizations\/[^/]+\/auth-settings$/,
     cacheControl: 'private, max-age=60',
   },
 

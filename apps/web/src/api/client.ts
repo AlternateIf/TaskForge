@@ -34,6 +34,14 @@ export interface ApiError extends Error {
   code?: string;
 }
 
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    error instanceof Error &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+  );
+}
+
 function createApiError(message: string, status: number, code?: string): ApiError {
   const error = new Error(message) as ApiError;
   error.status = status;

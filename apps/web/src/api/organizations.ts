@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { showErrorToast } from '@/lib/error-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 export interface OrgMember {
@@ -35,5 +36,10 @@ export function useRemoveOrgMember(orgId: string | undefined) {
   return useMutation({
     mutationFn: (memberId: string) =>
       apiClient.delete(`/organizations/${orgId}/members/${memberId}`),
+    onError: (error) => {
+      showErrorToast(error, 'Failed to remove member. Please try again.', {
+        id: 'remove-org-member-error',
+      });
+    },
   });
 }

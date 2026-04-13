@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client';
 import { dependencyKeys } from '@/api/dependencies';
+import { showErrorToast } from '@/lib/error-toast';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -185,6 +186,11 @@ export function useCreateTask() {
         });
       }
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to create task. Please try again.', {
+        id: 'create-task-error',
+      });
+    },
   });
 }
 
@@ -210,6 +216,11 @@ export function useCreateSubtask(parentTaskId: string) {
       void queryClient.invalidateQueries({ queryKey: taskKeys.detail(parentTaskId) });
       void queryClient.invalidateQueries({ queryKey: dependencyKeys.byTask(parentTaskId) });
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(task.projectId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to create subtask. Please try again.', {
+        id: 'create-subtask-error',
+      });
     },
   });
 }
@@ -245,10 +256,13 @@ export function useUpdateTask(taskId: string) {
 
       return { previousTask };
     },
-    onError: (_error, _patch, context) => {
+    onError: (error, _patch, context) => {
       if (context?.previousTask) {
         queryClient.setQueryData(taskKeys.detail(taskId), context.previousTask);
       }
+      showErrorToast(error, 'Failed to update task. Changes have been reverted.', {
+        id: 'update-task-error',
+      });
     },
     onSuccess: (task) => {
       queryClient.setQueryData(taskKeys.detail(taskId), task);
@@ -264,6 +278,9 @@ export function useWatchTask(taskId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
     },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update watch status.', { id: 'watch-task-error' });
+    },
   });
 }
 
@@ -273,6 +290,9 @@ export function useUnwatchTask(taskId: string) {
     mutationFn: () => apiClient.delete(`/tasks/${taskId}/watch`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to update watch status.', { id: 'unwatch-task-error' });
     },
   });
 }
@@ -308,7 +328,7 @@ export function useMoveTask() {
       });
       return { previousTasks };
     },
-    onError: (_err, { projectId }, context) => {
+    onError: (error, { projectId }, context) => {
       // Revert on error
       if (context?.previousTasks) {
         for (const [queryKey, data] of context.previousTasks) {
@@ -316,6 +336,7 @@ export function useMoveTask() {
         }
       }
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(projectId) });
+      showErrorToast(error, 'Failed to move task. Please try again.', { id: 'move-task-error' });
     },
     onSettled: (_data, _err, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(projectId) });
@@ -336,6 +357,11 @@ export function useBulkUpdateTasks() {
       apiClient.post('/tasks/bulk', { action: 'update', ids, data }),
     onSuccess: (_data, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(projectId) });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to bulk update tasks. Please try again.', {
+        id: 'bulk-update-tasks-error',
+      });
     },
   });
 }

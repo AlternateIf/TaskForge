@@ -7,6 +7,7 @@ import {
 } from '@/api/auth';
 import type { ApiError } from '@/api/client';
 import { Button } from '@/components/ui/button';
+import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useNavigate } from '@tanstack/react-router';
 import { Eye, EyeOff } from 'lucide-react';
@@ -73,11 +74,21 @@ export function InvitePage({ token }: InvitePageProps) {
         void navigate({ to: '/dashboard' });
       })
       .catch((error) => {
-        const message = (error as ApiError).message ?? "We couldn't complete your invitation.";
+        const message = showErrorToast(error, "We couldn't complete your invitation.", {
+          id: 'accept-invite-existing-error',
+        });
         setExistingAccountError(message);
-        toast.error(message);
       });
   }, [acceptExisting, inviteQuery.data, isAuthenticated, navigate, token, user]);
+
+  useEffect(() => {
+    if (!inviteQuery.isError) return;
+    showErrorToast(
+      inviteQuery.error,
+      'This invitation link is invalid or has expired. Please ask for a new invitation.',
+      { id: 'invite-token-error' },
+    );
+  }, [inviteQuery.error, inviteQuery.isError]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -91,7 +102,9 @@ export function InvitePage({ token }: InvitePageProps) {
       if (apiError.status === 409) {
         setExistingAccountError(apiError.message);
       }
-      toast.error(apiError.message ?? "We couldn't complete your invitation.");
+      showErrorToast(error, "We couldn't complete your invitation.", {
+        id: 'accept-invite-password-error',
+      });
     }
   }
 
