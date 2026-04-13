@@ -94,7 +94,7 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <ProjectToolbar
         project={project}
         isLoading={isLoading}
@@ -106,7 +106,7 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
       />
 
       {/* Board */}
-      <div className="flex-1 overflow-x-auto py-md">
+      <div className="flex-1 min-h-0 overflow-hidden pb-4 pt-2">
         <KanbanBoard
           projectId={projectId}
           statuses={project?.statuses ?? []}

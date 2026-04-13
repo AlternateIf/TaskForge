@@ -42,7 +42,7 @@ export function KanbanColumn({
     <GlassPanel
       ref={setNodeRef}
       className={cn(
-        'flex w-72 shrink-0 snap-start flex-col rounded-radius-lg border border-border transition-colors',
+        'flex h-full max-h-full w-72 shrink-0 snap-start flex-col rounded-radius-lg border border-border transition-colors',
         isOver && 'border-brand-primary bg-brand-primary/5',
       )}
     >
@@ -66,7 +66,7 @@ export function KanbanColumn({
 
       {/* Task list */}
       <div
-        className="flex flex-1 flex-col gap-sm overflow-y-auto px-sm pb-sm"
+        className="flex min-h-0 flex-1 flex-col gap-sm overflow-y-auto px-sm pb-sm"
         style={{ minHeight: 64 }}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>

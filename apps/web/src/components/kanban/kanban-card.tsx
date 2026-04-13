@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { CalendarDays } from 'lucide-react';
+import { useCallback, useRef } from 'react';
 
 interface KanbanCardProps {
   task: Task;
@@ -225,32 +226,57 @@ export function KanbanCard({
     transform,
     transition,
     isDragging: isSortableDragging,
-  } = useSortable({ id: task.id, data: { type: 'card', task }, disabled: !canEditTask });
+  } = useSortable({
+    id: task.id,
+    data: { type: 'card', task },
+    disabled: !canEditTask,
+    transition: {
+      duration: 80,
+      easing: 'cubic-bezier(0.2, 0, 0, 1)',
+    },
+  });
+  const lastKnownHeightRef = useRef<number>(112);
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (node) {
+        lastKnownHeightRef.current = Math.max(64, Math.round(node.getBoundingClientRect().height));
+      }
+      setNodeRef(node);
+    },
+    [setNodeRef],
+  );
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const showPlaceholder = isDragging || isSortableDragging;
+  const cardStyle = showPlaceholder ? { ...style, height: lastKnownHeightRef.current } : style;
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
+      ref={setRefs}
+      style={cardStyle}
       {...(canEditTask ? attributes : {})}
       {...(canEditTask ? listeners : {})}
       className={cn(
         'cursor-pointer select-none rounded-radius-md border border-border bg-surface-container-lowest p-sm shadow-2 transition-shadow hover:shadow-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-        (isDragging || isSortableDragging) &&
-          'cursor-grabbing opacity-50 shadow-3 ring-2 ring-brand-primary',
+        showPlaceholder
+          ? 'cursor-grabbing border-dashed bg-surface-container-lowest/50 p-0 shadow-none hover:shadow-none'
+          : undefined,
       )}
     >
-      <CardContent
-        task={task}
-        members={members}
-        allLabels={allLabels}
-        onTitleClick={onClick}
-        canEditTask={canEditTask}
-      />
+      {showPlaceholder ? (
+        <div className="h-full w-full rounded-radius-md" aria-hidden />
+      ) : (
+        <CardContent
+          task={task}
+          members={members}
+          allLabels={allLabels}
+          onTitleClick={onClick}
+          canEditTask={canEditTask}
+        />
+      )}
     </div>
   );
 }

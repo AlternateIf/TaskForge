@@ -2,6 +2,10 @@ import type { Label, ProjectMember, WorkflowStatus } from '@/api/projects';
 import { type Task, type TaskFilters, taskKeys, useMoveTask, useTasks } from '@/api/tasks';
 import { KanbanCardOverlay } from '@/components/kanban/kanban-card';
 import { KanbanColumn } from '@/components/kanban/kanban-column';
+import {
+  type DragPreviewSnapshot,
+  computeDragPreviewUpdate,
+} from '@/components/kanban/kanban-drag-preview';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -23,7 +27,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useQueryClient } from '@tanstack/react-query';
 import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { Settings } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface KanbanBoardProps {
   projectId: string;
@@ -58,6 +62,11 @@ export function KanbanBoard({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   // Live copy of task lists updated during drag for visual cross-column shifting
   const [activeTasksByStatus, setActiveTasksByStatus] = useState<Map<string, Task[]> | null>(null);
+  // Guards repeated dragOver events that resolve to the same preview state.
+  const lastPreviewKeyRef = useRef<string | null>(null);
+  // Coalesces dragOver event storms into at most one state update per animation frame.
+  const pendingDragPreviewRef = useRef<DragPreviewSnapshot | null>(null);
+  const dragPreviewFrameRef = useRef<number | null>(null);
 
   // Prefer whatever is literally under the pointer; fall back to closest corners.
   // When both a card and its parent column are hit, prefer the card.
@@ -76,10 +85,10 @@ export function KanbanBoard({
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { distance: 2 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
+      activationConstraint: { delay: 120, tolerance: 4 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -105,11 +114,51 @@ export function KanbanBoard({
   // What gets rendered — live during drag, server data otherwise
   const displayTasks = activeTasksByStatus ?? tasksByStatus;
 
+  const cancelPendingDragPreview = useCallback(() => {
+    pendingDragPreviewRef.current = null;
+    if (dragPreviewFrameRef.current !== null) {
+      cancelAnimationFrame(dragPreviewFrameRef.current);
+      dragPreviewFrameRef.current = null;
+    }
+  }, []);
+
+  const resetDragState = useCallback(() => {
+    setActiveTask(null);
+    setActiveTasksByStatus(null);
+    lastPreviewKeyRef.current = null;
+    cancelPendingDragPreview();
+  }, [cancelPendingDragPreview]);
+
+  useEffect(
+    () => () => {
+      cancelPendingDragPreview();
+    },
+    [cancelPendingDragPreview],
+  );
+
+  const applyDragPreview = useCallback(
+    (snapshot: DragPreviewSnapshot) => {
+      setActiveTasksByStatus((prev) => {
+        const base = prev ?? tasksByStatus;
+        const result = computeDragPreviewUpdate({
+          base,
+          snapshot,
+          lastPreviewKey: lastPreviewKeyRef.current,
+        });
+        if (!result.changed) return prev;
+        lastPreviewKeyRef.current = result.previewKey;
+        return result.next;
+      });
+    },
+    [tasksByStatus],
+  );
+
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       const task = (event.active.data.current as { task?: Task } | undefined)?.task;
-      if (task) setActiveTask(task);
+      setActiveTask(task ?? null);
       setActiveTasksByStatus(new Map(tasksByStatus));
+      lastPreviewKeyRef.current = null;
     },
     [tasksByStatus],
   );
@@ -141,57 +190,24 @@ export function KanbanBoard({
       }
 
       if (!targetStatusId) return;
+      pendingDragPreviewRef.current = {
+        draggedTaskId,
+        targetStatusId,
+        overTaskId,
+        originalStatusId,
+      };
 
-      setActiveTasksByStatus((prev) => {
-        const target = targetStatusId;
-        if (!target) return prev;
-        const base = prev ?? tasksByStatus;
+      if (dragPreviewFrameRef.current !== null) return;
 
-        // Find which column the dragged task currently lives in
-        let currentStatusId: string | undefined;
-        for (const [sid, col] of base) {
-          if (col.some((t) => t.id === draggedTaskId)) {
-            currentStatusId = sid;
-            break;
-          }
-        }
-        if (!currentStatusId) return prev;
-
-        // Skip native within-column reorders — SortableContext handles those via CSS transforms.
-        // But if the task was moved here from another column, we DO need to reorder it.
-        if (currentStatusId === target && currentStatusId === originalStatusId) return prev;
-        // Skip when hovering over the dragged task itself — prevents a feedback loop where
-        // repositioning the card shifts the layout and immediately triggers another dragOver.
-        if (overTaskId === draggedTaskId) return prev;
-
-        const newMap = new Map(base);
-
-        // The task object as it exists in the current live state
-        const draggedTask = (newMap.get(currentStatusId) ?? []).find((t) => t.id === draggedTaskId);
-        if (!draggedTask) return prev;
-
-        // Remove from current column
-        newMap.set(
-          currentStatusId,
-          (newMap.get(currentStatusId) ?? []).filter((t) => t.id !== draggedTaskId),
-        );
-
-        // Build target column, insert at hovered position
-        const targetCol = (newMap.get(target) ?? []).filter((t) => t.id !== draggedTaskId);
-        const updatedTask = { ...draggedTask, statusId: target };
-
-        if (overTaskId) {
-          const overIdx = targetCol.findIndex((t) => t.id === overTaskId);
-          targetCol.splice(overIdx === -1 ? targetCol.length : overIdx, 0, updatedTask);
-        } else {
-          targetCol.push(updatedTask);
-        }
-
-        newMap.set(target, targetCol);
-        return newMap;
+      dragPreviewFrameRef.current = requestAnimationFrame(() => {
+        dragPreviewFrameRef.current = null;
+        const snapshot = pendingDragPreviewRef.current;
+        pendingDragPreviewRef.current = null;
+        if (!snapshot) return;
+        applyDragPreview(snapshot);
       });
     },
-    [tasksByStatus, activeTask],
+    [activeTask, applyDragPreview],
   );
 
   const handleDragEnd = useCallback(
@@ -203,8 +219,7 @@ export function KanbanBoard({
 
       const { over } = event;
       if (!over || !originalTask) {
-        setActiveTask(null);
-        setActiveTasksByStatus(null);
+        resetDragState();
         return;
       }
 
@@ -256,6 +271,7 @@ export function KanbanBoard({
       }
 
       if (targetStatusId === originalTask.statusId && targetPosition === originalTask.position) {
+        resetDragState();
         return;
       }
 
@@ -272,8 +288,7 @@ export function KanbanBoard({
         ),
       );
 
-      setActiveTask(null);
-      setActiveTasksByStatus(null);
+      resetDragState();
 
       moveTask.mutate({
         taskId: originalTask.id,
@@ -282,8 +297,20 @@ export function KanbanBoard({
         projectId,
       });
     },
-    [activeTask, activeTasksByStatus, tasksByStatus, queryClient, moveTask, projectId],
+    [
+      activeTask,
+      activeTasksByStatus,
+      tasksByStatus,
+      queryClient,
+      moveTask,
+      projectId,
+      resetDragState,
+    ],
   );
+
+  const handleDragCancel = useCallback(() => {
+    resetDragState();
+  }, [resetDragState]);
 
   // ─── Empty state: no statuses configured ─────────────────────────────────────
 
@@ -315,9 +342,13 @@ export function KanbanBoard({
       onDragStart={canDragAndDrop ? handleDragStart : undefined}
       onDragOver={canDragAndDrop ? handleDragOver : undefined}
       onDragEnd={canDragAndDrop ? handleDragEnd : undefined}
+      onDragCancel={canDragAndDrop ? handleDragCancel : undefined}
     >
       <div
-        className={cn('flex gap-md overflow-x-auto pb-md', 'snap-x snap-mandatory md:snap-none')}
+        className={cn(
+          'flex h-full min-h-0 items-start gap-md overflow-x-auto overflow-y-hidden',
+          'snap-x snap-mandatory md:snap-none',
+        )}
       >
         {statuses.map((status) => (
           <KanbanColumn
