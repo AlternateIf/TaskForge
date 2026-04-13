@@ -1,5 +1,6 @@
 import { useCreateProject } from '@/api/projects';
 import { Button } from '@/components/ui/button';
+import { ColorPicker } from '@/components/ui/color-picker';
 import {
   Dialog,
   DialogContent,
@@ -10,22 +11,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { PROJECT_CREATE_PERMISSION } from '@taskforge/shared';
 import { type FormEvent, useMemo, useState } from 'react';
 
-const PROJECT_COLORS = [
-  '#3B82F6', // blue
-  '#8B5CF6', // violet
-  '#EC4899', // pink
-  '#EF4444', // red
-  '#F97316', // orange
-  '#EAB308', // yellow
-  '#22C55E', // green
-  '#14B8A6', // teal
-  '#64748B', // slate
-];
+const DEFAULT_PROJECT_COLOR = '#3b82f6';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -36,7 +26,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreateProjectDialogProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState(PROJECT_COLORS[0]);
+  const [color, setColor] = useState(DEFAULT_PROJECT_COLOR);
   const createProject = useCreateProject();
   const user = useAuthStore((s) => s.user);
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
@@ -51,7 +41,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
         onSuccess: (project) => {
           setName('');
           setDescription('');
-          setColor(PROJECT_COLORS[0]);
+          setColor(DEFAULT_PROJECT_COLOR);
           onOpenChange(false);
           onSuccess?.(project.id);
         },
@@ -94,23 +84,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
           </div>
           <div className="flex flex-col gap-xs">
             <Label>Color</Label>
-            <div className="flex flex-wrap gap-sm" role="radiogroup" aria-label="Project color">
-              {PROJECT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={color === c}
-                  aria-label={c}
-                  onClick={() => setColor(c)}
-                  className={cn(
-                    'size-8 rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                    color === c && 'ring-2 ring-offset-2 ring-brand-primary',
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
+            <ColorPicker value={color} onChange={setColor} className="w-full" />
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

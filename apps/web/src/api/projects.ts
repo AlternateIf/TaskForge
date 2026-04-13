@@ -34,7 +34,11 @@ export interface Project {
   description?: string | null;
   color: string | null;
   icon?: string | null;
+  status?: 'active' | 'archived' | 'deleted' | string;
   taskCount?: number;
+  completedTaskCount?: number;
+  openTaskCount?: number;
+  isFinishable?: boolean;
   memberCount?: number;
   members?: ProjectMember[];
   statuses?: WorkflowStatus[];
@@ -191,6 +195,37 @@ export function useDeleteProject(projectId: string) {
     onError: (error) => {
       showErrorToast(error, 'Failed to delete project. Please try again.', {
         id: 'delete-project-error',
+      });
+    },
+  });
+}
+
+export function useFinishProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      try {
+        return await apiClient
+          .post<ApiEnvelope<Project>>(`/projects/${projectId}/finish`)
+          .then((r) => r.data);
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 404) {
+          return apiClient
+            .post<ApiEnvelope<Project>>(`/projects/${projectId}/archive`)
+            .then((r) => r.data);
+        }
+
+        throw error;
+      }
+    },
+    onSuccess: (_data, projectId) => {
+      void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to finish project. Please complete all tasks and try again.', {
+        id: 'finish-project-error',
       });
     },
   });

@@ -30,6 +30,7 @@ import {
   deleteLabelHandler,
   deleteProjectHandler,
   deleteWorkflowStatusHandler,
+  finishProjectHandler,
   getProjectHandler,
   getWorkflowsHandler,
   listLabelsHandler,
@@ -136,6 +137,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
       }),
     },
     archiveProjectHandler,
+  );
+
+  fastify.post<{ Params: { id: string } }>(
+    '/api/v1/projects/:id/finish',
+    {
+      preHandler: authorize({
+        resource: 'project',
+        action: 'update',
+        getProjectId: (req) => (req.params as { id: string }).id,
+      }),
+    },
+    finishProjectHandler,
   );
 
   fastify.delete<{ Params: { id: string } }>(

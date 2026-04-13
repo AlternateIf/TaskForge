@@ -723,6 +723,8 @@ describe('Permission: project.read.org', () => {
     ]);
     // Task counts query
     setupSelectWhere([]);
+    // Open task counts query
+    setupSelectWhere([]);
     // Members query
     setupSelectWhere([]);
 
@@ -763,7 +765,7 @@ describe('Permission: project.update.org', () => {
     await expect(archiveProject(projectId, userId)).rejects.toMatchObject({
       statusCode: 403,
       code: 'FORBIDDEN',
-      message: 'Insufficient permissions to archive this project',
+      message: 'Insufficient permissions to finish this project',
     });
   });
 

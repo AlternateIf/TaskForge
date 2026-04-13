@@ -5,6 +5,7 @@ import {
   type WorkflowStatus,
   useAddProjectMember,
   useDeleteProject,
+  useFinishProject,
   useProject,
   useRemoveProjectMember,
   useUpdateProject,
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { Label as FormLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { showErrorToast } from '@/lib/error-toast';
 import { cn } from '@/lib/utils';
@@ -50,6 +52,22 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { toast } from 'sonner';
 
 const MEMBERS_READ_PERMISSION = 'membership.read.org';
+
+function canFinishProject(project: {
+  isFinishable?: boolean;
+  openTaskCount?: number;
+  taskCount?: number;
+}) {
+  if (typeof project.isFinishable === 'boolean') {
+    return project.isFinishable;
+  }
+
+  if (typeof project.openTaskCount === 'number') {
+    return project.openTaskCount === 0;
+  }
+
+  return true;
+}
 
 // ─── Color picker popover (swatch trigger + picker dropdown) ─────────────────
 
@@ -258,6 +276,7 @@ function GeneralTab({
   const { data: project } = useProject(projectId);
   const update = useUpdateProject(projectId);
   const deleteProject = useDeleteProject(projectId);
+  const finishProject = useFinishProject();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -296,6 +315,24 @@ function GeneralTab({
 
   const inputClass =
     'h-9 w-full rounded-radius-md border border-border bg-surface-container-lowest px-md text-body text-foreground placeholder:text-muted focus:outline-2 focus:outline-ring disabled:cursor-not-allowed disabled:opacity-50';
+
+  const isArchived = project?.status === 'archived';
+  const finishable = project ? canFinishProject(project) : true;
+  const finishActionDisabled = !project || finishProject.isPending || isArchived || !finishable;
+  const finishTooltip = isArchived
+    ? 'Reactivation is not available yet.'
+    : !finishable
+      ? 'Finish is available only when all tasks are done.'
+      : '';
+
+  function handleFinishAction() {
+    if (!project || isArchived || !finishable) return;
+    finishProject.mutate(project.id, {
+      onSuccess: () => {
+        toast.success('Project marked as finished.');
+      },
+    });
+  }
 
   return (
     <form onSubmit={canEdit ? handleSubmit : (e) => e.preventDefault()}>
@@ -366,6 +403,43 @@ function GeneralTab({
               </div>
             )}
           </div>
+
+          {canEdit && (
+            <div className="rounded-radius-xl border border-border bg-surface-container-lowest p-xl">
+              <h2 className="mb-xs text-heading-3 font-semibold text-foreground">Project Status</h2>
+              <p className="mb-md text-body text-secondary">
+                Move finished work out of the active project list.
+              </p>
+              {finishTooltip ? (
+                <Tooltip>
+                  <TooltipTrigger className="relative inline-flex">
+                    <Button
+                      type="button"
+                      variant={isArchived ? 'secondary' : 'primary'}
+                      disabled={finishActionDisabled}
+                      onClick={handleFinishAction}
+                    >
+                      {isArchived
+                        ? 'Reactivate'
+                        : finishProject.isPending
+                          ? 'Finishing…'
+                          : 'Mark as Finished'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="left-0 top-full mt-1">{finishTooltip}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  disabled={finishActionDisabled}
+                  onClick={handleFinishAction}
+                >
+                  {finishProject.isPending ? 'Finishing…' : 'Mark as Finished'}
+                </Button>
+              )}
+            </div>
+          )}
 
           {canDelete && (
             <div className="rounded-radius-xl border border-danger/30 bg-danger/5 p-xl">

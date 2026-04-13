@@ -96,6 +96,8 @@ export interface ProjectOutput {
   createdAt: string;
   updatedAt: string;
   taskCount?: number;
+  completedTaskCount?: number;
+  openTaskCount?: number;
   memberCount?: number;
   members?: Array<{ userId: string; displayName: string; avatarUrl: string | null }>;
 }
@@ -249,6 +251,24 @@ export async function listProjects(
     .groupBy(tasks.projectId);
   const taskCountMap = new Map(taskCountRows.map((r) => [r.projectId, r.count]));
 
+  // Batch: open task counts (tasks in non-final statuses)
+  const openTaskCountRows = await db
+    .select({
+      projectId: tasks.projectId,
+      count: count(tasks.id),
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(
+      and(
+        inArray(tasks.projectId, projectIds),
+        isNull(tasks.deletedAt),
+        eq(workflowStatuses.isFinal, false),
+      ),
+    )
+    .groupBy(tasks.projectId);
+  const openTaskCountMap = new Map(openTaskCountRows.map((r) => [r.projectId, r.count]));
+
   // Batch: members
   const memberRows = await db
     .select({
@@ -276,6 +296,11 @@ export async function listProjects(
   return base.map((p) => ({
     ...p,
     taskCount: taskCountMap.get(p.id) ?? 0,
+    openTaskCount: openTaskCountMap.get(p.id) ?? 0,
+    completedTaskCount: Math.max(
+      (taskCountMap.get(p.id) ?? 0) - (openTaskCountMap.get(p.id) ?? 0),
+      0,
+    ),
     memberCount: membersMap.get(p.id)?.length ?? 0,
     members: membersMap.get(p.id) ?? [],
   }));
@@ -377,7 +402,46 @@ export async function updateProject(
   return getProject(projectId);
 }
 
-export async function archiveProject(projectId: string, actorId?: string): Promise<ProjectOutput> {
+/**
+ * Check whether a project has any non-deleted tasks whose current workflow
+ * status is NOT final (isFinal = false). Uses an existence query with
+ * LIMIT 1 for efficiency so we never scan more than one matching row.
+ *
+ * Accepts an optional transaction/query executor so the check can run
+ * inside a transaction for atomic validation+write.
+ */
+async function hasNonFinalTasks(
+  projectId: string,
+  executor: Pick<typeof db, 'select'> = db,
+): Promise<boolean> {
+  // Join tasks → workflowStatuses where the task's status is NOT final,
+  // filtering out soft-deleted tasks.
+  const rows = await executor
+    .select({ id: tasks.id })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        isNull(tasks.deletedAt),
+        eq(workflowStatuses.isFinal, false),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+/**
+ * Shared validated finish/archive service used by both
+ * `POST /projects/:id/finish` and `POST /projects/:id/archive`.
+ *
+ * Business rules:
+ * - If project is already archived, return current state (idempotent 200).
+ * - If any non-deleted task has a non-final workflow status, reject with 422.
+ * - On success, set status to 'archived', audit action as 'finished'.
+ */
+async function finishProject(projectId: string, actorId?: string): Promise<ProjectOutput> {
   // Defense-in-depth: verify the actor has project.update.org permission
   if (actorId) {
     const orgId = await getOrgIdForProject(projectId);
@@ -387,7 +451,7 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
         throw new AppError(
           403,
           ErrorCode.FORBIDDEN,
-          'Insufficient permissions to archive this project',
+          'Insufficient permissions to finish this project',
         );
       }
     }
@@ -405,10 +469,48 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Project not found');
   }
 
-  await db
-    .update(projects)
-    .set({ status: 'archived', updatedAt: new Date() })
-    .where(eq(projects.id, projectId));
+  // Idempotency: already archived → return current state
+  if (project.status === 'archived') {
+    return getProject(projectId);
+  }
+
+  // Wrap validation + status update in a transaction to prevent TOCTOU race:
+  // a concurrent task could move to a non-final status between the check and
+  // the project update. Re-validating inside the transaction guarantees the
+  // "all tasks must be final" invariant holds at commit time.
+  await db.transaction(async (tx) => {
+    // Re-read project inside the transaction for a consistent snapshot
+    const txProject = (
+      await tx
+        .select()
+        .from(projects)
+        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+        .limit(1)
+    )[0];
+
+    if (!txProject) {
+      throw new AppError(404, ErrorCode.NOT_FOUND, 'Project not found');
+    }
+
+    // Idempotency inside tx: already archived by a concurrent request
+    if (txProject.status === 'archived') {
+      return;
+    }
+
+    // Validation: reject if any task is in a non-final workflow status
+    if (await hasNonFinalTasks(projectId, tx)) {
+      throw new AppError(
+        422,
+        ErrorCode.UNPROCESSABLE_ENTITY,
+        'Finish all open tasks before marking this project as finished.',
+      );
+    }
+
+    await tx
+      .update(projects)
+      .set({ status: 'archived', updatedAt: new Date() })
+      .where(eq(projects.id, projectId));
+  });
 
   if (actorId) {
     await activityService.log({
@@ -416,7 +518,7 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
       actorId,
       entityType: 'project',
       entityId: projectId,
-      action: 'archived',
+      action: 'finished',
       changes: { status: { before: project.status, after: 'archived' } },
     });
   }
@@ -424,6 +526,13 @@ export async function archiveProject(projectId: string, actorId?: string): Promi
   await syncProjectSearch(projectId);
 
   return getProject(projectId);
+}
+
+export { finishProject };
+
+export async function archiveProject(projectId: string, actorId?: string): Promise<ProjectOutput> {
+  // Route archive through the same validated path as finish
+  return finishProject(projectId, actorId);
 }
 
 export async function deleteProject(projectId: string, actorId?: string): Promise<void> {

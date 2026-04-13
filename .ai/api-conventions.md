@@ -73,6 +73,36 @@ Rules:
 - PRs changing backend contracts are incomplete if `/docs` does not reflect the new contract.
 - Keep tags/operation summaries concise and aligned with route behavior.
 
+## Project Finish/Archive Endpoints
+
+### Finish Project
+
+- **Endpoint**: `POST /api/v1/projects/:id/finish`
+- **Purpose**: Mark a project as finished/closed. Requires all non-deleted tasks to be in a final workflow status (`isFinal = true`).
+- **Authorization**: `project.update` permission on the project.
+- **Response**: `200 OK` with updated project (status = `archived`). Idempotent: returns `200` if already archived.
+- **Blocking Error**: `422 UNPROCESSABLE_ENTITY` with `ErrorCode.UNPROCESSABLE_ENTITY` when any task has a non-final workflow status. Message: `"Finish all open tasks before marking this project as finished."`
+- **Activity Log**: Action `'finished'` logged with status change.
+
+### Archive Project (Hardened)
+
+- **Endpoint**: `POST /api/v1/projects/:id/archive`
+- **Purpose**: Archive a project. Now routes through the same validated finish service path.
+- **Validation**: Identical to finish: returns `422 UNPROCESSABLE_ENTITY` if non-final tasks exist.
+- **Response**: `200 OK` with updated project (status = `archived`). Idempotent: returns `200` if already archived.
+- **Activity Log**: Action `'finished'` logged (not `'archived'`).
+
+### Error Envelope
+
+```json
+{
+  "error": {
+    "code": "UNPROCESSABLE_ENTITY",
+    "message": "Finish all open tasks before marking this project as finished."
+  }
+}
+```
+
 ## Documentation And Validation Gate
 
 For backend contract changes:

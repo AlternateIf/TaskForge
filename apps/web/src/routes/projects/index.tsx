@@ -11,6 +11,28 @@ import { FolderOpen, Plus, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+const PAGE_SIZE = 20;
+
+type ProjectTab = 'active' | 'finished';
+
+function normalizeProjectDescription(description?: string | null): string {
+  if (!description) return '';
+  return description
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateDescription(description?: string | null): string {
+  const normalized = normalizeProjectDescription(description);
+  if (!normalized) return 'No description';
+  return normalized.length > 200 ? `${normalized.slice(0, 200)}...` : normalized;
+}
+
+function isFinishedProject(project: Project): boolean {
+  return project.status === 'archived';
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function ProjectCardSkeleton() {
@@ -35,16 +57,35 @@ function ProjectCardSkeleton() {
 
 // ─── Project Card ─────────────────────────────────────────────────────────────
 
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({
+  project,
+  onOpen,
+}: {
+  project: Project;
+  onOpen: () => void;
+}) {
   const members = project.members ?? [];
   const visibleMembers = members.slice(0, 3);
   const extraMembers = members.length - visibleMembers.length;
+  const totalTaskCount = project.taskCount ?? 0;
+  const completedTaskCount =
+    typeof project.completedTaskCount === 'number'
+      ? project.completedTaskCount
+      : typeof project.openTaskCount === 'number'
+        ? Math.max(totalTaskCount - project.openTaskCount, 0)
+        : undefined;
+
+  const taskProgressLabel =
+    typeof completedTaskCount === 'number'
+      ? `${completedTaskCount} / ${totalTaskCount} Tasks complete`
+      : `${totalTaskCount} Tasks`;
 
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="group flex flex-col rounded-radius-lg border border-border bg-surface-container-lowest p-lg shadow-1 text-left transition-shadow hover:shadow-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="group flex w-full cursor-pointer flex-col rounded-radius-lg border border-border bg-surface-container-lowest p-lg text-left shadow-1 transition-shadow hover:shadow-2 focus-visible:outline-2 focus-visible:outline-ring"
+      onClick={onOpen}
+      aria-label={`Open ${project.name} board`}
     >
       {/* Name + color dot */}
       <div className="mb-xs flex items-center gap-sm">
@@ -59,14 +100,12 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
       </div>
 
       {/* Description */}
-      {project.description ? (
-        <p className="mb-md line-clamp-2 flex-1 text-body text-secondary">{project.description}</p>
-      ) : (
-        <p className="mb-md flex-1 text-body italic text-muted">No description</p>
-      )}
+      <p className="mb-md min-h-12 flex-1 text-body text-secondary">
+        {truncateDescription(project.description)}
+      </p>
 
       {/* Footer: member avatars + task count */}
-      <div className="flex items-center justify-between">
+      <div className="mb-md flex items-center justify-between">
         <div
           className="flex -space-x-2"
           aria-label={`${project.memberCount ?? members.length} members`}
@@ -87,10 +126,53 @@ function ProjectCard({ project, onClick }: { project: Project; onClick: () => vo
           )}
         </div>
         <span className="rounded-full bg-surface-container px-sm py-0.5 text-label text-secondary">
-          {project.taskCount ?? 0} task{(project.taskCount ?? 0) !== 1 ? 's' : ''}
+          {taskProgressLabel}
         </span>
       </div>
     </button>
+  );
+}
+
+function SectionPagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (next: number) => void;
+}) {
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  return (
+    <div className="mt-md flex flex-wrap items-center justify-between gap-sm">
+      <span className="text-label text-secondary" aria-live="polite">
+        Page {page} of {totalPages}
+      </span>
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-xs">
+        <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+          Prev
+        </Button>
+        {pageNumbers.map((pageNumber) => (
+          <Button
+            key={pageNumber}
+            variant={pageNumber === page ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => onChange(pageNumber)}
+          >
+            {pageNumber}
+          </Button>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onChange(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -120,6 +202,9 @@ export function ProjectsPage() {
   useDocumentTitle('Projects');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProjectTab>('active');
+  const [activePage, setActivePage] = useState(1);
+  const [finishedPage, setFinishedPage] = useState(1);
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
@@ -141,12 +226,43 @@ export function ProjectsPage() {
     if (!projects || !search.trim()) return projects ?? [];
     const q = search.toLowerCase();
     return projects.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q),
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        normalizeProjectDescription(p.description).toLowerCase().includes(q),
     );
   }, [projects, search]);
 
+  const activeProjects = useMemo(
+    () => filtered.filter((project) => !isFinishedProject(project)),
+    [filtered],
+  );
+  const finishedProjects = useMemo(
+    () => filtered.filter((project) => isFinishedProject(project)),
+    [filtered],
+  );
+
+  const activeTotalPages = Math.max(1, Math.ceil(activeProjects.length / PAGE_SIZE));
+  const finishedTotalPages = Math.max(1, Math.ceil(finishedProjects.length / PAGE_SIZE));
+
+  const normalizedActivePage = Math.min(activePage, activeTotalPages);
+  const normalizedFinishedPage = Math.min(finishedPage, finishedTotalPages);
+
+  const pagedActiveProjects = useMemo(() => {
+    const start = (normalizedActivePage - 1) * PAGE_SIZE;
+    return activeProjects.slice(start, start + PAGE_SIZE);
+  }, [activeProjects, normalizedActivePage]);
+
+  const pagedFinishedProjects = useMemo(() => {
+    const start = (normalizedFinishedPage - 1) * PAGE_SIZE;
+    return finishedProjects.slice(start, start + PAGE_SIZE);
+  }, [finishedProjects, normalizedFinishedPage]);
+
   function handleProjectClick(projectId: string) {
-    void navigate({ to: '/projects/$projectId', params: { projectId } });
+    void navigate({
+      to: '/projects/$projectId/board',
+      params: { projectId },
+      search: { task: undefined },
+    });
   }
 
   function handleCreateSuccess(projectId: string) {
@@ -178,10 +294,49 @@ export function ProjectsPage() {
             type="search"
             placeholder="Search projects…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setActivePage(1);
+              setFinishedPage(1);
+            }}
             className="h-9 w-full rounded-radius-md border border-border bg-surface-container-lowest pl-9 pr-sm text-body focus:outline-2 focus:outline-ring"
             aria-label="Search projects"
           />
+        </div>
+      )}
+
+      {(projects?.length ?? 0) > 0 && (
+        <div
+          className="mb-lg inline-flex rounded-radius-lg border border-border bg-surface-container-low p-xs"
+          role="tablist"
+          aria-label="Project status"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'active'}
+            onClick={() => setActiveTab('active')}
+            className={
+              activeTab === 'active'
+                ? 'rounded-radius-md bg-brand-primary/15 px-md py-xs text-brand-primary'
+                : 'rounded-radius-md px-md py-xs text-secondary hover:text-foreground'
+            }
+          >
+            Active Projects ({activeProjects.length})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'finished'}
+            onClick={() => setActiveTab('finished')}
+            className={
+              activeTab === 'finished'
+                ? 'rounded-radius-md bg-brand-primary/15 px-md py-xs text-brand-primary'
+                : 'rounded-radius-md px-md py-xs text-secondary hover:text-foreground'
+            }
+          >
+            Finished/Closed Projects ({finishedProjects.length})
+          </button>
         </div>
       )}
 
@@ -201,15 +356,61 @@ export function ProjectsPage() {
           <p className="text-body text-muted">No projects match "{search}"</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onClick={() => handleProjectClick(project.id)}
-            />
-          ))}
-        </div>
+        <section aria-live="polite">
+          {activeTab === 'active' ? (
+            activeProjects.length === 0 ? (
+              <div className="py-16 text-center">
+                <p className="text-body text-muted">
+                  {search.trim()
+                    ? 'No active projects match your search.'
+                    : 'No active projects yet.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
+                  {pagedActiveProjects.map((project) => (
+                    <ProjectCard
+                      key={project.id}
+                      project={project}
+                      onOpen={() => handleProjectClick(project.id)}
+                    />
+                  ))}
+                </div>
+                <SectionPagination
+                  page={normalizedActivePage}
+                  totalPages={activeTotalPages}
+                  onChange={setActivePage}
+                />
+              </>
+            )
+          ) : finishedProjects.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-body text-muted">
+                {search.trim()
+                  ? 'No finished projects match your search.'
+                  : 'No finished projects yet.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
+                {pagedFinishedProjects.map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onOpen={() => handleProjectClick(project.id)}
+                  />
+                ))}
+              </div>
+              <SectionPagination
+                page={normalizedFinishedPage}
+                totalPages={finishedTotalPages}
+                onChange={setFinishedPage}
+              />
+            </>
+          )}
+        </section>
       )}
 
       <CreateProjectDialog

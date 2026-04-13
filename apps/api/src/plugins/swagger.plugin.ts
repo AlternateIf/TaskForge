@@ -46,6 +46,15 @@ const SPECIAL_SUMMARIES: Record<string, string> = {
   'PATCH /api/v1/tasks/:id/position': 'Update task position',
   'GET /api/v1/organizations/:id/members/:userId/effective-permissions':
     'Get member effective permissions',
+  'POST /api/v1/projects/:id/finish': 'Finish project',
+  'POST /api/v1/projects/:id/archive': 'Archive project',
+};
+
+const SPECIAL_DESCRIPTIONS: Record<string, string> = {
+  'POST /api/v1/projects/:id/finish':
+    'Mark a project as finished. All non-deleted tasks must be in a final workflow status (isFinal=true). Returns 422 if non-final tasks exist. Idempotent: returns current state if already finished.',
+  'POST /api/v1/projects/:id/archive':
+    'Archive a project. Validates that all non-deleted tasks are in a final workflow status. Returns 422 if non-final tasks exist. Idempotent: returns current state if already archived.',
 };
 
 const TAGS_BY_ROOT: Record<string, string> = {
@@ -281,7 +290,8 @@ export default fp(
           schema.summary = inferSummary(method, path);
         }
         if (typeof schema.description !== 'string') {
-          schema.description = `${schema.summary as string}.`;
+          const specialDesc = SPECIAL_DESCRIPTIONS[`${method} ${path}`];
+          schema.description = specialDesc ?? `${schema.summary as string}.`;
         }
 
         addPathParamDescriptions(schema, path);

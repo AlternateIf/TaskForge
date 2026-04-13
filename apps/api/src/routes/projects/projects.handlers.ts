@@ -92,6 +92,15 @@ export async function archiveProjectHandler(
   return reply.status(200).send(success(project));
 }
 
+export async function finishProjectHandler(
+  request: FastifyRequest<{ Params: { id: string } }>,
+  reply: FastifyReply,
+) {
+  const userId = requireAuth(request);
+  const project = await projectService.finishProject(request.params.id, userId);
+  return reply.status(200).send(success(project));
+}
+
 export async function deleteProjectHandler(
   request: FastifyRequest<{ Params: { id: string } }>,
   reply: FastifyReply,

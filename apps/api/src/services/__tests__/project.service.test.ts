@@ -16,6 +16,13 @@ const mockDbSelect = vi.fn();
 const mockDbInsert = vi.fn();
 const mockDbUpdate = vi.fn();
 const mockDbDelete = vi.fn();
+const mockDbTransaction = vi.fn();
+
+// Transaction-scoped mocks — these are used by the tx callback inside
+// db.transaction(). They are distinct from the top-level db mocks so we can
+// verify that validation + write happen inside the transaction.
+const mockTxSelect = vi.fn();
+const mockTxUpdate = vi.fn();
 
 vi.mock('@taskforge/db', () => ({
   db: {
@@ -23,6 +30,7 @@ vi.mock('@taskforge/db', () => ({
     insert: mockDbInsert,
     update: mockDbUpdate,
     delete: mockDbDelete,
+    transaction: mockDbTransaction,
   },
   workflows: {
     id: 'workflows.id',
@@ -90,7 +98,20 @@ vi.mock('../activity.service.js', () => ({
   log: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { bulkUpsertWorkflowStatuses, bulkUpsertLabels } = await import('../project.service.js');
+const mockHasOrgPermission = vi.fn().mockResolvedValue(true);
+
+vi.mock('../permission.service.js', () => ({
+  hasOrgPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
+}));
+
+vi.mock('../search.service.js', () => ({
+  indexProject: vi.fn().mockResolvedValue(undefined),
+  removeProject: vi.fn().mockResolvedValue(undefined),
+}));
+
+const { bulkUpsertWorkflowStatuses, bulkUpsertLabels, finishProject } = await import(
+  '../project.service.js'
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,7 +122,16 @@ const { bulkUpsertWorkflowStatuses, bulkUpsertLabels } = await import('../projec
  */
 function makeQueryChain(result: unknown = undefined) {
   const chain = Promise.resolve(result) as Promise<unknown> & Record<string, unknown>;
-  for (const method of ['from', 'where', 'limit', 'orderBy', 'innerJoin', 'set', 'values']) {
+  for (const method of [
+    'from',
+    'where',
+    'limit',
+    'orderBy',
+    'innerJoin',
+    'groupBy',
+    'set',
+    'values',
+  ]) {
     chain[method] = vi.fn().mockReturnValue(chain);
   }
   return chain;
@@ -119,6 +149,9 @@ describe('project.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRandomUUID.mockReturnValue('generated-id-default');
+    mockTxSelect.mockReset();
+    mockTxUpdate.mockReset();
+    mockDbTransaction.mockReset();
   });
 
   afterEach(() => {
@@ -361,6 +394,224 @@ describe('project.service', () => {
       const insertedValues = (insertChain.values as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(insertedValues.id).toBe(generatedId);
       expect(insertedValues.name).toBe('Feature');
+    });
+  });
+
+  describe('finishProject', () => {
+    const orgId = 'org-uuid';
+    const actorId = 'actor-uuid';
+    const activeProject = {
+      id: projectId,
+      organizationId: orgId,
+      name: 'Test Project',
+      slug: 'test-project',
+      description: null,
+      color: null,
+      icon: null,
+      status: 'active',
+      createdBy: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    const archivedProject = { ...activeProject, status: 'archived' };
+
+    beforeEach(() => {
+      mockHasOrgPermission.mockResolvedValue(true);
+
+      // Default: db.transaction calls the callback and passes a mock tx
+      // that delegates to the tx-scoped mock functions.
+      mockDbTransaction.mockImplementation(async (callback: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          select: mockTxSelect,
+          update: mockTxUpdate,
+        };
+        return callback(tx);
+      });
+    });
+
+    it('successfully finishes a project when all tasks are final', async () => {
+      // Top-level selects: getOrgIdForProject + project lookup + getProject
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject → [{ orgId }]
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → returns active project
+        if (selectCount === 2) return makeQueryChain([activeProject]);
+        // 3rd select (after tx): getProject → returns archived project state
+        return makeQueryChain([{ ...activeProject, status: 'archived' }]);
+      });
+
+      // Transaction-scoped selects: re-read project + hasNonFinalTasks
+      let txSelectCount = 0;
+      mockTxSelect.mockImplementation(() => {
+        txSelectCount++;
+        // 1st tx select: re-read project inside tx → active
+        if (txSelectCount === 1) return makeQueryChain([activeProject]);
+        // 2nd tx select: hasNonFinalTasks via tx → empty (no non-final tasks)
+        return makeQueryChain([]);
+      });
+
+      const txUpdateChain = makeQueryChain(undefined);
+      mockTxUpdate.mockReturnValue(txUpdateChain);
+
+      const result = await finishProject(projectId, actorId);
+
+      expect(result).toBeDefined();
+      expect(mockDbTransaction).toHaveBeenCalled();
+      expect(mockTxUpdate).toHaveBeenCalled();
+      const { log } = await import('../activity.service.js');
+      expect(log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'finished',
+          entityId: projectId,
+        }),
+      );
+    });
+
+    it('returns 422 when a non-final task exists (detected inside transaction)', async () => {
+      // Top-level selects: getOrgIdForProject + project lookup
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject → [{ orgId }]
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → active project
+        return makeQueryChain([activeProject]);
+      });
+
+      // Transaction-scoped selects
+      let txSelectCount = 0;
+      mockTxSelect.mockImplementation(() => {
+        txSelectCount++;
+        // 1st tx select: re-read project inside tx → active
+        if (txSelectCount === 1) return makeQueryChain([activeProject]);
+        // 2nd tx select: hasNonFinalTasks via tx → returns 1 row (non-final task found)
+        return makeQueryChain([{ id: 'non-final-task-id' }]);
+      });
+
+      await expect(finishProject(projectId, actorId)).rejects.toThrow(
+        'Finish all open tasks before marking this project as finished.',
+      );
+
+      // No project update should have been issued via tx
+      expect(mockTxUpdate).not.toHaveBeenCalled();
+      // No top-level update either
+      expect(mockDbUpdate).not.toHaveBeenCalled();
+    });
+
+    it('throws NOT_FOUND for missing project', async () => {
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject → [{ orgId }]
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → empty (not found)
+        return makeQueryChain([]);
+      });
+
+      await expect(finishProject(projectId, actorId)).rejects.toThrow('Project not found');
+    });
+
+    it('returns existing state idempotently when project is already archived', async () => {
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject → [{ orgId }]
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → already archived
+        if (selectCount === 2) return makeQueryChain([archivedProject]);
+        // 3rd select: getProject (called on idempotent return path)
+        return makeQueryChain([archivedProject]);
+      });
+
+      const result = await finishProject(projectId, actorId);
+
+      expect(result).toBeDefined();
+      // Transaction should not be entered for idempotent path
+      expect(mockDbTransaction).not.toHaveBeenCalled();
+      // No activity log should have been written for idempotent return
+      const { log } = await import('../activity.service.js');
+      expect(log).not.toHaveBeenCalled();
+    });
+
+    it('throws FORBIDDEN when actor lacks update permission', async () => {
+      mockHasOrgPermission.mockResolvedValue(false);
+
+      // Need to return an org ID for the project so the permission check can proceed
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: permission context org lookup
+        return makeQueryChain([]);
+      });
+
+      await expect(finishProject(projectId, actorId)).rejects.toThrow(
+        'Insufficient permissions to finish this project',
+      );
+
+      expect(mockDbTransaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects with 422 when a task becomes non-final between initial check and transaction', async () => {
+      // This test simulates the TOCTOU race: the initial (pre-tx) hasNonFinalTasks
+      // check would have passed, but inside the transaction a concurrent task
+      // change made a task non-final. The re-validation inside the tx catches it.
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject → [{ orgId }]
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → active project
+        if (selectCount === 2) return makeQueryChain([activeProject]);
+        // Post-tx getProject — shouldn't be reached because tx will throw
+        return makeQueryChain([{ ...activeProject, status: 'archived' }]);
+      });
+
+      // Transaction-scoped selects: re-validate finds a non-final task now
+      let txSelectCount = 0;
+      mockTxSelect.mockImplementation(() => {
+        txSelectCount++;
+        // 1st tx select: re-read project inside tx → still active
+        if (txSelectCount === 1) return makeQueryChain([activeProject]);
+        // 2nd tx select: hasNonFinalTasks via tx → NOW finds a non-final task
+        // (simulating concurrent task status change between check and tx)
+        return makeQueryChain([{ id: 'concurrent-non-final-task' }]);
+      });
+
+      await expect(finishProject(projectId, actorId)).rejects.toThrow(
+        'Finish all open tasks before marking this project as finished.',
+      );
+
+      // tx.update should NOT have been called — project remains active
+      expect(mockTxUpdate).not.toHaveBeenCalled();
+    });
+
+    it('handles idempotent already-archived inside transaction', async () => {
+      // Simulates: initial read shows 'active', but by the time the transaction
+      // starts, a concurrent request has already set the project to 'archived'.
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        // 1st select: getOrgIdForProject
+        if (selectCount === 1) return makeQueryChain([{ orgId }]);
+        // 2nd select: project lookup → active (stale read)
+        if (selectCount === 2) return makeQueryChain([activeProject]);
+        // 3rd select: getProject (after tx) → now archived
+        return makeQueryChain([archivedProject]);
+      });
+
+      // Transaction reads the project as already archived
+      mockTxSelect.mockImplementation(() => makeQueryChain([archivedProject]));
+
+      const result = await finishProject(projectId, actorId);
+
+      expect(result).toBeDefined();
+      // No update should be issued since project was already archived inside tx
+      expect(mockTxUpdate).not.toHaveBeenCalled();
     });
   });
 });
