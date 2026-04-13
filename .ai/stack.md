@@ -1,71 +1,68 @@
 # TaskForge — Technology Stack
 
+## Runtime Baseline
+
+- Node.js: `>=22`
+- Package manager: `pnpm@9`
+- Monorepo: Turborepo
+- Language: TypeScript (strict mode)
+
 ## Frontend
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Framework | React + TypeScript | UI framework with type safety |
-| Build tool | Vite | Fast dev server and production builds |
-| Styling | Tailwind CSS + shadcn/ui | Utility-first CSS with accessible components |
-| Server state | TanStack Query | Caching, background refetching, server state management |
-| Real-time | Native WebSocket + EventSource (SSE) | Live updates, presence, notifications |
+- Framework: React 19 + TypeScript
+- Build/dev: Vite 8
+- Routing: TanStack Router
+- Server state/data fetching: TanStack Query
+- State management: Zustand
+- UI/styling: Tailwind CSS 4, shadcn/ui, CVA, Lucide
+- Rich text/editor: Tiptap
+- Realtime client: WebSocket + SSE consumers in app flow
+- Tests: Vitest + Testing Library
 
 ## Backend
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Framework | Fastify | HTTP server |
-| Plugins | @fastify/cors, @fastify/helmet, @fastify/rate-limit | CORS, security headers, rate limiting |
-| ORM | Drizzle | Type-safe database access and migrations |
-| Database | MariaDB | Primary relational data store |
-| Cache / Sessions | Redis (ioredis) | Caching, session storage, real-time pub/sub for multi-instance broadcast |
-| Message queue | RabbitMQ (amqplib) | Async messaging and job processing |
-| Search | Meilisearch (official JS SDK) | Full-text search |
-| Real-time | @fastify/websocket + sse | WebSocket/SSE server for push updates and presence |
-| Auth | @fastify/jwt + openid-client | JWT-based auth, OAuth 2.0, OIDC |
-| Validation | Zod + fastify-type-provider-zod | Schema validation (shared with frontend) |
-| Email | Nodemailer + react-email | Transactional email with JSX templates |
-| API docs | @fastify/swagger + @fastify/swagger-ui | Auto-generated OpenAPI specification |
-| Metrics | prom-client | Prometheus metrics endpoint |
+- Framework: Fastify 5
+- Validation/types: Zod + `fastify-type-provider-zod`
+- Persistence: Drizzle ORM + MariaDB
+- Cache/session/pubsub: Redis (`ioredis`)
+- Queue/workers: RabbitMQ (`amqplib`)
+- Search: Meilisearch
+- Realtime transport: `@fastify/websocket` + SSE endpoints
+- Auth/security: JWT/OAuth flows, `@fastify/helmet`, `@fastify/rate-limit`, `@fastify/cors`
+- Email: Nodemailer + `@taskforge/email-templates`
+- API docs: `@fastify/swagger` + `@fastify/swagger-ui`
+- Tests: Vitest + Supertest-style API/service tests
 
-## SDK
+## Shared And Data Packages
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Package | @taskforge/sdk (TypeScript) | Official API client for third-party integrations |
-| Bundler | tsup | Build and publish to npm |
+- `@taskforge/shared`: shared schemas, constants, permission keys, utility types
+- `@taskforge/db`: Drizzle schema/migrations/seed
+- `@taskforge/email-templates`: reusable email templates
 
-## Testing
+## Tooling And Quality Gates
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Backend unit / integration | Vitest + Supertest | API and service testing |
-| Frontend unit / integration | Vitest + Testing Library | Component and hook testing |
-| E2E | Playwright | Cross-browser end-to-end testing |
+- Lint/format: Biome
+- CI: GitHub Actions
+- Required validation baseline: `pnpm lint && pnpm test`
 
-## Tooling
+## Local Infrastructure (Docker)
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Monorepo | Turborepo + pnpm | Task orchestration and dependency management |
-| Linting / Formatting | Biome | Single tool for linting and formatting |
-| CI/CD | GitHub Actions | Automated testing, bundle size checks, dependency audit, deployment |
+Core services used in local/dev environments:
+- api
+- worker
+- web
+- mariadb
+- redis
+- rabbitmq
+- meilisearch
+- prometheus
+- grafana
+- loki
+- promtail
+- mailpit
 
-## Docker Compose Services
+## Architecture Boundaries
 
-| Container | Image | Purpose | Dev | Prod |
-|---|---|---|---|---|
-| api | Custom (Node.js + Fastify) | Backend API server + WebSocket/SSE | yes | yes |
-| worker | Custom (Node.js + Fastify) | RabbitMQ consumer for async jobs | yes | yes |
-| web | Custom (Node.js + Vite / nginx) | React SPA | yes | yes |
-| mariadb | mariadb | Primary database | yes | yes |
-| redis | redis | Cache, sessions, real-time pub/sub | yes | yes |
-| rabbitmq | rabbitmq:management | Message queue with management UI | yes | yes |
-| meilisearch | getmeili/meilisearch | Full-text search engine | yes | yes |
-| prometheus | prom/prometheus | Metrics collection | yes | yes |
-| grafana | grafana/grafana | Dashboards and visualization | yes | yes |
-| loki | grafana/loki | Log aggregation | yes | yes |
-| promtail | grafana/promtail | Ships container logs to Loki | yes | yes |
-| mailpit | axllent/mailpit | Local email testing | yes | no |
-
-Infrastructure-level concerns (reverse proxy, SSL, load balancing, CDN for static assets) are handled outside Docker Compose at the deployment layer.
+- `apps/web` must not import `@taskforge/db` directly.
+- Data access for frontend flows must happen through API contracts.
+- Permission definitions must stay in shared constants files only.

@@ -1,58 +1,70 @@
 # Repository Guidelines
 
-This file is a quick contributor entry point. The source of truth for process and project policy is [`.ai/guidelines.md`](.ai/guidelines.md) and the documents it links.
+`AGENTS.md` is the primary routing entry for AI agents in this repository.
 
-## Project Structure & Module Organization
+Routing precedence:
+1. `AGENTS.md` (this file)
+2. `.ai/guidelines.md`
+3. `.opencode/agents/*.md` (role-specific runtime behavior)
+
+## Project Layout
+
 TaskForge is a `pnpm` + Turborepo monorepo:
+- `apps/api`: Fastify backend (`routes/`, `services/`, `plugins/`, `hooks/`, `queues/`, `ws/`)
+- `apps/web`: React + Vite frontend
+- `packages/shared`: shared schemas/types/constants
+- `packages/db`: Drizzle schema, migrations, seeders
+- `packages/email-templates`: React email templates
+- `docker/`: local infrastructure
 
-- `apps/api`: Fastify backend (`routes/`, `services/`, `plugins/`, `hooks/`, `queues/`).
-- `apps/web`: frontend app.
-- `packages/shared`: shared schemas/types/constants.
-- `packages/db`: Drizzle schema, migrations, and seeders.
-- `packages/email-templates`: React email templates.
-- `docker/`: local infra and observability.
+Boundary rule:
+- `apps/web` must not depend on `@taskforge/db`; data access goes through API endpoints.
 
-Place business logic in `apps/api/src/services/*`; keep route handlers thin.
+## Build, Test, and Dev Commands
 
-## Build, Test, and Development Commands
-- `pnpm dev`: run workspace dev tasks.
-- `pnpm build`: build all apps/packages.
-- `pnpm test`: run all tests.
-- `pnpm test:coverage`: run tests with coverage.
-- `pnpm lint` / `pnpm lint:fix`: Biome checks and auto-fixes.
-- `pnpm --filter @taskforge/api dev`: run API only.
-- `pnpm --filter @taskforge/db seed`: seed DB.
+- `pnpm dev`
+- `pnpm build`
+- `pnpm test`
+- `pnpm test:coverage`
+- `pnpm lint` / `pnpm lint:fix`
+- `pnpm --filter @taskforge/api dev`
+- `pnpm --filter @taskforge/db seed`
 
-Use Node `>=22` and `pnpm@9`.
+Runtime baseline:
+- Node `>=22`
+- `pnpm@9`
 
-## Coding Style & Naming Conventions
-TypeScript strict mode is enabled. Follow Biome config: 2-space indent, single quotes, semicolons, trailing commas. Use kebab-case filenames (example: `auth.plugin.ts`). Keep tests near code in `__tests__/*.test.ts`.
+## Coding and Testing Rules
 
-## Testing Guidelines
-Vitest is used in `apps/api` and `packages/shared`. Update tests for all behavior changes, especially service logic and route contracts. Run `pnpm test` locally before opening a PR.
+- TypeScript strict mode is enabled.
+- Follow Biome config: 2-space indent, single quotes, semicolons, trailing commas.
+- Use kebab-case filenames (example: `auth.plugin.ts`).
+- Keep route handlers thin; place business logic in `apps/api/src/services/*`.
+- Keep tests near code in `__tests__/*.test.ts`.
+- Update tests for behavior changes before PR.
 
-## Commit & Pull Request Guidelines
-Match current history style:
-- `fix ...` / `update ...` for small changes.
-- `implemented feature MVP-###-... - resolves #<issue>` for feature work.
+## AI Context Map
 
-PRs should link the feature/issue, summarize risk, include test evidence, and pass CI checks (`lint`, `build`, `test`, security).
-
-## Security & Configuration Tips
-Use `.env.example` files as templates and never commit secrets. Keep architecture boundaries intact: `apps/web` must not depend on `@taskforge/db`; data access goes through API endpoints.
-
-## AI Agent Context Map
-Use this as the default context routing for agent prompts:
-
-- `planner`, `plan-challenger`: `.ai/guidelines.md`, `.ai/requirements.md`, `.ai/roadmap.md`, `.ai/stack.md`, `.ai/project-structure.md`
-- `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`: `.ai/stack.md`, `.ai/styleguide.md`, `.ai/styleguide-core.md` (load `.ai/styleguide-extended.md` only when explicitly needed)
+Use this as default context routing for agent prompts:
+- `planner`, `plan-challenger`: `.ai/guidelines.md`, `.ai/requirements.md`, `.ai/roadmap.md`, `.ai/stack.md`, `.ai/project-structure.md`, `.ai/design-principles.md`
+- `frontend-prototyper-implementer`, `reviewer-frontend`, `tester-frontend`: `.ai/stack.md`, `.ai/styleguide-core.md` (load `.ai/styleguide-extended.md` only when explicitly needed)
 - `backend-implementer`, `reviewer-backend`, `tester-backend`: `.ai/stack.md`, `.ai/api-conventions.md`, `.ai/project-structure.md`
-- `unit-test-agent`, `tester-full`, `reviewer-full`: `.ai/stack.md`, `.ai/project-structure.md`, plus scope-specific docs above
-- `docs-contract-agent`: `.ai/api-conventions.md`, relevant route/service docs, swagger/openapi-related plugin/spec files
+- `unit-test-agent`, `tester-full`, `reviewer-full`: `.ai/stack.md`, `.ai/project-structure.md` plus touched-scope docs
+- `docs-contract-agent`: `.ai/api-conventions.md`, relevant changed runtime files
 
 ## Permissions Source Of Truth (Agent Rule)
-- Permission definitions must only live in:
-  - `packages/shared/src/constants/permission.ts`
-  - `packages/shared/src/constants/permissions.ts`
+
+Permission definitions must only live in:
+- `packages/shared/src/constants/permission.ts`
+- `packages/shared/src/constants/permissions.ts`
+
+Additional rules:
 - Do not create additional `permission.ts`/`permissions.ts` files in `apps/*` or `packages/*`.
-- Consumers must import permission constants/types from `@taskforge/shared` (or the two files above inside `packages/shared`), not local wrappers.
+- Import permission constants/types from `@taskforge/shared` (or the two shared files above while editing shared package internals).
+
+## Documentation Ownership Rules
+
+- `AGENTS.md` and `.ai/*`: agent and internal engineering operation docs.
+- `README.md` and `USAGE.md`: user-facing docs.
+- Do not reference feature-spec directories from routing docs.
+- `.ai/plans/` is temporary agent working output and is ignored by git.
