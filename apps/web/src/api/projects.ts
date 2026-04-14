@@ -47,6 +47,16 @@ export interface Project {
   updatedAt: string;
 }
 
+export type ProjectListStatus = 'active' | 'archived';
+
+export interface ProjectsPageResult {
+  items: Project[];
+  totalCount: number;
+  hasMore: boolean;
+  page: number;
+  limit: number;
+}
+
 interface ApiEnvelope<T> {
   data: T;
   meta?: {
@@ -62,6 +72,10 @@ export const projectKeys = {
   all: ['projects'] as const,
   lists: () => [...projectKeys.all, 'list'] as const,
   byOrganization: (orgId: string) => [...projectKeys.lists(), orgId] as const,
+  pagedByOrganization: (
+    orgId: string,
+    params: { status: ProjectListStatus; search?: string; page: number; limit: number },
+  ) => [...projectKeys.lists(), orgId, 'paged', params] as const,
   detail: (id: string) => [...projectKeys.all, 'detail', id] as const,
 };
 
@@ -78,6 +92,48 @@ export function useProjects(options?: UseProjectsOptions) {
     queryFn: () =>
       apiClient.get<ApiEnvelope<Project[]>>(`/organizations/${orgId}/projects`).then((r) => r.data),
     enabled: Boolean(orgId && (options?.enabled ?? true)),
+  });
+}
+
+interface UseProjectsPageOptions {
+  status: ProjectListStatus;
+  search?: string;
+  page: number;
+  limit: number;
+  enabled?: boolean;
+}
+
+export function useProjectsPage(options: UseProjectsPageOptions) {
+  const orgId = useAuthStore((s) => s.activeOrganizationId);
+  return useQuery({
+    queryKey: projectKeys.pagedByOrganization(orgId ?? '', {
+      status: options.status,
+      search: options.search,
+      page: options.page,
+      limit: options.limit,
+    }),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('status', options.status);
+      params.set('page', `${options.page}`);
+      params.set('limit', `${options.limit}`);
+      if (options.search?.trim()) {
+        params.set('search', options.search.trim());
+      }
+
+      const response = await apiClient.get<ApiEnvelope<Project[]>>(
+        `/organizations/${orgId}/projects?${params.toString()}`,
+      );
+
+      return {
+        items: response.data,
+        totalCount: response.meta?.totalCount ?? response.data.length,
+        hasMore: response.meta?.hasMore ?? false,
+        page: options.page,
+        limit: options.limit,
+      } satisfies ProjectsPageResult;
+    },
+    enabled: Boolean(orgId && (options.enabled ?? true)),
   });
 }
 

@@ -8,7 +8,7 @@ import type {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as taskService from '../../services/task.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
-import { success } from '../../utils/response.js';
+import { paginated, success } from '../../utils/response.js';
 
 function requireAuth(request: FastifyRequest): string {
   if (!request.authUser) {
@@ -34,35 +34,93 @@ export async function listTasksHandler(
     Querystring: {
       status?: string | string[];
       priority?: string | string[];
-      assigneeId?: string;
+      assigneeId?: string | string[];
       labelId?: string | string[];
       dueDateFrom?: string;
       dueDateTo?: string;
       search?: string;
       sort?: string;
       order?: string;
+      cursor?: string;
+      limit?: string;
     };
   }>,
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
   const q = request.query;
-  const tasks = await taskService.listTasks(
+  const filters = {
+    status: q.status ? (Array.isArray(q.status) ? q.status : [q.status]) : undefined,
+    priority: q.priority ? (Array.isArray(q.priority) ? q.priority : [q.priority]) : undefined,
+    assigneeId: q.assigneeId,
+    labelId: q.labelId ? (Array.isArray(q.labelId) ? q.labelId : [q.labelId]) : undefined,
+    dueDateFrom: q.dueDateFrom,
+    dueDateTo: q.dueDateTo,
+    search: q.search,
+    sort: q.sort,
+    order: q.order,
+  };
+
+  if (q.cursor || q.limit) {
+    const result = await taskService.listTasksPaged(
+      request.params.projectId,
+      filters,
+      { cursor: q.cursor, limit: q.limit ? Number(q.limit) : undefined },
+      userId,
+    );
+    return reply
+      .status(200)
+      .send(paginated(result.items, result.cursor, result.hasMore, result.totalCount));
+  }
+
+  const tasks = await taskService.listTasks(request.params.projectId, filters, userId);
+  return reply.status(200).send(success(tasks));
+}
+
+export async function listBoardTasksHandler(
+  request: FastifyRequest<{
+    Params: { projectId: string };
+    Querystring: {
+      status?: string | string[];
+      priority?: string | string[];
+      assigneeId?: string | string[];
+      labelId?: string | string[];
+      dueDateFrom?: string;
+      dueDateTo?: string;
+      search?: string;
+      statusId?: string;
+      cursor?: string;
+      limit?: string;
+    };
+  }>,
+  reply: FastifyReply,
+) {
+  const userId = requireAuth(request);
+  const q = request.query;
+  const columns = await taskService.listBoardTasks(
     request.params.projectId,
     {
       status: q.status ? (Array.isArray(q.status) ? q.status : [q.status]) : undefined,
       priority: q.priority ? (Array.isArray(q.priority) ? q.priority : [q.priority]) : undefined,
-      assigneeId: q.assigneeId,
+      assigneeId: q.assigneeId
+        ? Array.isArray(q.assigneeId)
+          ? q.assigneeId
+          : [q.assigneeId]
+        : undefined,
       labelId: q.labelId ? (Array.isArray(q.labelId) ? q.labelId : [q.labelId]) : undefined,
       dueDateFrom: q.dueDateFrom,
       dueDateTo: q.dueDateTo,
       search: q.search,
-      sort: q.sort,
-      order: q.order,
+    },
+    {
+      statusId: q.statusId,
+      cursor: q.cursor,
+      limit: q.limit ? Number(q.limit) : undefined,
     },
     userId,
   );
-  return reply.status(200).send(success(tasks));
+
+  return reply.status(200).send(success({ columns }));
 }
 
 export async function getTaskHandler(
@@ -173,8 +231,7 @@ export async function updateTaskPositionHandler(
   const task = await taskService.updateTaskPosition(
     request.params.id,
     projectId,
-    request.body.position,
-    request.body.statusId,
+    request.body,
     userId,
   );
   return reply.status(200).send(success(task));

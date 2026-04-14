@@ -6,7 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
 
 interface KanbanColumnProps {
   status: WorkflowStatus;
@@ -16,6 +17,10 @@ interface KanbanColumnProps {
   onTaskClick: (taskId: string) => void;
   onAddTask: (statusId: string) => void;
   isLoading?: boolean;
+  hasMore?: boolean;
+  totalCount?: number;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
   canCreateTask?: boolean;
   canEditTask?: boolean;
 }
@@ -28,6 +33,10 @@ export function KanbanColumn({
   onTaskClick,
   onAddTask,
   isLoading,
+  hasMore = false,
+  totalCount,
+  isLoadingMore = false,
+  onLoadMore,
   canCreateTask = true,
   canEditTask = true,
 }: KanbanColumnProps) {
@@ -37,6 +46,35 @@ export function KanbanColumn({
   });
 
   const taskIds = tasks.map((t) => t.id);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!hasMore || !onLoadMore) return;
+    const root = scrollContainerRef.current;
+    const target = loadMoreRef.current;
+    if (!root || !target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const isVisible = entries.some((entry) => entry.isIntersecting);
+        if (isVisible && !isLoadingMore) {
+          onLoadMore();
+        }
+      },
+      { root, rootMargin: '120px 0px', threshold: 0.1 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, onLoadMore]);
+
+  const countLabel = useMemo(() => {
+    if (typeof totalCount === 'number' && totalCount >= tasks.length) {
+      return `${tasks.length}/${totalCount}`;
+    }
+    return `${tasks.length}`;
+  }, [tasks.length, totalCount]);
 
   return (
     <GlassPanel
@@ -57,15 +95,16 @@ export function KanbanColumn({
           <h3 className="text-body font-semibold text-foreground">{status.name}</h3>
         </div>
         <span
-          className="flex size-5 items-center justify-center rounded-full bg-surface-container text-label font-semibold text-secondary"
+          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-container px-1 text-label font-semibold text-secondary"
           aria-label={`${tasks.length} task${tasks.length !== 1 ? 's' : ''}`}
         >
-          {tasks.length}
+          {countLabel}
         </span>
       </div>
 
       {/* Task list */}
       <div
+        ref={scrollContainerRef}
         className="flex min-h-0 flex-1 flex-col gap-sm overflow-y-auto px-sm pb-sm"
         style={{ minHeight: 64 }}
       >
@@ -102,6 +141,22 @@ export function KanbanColumn({
               />
             ))
           )}
+
+          {hasMore ? (
+            <div
+              ref={loadMoreRef}
+              className="flex items-center justify-center rounded-radius-md border border-dashed border-border px-sm py-xs text-label text-muted"
+            >
+              {isLoadingMore ? (
+                <span className="inline-flex items-center gap-xs">
+                  <Loader2 className="size-3 animate-spin" />
+                  Loading more…
+                </span>
+              ) : (
+                'Scroll to load more'
+              )}
+            </div>
+          ) : null}
         </SortableContext>
       </div>
 

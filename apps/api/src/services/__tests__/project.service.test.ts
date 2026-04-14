@@ -107,6 +107,7 @@ vi.mock('../permission.service.js', () => ({
 vi.mock('../search.service.js', () => ({
   indexProject: vi.fn().mockResolvedValue(undefined),
   removeProject: vi.fn().mockResolvedValue(undefined),
+  searchProjectTaskIds: vi.fn().mockResolvedValue([]),
 }));
 
 const { bulkUpsertWorkflowStatuses, bulkUpsertLabels, finishProject } = await import(

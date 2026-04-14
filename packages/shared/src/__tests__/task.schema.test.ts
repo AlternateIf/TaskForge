@@ -140,13 +140,27 @@ describe('task schemas', () => {
   describe('updateTaskPositionSchema', () => {
     it('should accept valid position', () => {
       const result = updateTaskPositionSchema.parse({ position: 1000 });
-      expect(result.position).toBe(1000);
+      expect('position' in result && result.position).toBe(1000);
     });
 
     it('should accept position with statusId', () => {
       const result = updateTaskPositionSchema.parse({ position: 0, statusId: validUuid });
-      expect(result.position).toBe(0);
+      expect('position' in result && result.position).toBe(0);
       expect(result.statusId).toBe(validUuid);
+    });
+
+    it('should accept anchor move with status only', () => {
+      const result = updateTaskPositionSchema.parse({ statusId: validUuid });
+      expect(result.statusId).toBe(validUuid);
+    });
+
+    it('should accept anchor move with before/after task IDs', () => {
+      const result = updateTaskPositionSchema.parse({
+        beforeTaskId: validUuid,
+        afterTaskId: validUuid,
+      });
+      expect('beforeTaskId' in result && result.beforeTaskId).toBe(validUuid);
+      expect('afterTaskId' in result && result.afterTaskId).toBe(validUuid);
     });
 
     it('should reject negative position', () => {
@@ -157,7 +171,7 @@ describe('task schemas', () => {
       expect(() => updateTaskPositionSchema.parse({ position: 1.5 })).toThrow();
     });
 
-    it('should reject missing position', () => {
+    it('should reject missing position and missing anchors', () => {
       expect(() => updateTaskPositionSchema.parse({})).toThrow();
     });
   });

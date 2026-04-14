@@ -33,10 +33,22 @@ export const assignTaskSchema = z.object({
   assigneeId: uid('Invalid assignee ID').nullable(),
 });
 
-export const updateTaskPositionSchema = z.object({
+const legacyPositionMoveSchema = z.object({
   position: z.number().int().min(0),
   statusId: uid('Invalid status ID').optional(),
 });
+
+const anchorMoveSchema = z
+  .object({
+    statusId: uid('Invalid status ID').optional(),
+    beforeTaskId: uid('Invalid task ID').optional(),
+    afterTaskId: uid('Invalid task ID').optional(),
+  })
+  .refine((value) => value.statusId || value.beforeTaskId || value.afterTaskId, {
+    message: 'At least one placement target must be provided',
+  });
+
+export const updateTaskPositionSchema = z.union([legacyPositionMoveSchema, anchorMoveSchema]);
 
 export const addTaskLabelSchema = z.object({
   labelId: uid('Invalid label ID'),

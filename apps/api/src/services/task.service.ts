@@ -14,14 +14,17 @@ import {
   workflows,
 } from '@taskforge/db';
 import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@taskforge/shared';
-import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { decodeCursor, encodeCursor, normalizeLimit } from '../utils/pagination.js';
 import * as activityService from './activity.service.js';
 import { computeBlockedStatus, createDependency } from './dependency.service.js';
 import { hasOrgPermission } from './permission.service.js';
 import * as searchService from './search.service.js';
 
 const POSITION_GAP = 1000;
+const NULL_DUE_DATE_SORT_SENTINEL = new Date('9999-12-31T23:59:59.000Z');
 
 async function syncTaskSearch(taskId: string): Promise<void> {
   try {
@@ -73,13 +76,55 @@ export interface TaskOutput {
 interface TaskFilters {
   status?: string[];
   priority?: string[];
-  assigneeId?: string;
+  assigneeId?: string | string[];
   labelId?: string[];
   dueDateFrom?: string;
   dueDateTo?: string;
   search?: string;
   sort?: string;
   order?: string;
+}
+
+interface BoardTaskFilters {
+  status?: string[];
+  priority?: string[];
+  assigneeId?: string[];
+  labelId?: string[];
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  search?: string;
+}
+
+export interface BoardColumnPageMeta {
+  cursor: string | null;
+  hasMore: boolean;
+  totalCount: number;
+  nextUnloadedTaskId: string | null;
+}
+
+export interface BoardColumnPage {
+  statusId: string;
+  items: TaskOutput[];
+  meta: BoardColumnPageMeta;
+}
+
+interface BoardColumnCursor {
+  id: string;
+  position: number;
+}
+
+export interface TaskListPageResult {
+  items: TaskOutput[];
+  cursor: string | null;
+  hasMore: boolean;
+  totalCount: number;
+}
+
+interface TaskListCursorPayload {
+  id: string;
+  sortField: string;
+  sortOrder: 'asc' | 'desc';
+  sortValue: string;
 }
 
 async function getInitialStatusId(projectId: string): Promise<string> {
@@ -342,32 +387,110 @@ export async function createTask(
   return toTaskOutput(created[0], statusRow[0]?.name);
 }
 
-export async function listTasks(
+type TaskRow = {
+  task: typeof tasks.$inferSelect;
+  statusName: string | null;
+  assigneeDisplayName: string | null;
+  assigneeAvatarUrl: string | null;
+};
+
+interface TaskFilterArtifacts {
+  matchedTaskIds?: string[];
+  labelTaskIds?: string[];
+}
+
+function normalizeBoardFilters(filters: TaskFilters | BoardTaskFilters): BoardTaskFilters {
+  const assigneeInput = filters.assigneeId;
+  const assigneeIds = Array.isArray(assigneeInput)
+    ? assigneeInput
+    : assigneeInput
+      ? [assigneeInput]
+      : undefined;
+
+  return {
+    status: filters.status,
+    priority: filters.priority,
+    assigneeId: assigneeIds,
+    labelId: filters.labelId,
+    dueDateFrom: filters.dueDateFrom,
+    dueDateTo: filters.dueDateTo,
+    search: filters.search,
+  };
+}
+
+async function ensureCanReadProjectTasks(projectId: string, userId?: string): Promise<void> {
+  if (!userId) return;
+
+  const orgId = await getOrgIdForProject(projectId);
+  if (!orgId) return;
+
+  const canRead = await hasOrgPermission(userId, orgId, 'task', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to read tasks in this project',
+    );
+  }
+}
+
+async function buildTaskFilterArtifacts(
   projectId: string,
-  filters: TaskFilters,
-  userId?: string,
-): Promise<TaskOutput[]> {
-  // Defense-in-depth: verify task.read.project permission
-  if (userId) {
-    const orgId = await getOrgIdForProject(projectId);
-    if (orgId) {
-      const canRead = await hasOrgPermission(userId, orgId, 'task', 'read');
-      if (!canRead) {
-        throw new AppError(
-          403,
-          ErrorCode.FORBIDDEN,
-          'Insufficient permissions to read tasks in this project',
-        );
-      }
+  filters: BoardTaskFilters,
+): Promise<TaskFilterArtifacts | null> {
+  const artifacts: TaskFilterArtifacts = {};
+
+  if (filters.search?.trim()) {
+    const matchedTaskIds = await searchService.searchProjectTaskIds({
+      query: filters.search.trim(),
+      projectId,
+    });
+    if (matchedTaskIds.length === 0) {
+      return null;
     }
+    artifacts.matchedTaskIds = matchedTaskIds;
   }
 
-  const conditions: ReturnType<typeof eq>[] = [
-    eq(tasks.projectId, projectId),
-    isNull(tasks.deletedAt),
-  ];
+  if (filters.labelId && filters.labelId.length > 0) {
+    const labelResults = await db
+      .select({ taskId: taskLabels.taskId })
+      .from(taskLabels)
+      .where(inArray(taskLabels.labelId, filters.labelId));
+    const labelTaskIds = labelResults.map((row) => row.taskId);
+    if (labelTaskIds.length === 0) {
+      return null;
+    }
+    artifacts.labelTaskIds = labelTaskIds;
+  }
 
-  if (filters.status && filters.status.length > 0) {
+  return artifacts;
+}
+
+function buildTaskConditions({
+  projectId,
+  statusId,
+  filters,
+  artifacts,
+}: {
+  projectId: string;
+  statusId?: string;
+  filters: BoardTaskFilters;
+  artifacts: TaskFilterArtifacts;
+}): SQL<unknown>[] | null {
+  if (
+    statusId &&
+    filters.status &&
+    filters.status.length > 0 &&
+    !filters.status.includes(statusId)
+  ) {
+    return null;
+  }
+
+  const conditions: SQL<unknown>[] = [eq(tasks.projectId, projectId), isNull(tasks.deletedAt)];
+
+  if (statusId) {
+    conditions.push(eq(tasks.statusId, statusId));
+  } else if (filters.status && filters.status.length > 0) {
     conditions.push(inArray(tasks.statusId, filters.status));
   }
 
@@ -380,8 +503,8 @@ export async function listTasks(
     );
   }
 
-  if (filters.assigneeId) {
-    conditions.push(eq(tasks.assigneeId, filters.assigneeId));
+  if (filters.assigneeId && filters.assigneeId.length > 0) {
+    conditions.push(inArray(tasks.assigneeId, filters.assigneeId));
   }
 
   if (filters.dueDateFrom) {
@@ -392,32 +515,238 @@ export async function listTasks(
     conditions.push(lte(tasks.dueDate, new Date(filters.dueDateTo)));
   }
 
-  // Label filtering: find task IDs with matching labels
-  let labelTaskIds: string[] | undefined;
-  if (filters.labelId && filters.labelId.length > 0) {
-    const labelResults = await db
-      .select({ taskId: taskLabels.taskId })
-      .from(taskLabels)
-      .where(inArray(taskLabels.labelId, filters.labelId));
-    labelTaskIds = labelResults.map((r) => r.taskId);
-    if (labelTaskIds.length === 0) {
-      return [];
-    }
-    conditions.push(inArray(tasks.id, labelTaskIds));
+  if (artifacts.matchedTaskIds) {
+    if (artifacts.matchedTaskIds.length === 0) return null;
+    conditions.push(inArray(tasks.id, artifacts.matchedTaskIds));
   }
 
-  // Determine sort
-  const sortField = filters.sort ?? 'position';
-  const sortOrder = filters.order === 'desc' ? 'desc' : 'asc';
+  if (artifacts.labelTaskIds) {
+    if (artifacts.labelTaskIds.length === 0) return null;
+    conditions.push(inArray(tasks.id, artifacts.labelTaskIds));
+  }
 
-  const sortColumn =
-    {
-      position: tasks.position,
-      dueDate: tasks.dueDate,
-      priority: tasks.priority,
-      createdAt: tasks.createdAt,
-    }[sortField] ?? tasks.position;
+  return conditions;
+}
 
+async function attachTaskLabels(taskRows: TaskRow[]): Promise<TaskOutput[]> {
+  const taskIds = taskRows.map((row) => row.task.id);
+  const labelsMap = new Map<string, Array<{ id: string; name: string; color: string | null }>>();
+
+  if (taskIds.length > 0) {
+    const labelRows = await db
+      .select({
+        taskId: taskLabels.taskId,
+        id: labels.id,
+        name: labels.name,
+        color: labels.color,
+      })
+      .from(taskLabels)
+      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, taskIds));
+
+    for (const row of labelRows) {
+      const bucket = labelsMap.get(row.taskId);
+      if (bucket) {
+        bucket.push({ id: row.id, name: row.name, color: row.color ?? null });
+      } else {
+        labelsMap.set(row.taskId, [{ id: row.id, name: row.name, color: row.color ?? null }]);
+      }
+    }
+  }
+
+  return taskRows.map((row) =>
+    toTaskOutput(
+      row.task,
+      row.statusName,
+      null,
+      null,
+      row.task.assigneeId
+        ? {
+            id: row.task.assigneeId,
+            displayName: row.assigneeDisplayName ?? '',
+            avatarUrl: row.assigneeAvatarUrl ?? null,
+          }
+        : null,
+      labelsMap.get(row.task.id) ?? [],
+    ),
+  );
+}
+
+function parseBoardColumnCursor(cursor?: string): BoardColumnCursor | null {
+  if (!cursor) return null;
+
+  const decoded = decodeCursor(cursor);
+  const parsedPosition = decoded?.position;
+  if (
+    !decoded ||
+    (typeof parsedPosition !== 'number' && typeof parsedPosition !== 'string') ||
+    !Number.isFinite(Number(parsedPosition))
+  ) {
+    throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Invalid board column cursor');
+  }
+
+  return {
+    id: decoded.id,
+    position: Number(parsedPosition),
+  };
+}
+
+function normalizeBoardLimit(limit?: number): number {
+  if (!limit || !Number.isFinite(limit) || limit < 1) return 15;
+  return Math.min(Math.floor(limit), 50);
+}
+
+async function listProjectStatusIds(projectId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: workflowStatuses.id })
+    .from(workflowStatuses)
+    .innerJoin(workflows, eq(workflows.id, workflowStatuses.workflowId))
+    .where(eq(workflows.projectId, projectId))
+    .orderBy(asc(workflowStatuses.position));
+
+  return rows.map((row) => row.id);
+}
+
+async function listBoardColumnPage(
+  projectId: string,
+  statusId: string,
+  filters: BoardTaskFilters,
+  artifacts: TaskFilterArtifacts,
+  limit: number,
+  cursor?: string,
+): Promise<BoardColumnPage> {
+  const conditions = buildTaskConditions({ projectId, statusId, filters, artifacts });
+  if (!conditions) {
+    return {
+      statusId,
+      items: [],
+      meta: { cursor: null, hasMore: false, totalCount: 0, nextUnloadedTaskId: null },
+    };
+  }
+
+  const parsedCursor = parseBoardColumnCursor(cursor);
+  const cursorCondition = parsedCursor
+    ? or(
+        gt(tasks.position, parsedCursor.position),
+        and(eq(tasks.position, parsedCursor.position), gt(tasks.id, parsedCursor.id)),
+      )
+    : undefined;
+
+  const totalRows = await db
+    .select({ count: count(tasks.id) })
+    .from(tasks)
+    .where(and(...conditions));
+  const totalCount = Number(totalRows[0]?.count ?? 0);
+
+  const queryConditions = cursorCondition ? [...conditions, cursorCondition] : conditions;
+  const rows = await db
+    .select({
+      task: tasks,
+      statusName: workflowStatuses.name,
+      assigneeDisplayName: users.displayName,
+      assigneeAvatarUrl: users.avatarUrl,
+    })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .where(and(...queryConditions))
+    .orderBy(asc(tasks.position), asc(tasks.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const visibleRows = hasMore ? rows.slice(0, limit) : rows;
+  const nextUnloadedTaskId = hasMore ? (rows[limit]?.task.id ?? null) : null;
+  const lastVisible = visibleRows[visibleRows.length - 1];
+  const nextCursor =
+    hasMore && lastVisible
+      ? encodeCursor({ id: lastVisible.task.id, position: lastVisible.task.position })
+      : null;
+
+  const items = await attachTaskLabels(visibleRows);
+
+  return {
+    statusId,
+    items,
+    meta: {
+      cursor: nextCursor,
+      hasMore,
+      totalCount,
+      nextUnloadedTaskId,
+    },
+  };
+}
+
+export async function listBoardTasks(
+  projectId: string,
+  filters: BoardTaskFilters,
+  options?: { statusId?: string; cursor?: string; limit?: number },
+  userId?: string,
+): Promise<BoardColumnPage[]> {
+  await ensureCanReadProjectTasks(projectId, userId);
+
+  const statusId = options?.statusId;
+  if (statusId) {
+    await validateStatusBelongsToProject(statusId, projectId);
+  }
+
+  if (options?.cursor && !statusId) {
+    throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Cursor requires a statusId');
+  }
+
+  const statusIds = statusId ? [statusId] : await listProjectStatusIds(projectId);
+  if (statusIds.length === 0) {
+    return [];
+  }
+
+  const normalizedFilters = normalizeBoardFilters(filters);
+  const artifacts = await buildTaskFilterArtifacts(projectId, normalizedFilters);
+  if (!artifacts) {
+    return statusIds.map((sid) => ({
+      statusId: sid,
+      items: [],
+      meta: { cursor: null, hasMore: false, totalCount: 0, nextUnloadedTaskId: null },
+    }));
+  }
+
+  const limit = normalizeBoardLimit(options?.limit);
+
+  return Promise.all(
+    statusIds.map((sid) =>
+      listBoardColumnPage(
+        projectId,
+        sid,
+        normalizedFilters,
+        artifacts,
+        limit,
+        sid === statusId ? options?.cursor : undefined,
+      ),
+    ),
+  );
+}
+
+export async function listTasks(
+  projectId: string,
+  filters: TaskFilters,
+  userId?: string,
+): Promise<TaskOutput[]> {
+  await ensureCanReadProjectTasks(projectId, userId);
+
+  const normalizedFilters = normalizeBoardFilters(filters);
+  const artifacts = await buildTaskFilterArtifacts(projectId, normalizedFilters);
+  if (!artifacts) {
+    return [];
+  }
+
+  const conditions = buildTaskConditions({
+    projectId,
+    filters: normalizedFilters,
+    artifacts,
+  });
+  if (!conditions) {
+    return [];
+  }
+
+  const sort = resolveTaskSort(filters.sort, filters.order);
   const query = db
     .select({
       task: tasks,
@@ -430,58 +759,210 @@ export async function listTasks(
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(and(...conditions));
 
-  const ordered =
-    sortOrder === 'desc' ? query.orderBy(desc(sortColumn)) : query.orderBy(sortColumn);
+  const rows =
+    sort.order === 'desc'
+      ? await query.orderBy(desc(sort.expression), asc(tasks.id))
+      : await query.orderBy(asc(sort.expression), asc(tasks.id));
 
-  const result = await ordered;
+  return attachTaskLabels(rows);
+}
 
-  // In-memory search filter on title (Meilisearch later)
-  let filtered = result;
-  if (filters.search) {
-    const term = filters.search.toLowerCase();
-    filtered = result.filter((r) => r.task.title.toLowerCase().includes(term));
+interface ListTasksPageOptions {
+  cursor?: string;
+  limit?: number;
+}
+
+interface ResolvedTaskSort {
+  field: 'position' | 'dueDate' | 'priority' | 'createdAt' | 'title' | 'status' | 'assignee';
+  order: 'asc' | 'desc';
+  expression: SQL<unknown>;
+}
+
+function resolveTaskSort(sort?: string, order?: string): ResolvedTaskSort {
+  const field =
+    sort === 'dueDate' ||
+    sort === 'priority' ||
+    sort === 'createdAt' ||
+    sort === 'title' ||
+    sort === 'status' ||
+    sort === 'assignee'
+      ? sort
+      : 'position';
+
+  const expression: ResolvedTaskSort['expression'] =
+    field === 'dueDate'
+      ? sql<Date>`COALESCE(${tasks.dueDate}, ${NULL_DUE_DATE_SORT_SENTINEL})`
+      : field === 'priority'
+        ? sql`${tasks.priority}`
+        : field === 'createdAt'
+          ? sql`${tasks.createdAt}`
+          : field === 'title'
+            ? sql`${tasks.title}`
+            : field === 'status'
+              ? sql<string>`COALESCE(${workflowStatuses.name}, '')`
+              : field === 'assignee'
+                ? sql<string>`COALESCE(${users.displayName}, '')`
+                : sql`${tasks.position}`;
+
+  return {
+    field,
+    order: order === 'desc' ? 'desc' : 'asc',
+    expression,
+  };
+}
+
+function getRowSortValue(row: TaskRow, sortField: ResolvedTaskSort['field']): string {
+  if (sortField === 'position') {
+    return `${row.task.position}`;
+  }
+  if (sortField === 'dueDate') {
+    return (row.task.dueDate ?? NULL_DUE_DATE_SORT_SENTINEL).toISOString();
+  }
+  if (sortField === 'priority') {
+    return row.task.priority;
+  }
+  if (sortField === 'createdAt') {
+    return row.task.createdAt.toISOString();
+  }
+  if (sortField === 'title') {
+    return row.task.title;
+  }
+  if (sortField === 'status') {
+    return row.statusName ?? '';
   }
 
-  // Batch-fetch labels for all returned tasks
-  const taskIds = filtered.map((r) => r.task.id);
-  const labelsMap = new Map<string, Array<{ id: string; name: string; color: string | null }>>();
-  if (taskIds.length > 0) {
-    const labelRows = await db
-      .select({
-        taskId: taskLabels.taskId,
-        id: labels.id,
-        name: labels.name,
-        color: labels.color,
-      })
-      .from(taskLabels)
-      .innerJoin(labels, eq(labels.id, taskLabels.labelId))
-      .where(inArray(taskLabels.taskId, taskIds));
-    for (const row of labelRows) {
-      let taskLabelsList = labelsMap.get(row.taskId);
-      if (!taskLabelsList) {
-        taskLabelsList = [];
-        labelsMap.set(row.taskId, taskLabelsList);
-      }
-      taskLabelsList.push({ id: row.id, name: row.name, color: row.color ?? null });
+  return row.assigneeDisplayName ?? '';
+}
+
+function parseTaskListCursor(
+  cursor: string | undefined,
+  sort: ResolvedTaskSort,
+): TaskListCursorPayload | null {
+  if (!cursor) return null;
+
+  const decoded = decodeCursor(cursor);
+  const sortField = decoded?.sortField;
+  const sortOrder = decoded?.sortOrder;
+  const sortValue = decoded?.sortValue;
+
+  if (
+    !decoded ||
+    typeof sortField !== 'string' ||
+    typeof sortOrder !== 'string' ||
+    typeof sortValue !== 'string'
+  ) {
+    throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Invalid task cursor');
+  }
+
+  if (sortField !== sort.field || sortOrder !== sort.order) {
+    throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Task cursor does not match current sort');
+  }
+
+  return {
+    id: decoded.id,
+    sortField,
+    sortOrder: sortOrder === 'desc' ? 'desc' : 'asc',
+    sortValue,
+  };
+}
+
+function parseCursorCompareValue(
+  sortField: ResolvedTaskSort['field'],
+  sortValue: string,
+): string | number | Date {
+  if (sortField === 'position') {
+    const numeric = Number(sortValue);
+    if (!Number.isFinite(numeric)) {
+      throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Invalid task cursor value');
     }
+    return numeric;
   }
 
-  return filtered.map((r) =>
-    toTaskOutput(
-      r.task,
-      r.statusName,
-      null,
-      null,
-      r.task.assigneeId
-        ? {
-            id: r.task.assigneeId,
-            displayName: r.assigneeDisplayName ?? '',
-            avatarUrl: r.assigneeAvatarUrl ?? null,
-          }
-        : null,
-      labelsMap.get(r.task.id) ?? [],
-    ),
-  );
+  if (sortField === 'dueDate' || sortField === 'createdAt') {
+    const dateValue = new Date(sortValue);
+    if (Number.isNaN(dateValue.getTime())) {
+      throw new AppError(400, ErrorCode.VALIDATION_ERROR, 'Invalid task cursor value');
+    }
+    return dateValue;
+  }
+
+  return sortValue;
+}
+
+export async function listTasksPaged(
+  projectId: string,
+  filters: TaskFilters,
+  options: ListTasksPageOptions,
+  userId?: string,
+): Promise<TaskListPageResult> {
+  await ensureCanReadProjectTasks(projectId, userId);
+
+  const normalizedFilters = normalizeBoardFilters(filters);
+  const artifacts = await buildTaskFilterArtifacts(projectId, normalizedFilters);
+  if (!artifacts) {
+    return { items: [], cursor: null, hasMore: false, totalCount: 0 };
+  }
+
+  const conditions = buildTaskConditions({
+    projectId,
+    filters: normalizedFilters,
+    artifacts,
+  });
+  if (!conditions) {
+    return { items: [], cursor: null, hasMore: false, totalCount: 0 };
+  }
+
+  const sort = resolveTaskSort(filters.sort, filters.order);
+  const parsedCursor = parseTaskListCursor(options.cursor, sort);
+  const limit = normalizeLimit(options.limit);
+
+  const totalRows = await db
+    .select({ count: count(tasks.id) })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .where(and(...conditions));
+  const totalCount = Number(totalRows[0]?.count ?? 0);
+
+  const cursorCondition = parsedCursor
+    ? (() => {
+        const compareValue = parseCursorCompareValue(sort.field, parsedCursor.sortValue);
+        return sort.order === 'desc'
+          ? sql`(${sort.expression} < ${compareValue}) OR (${sort.expression} = ${compareValue} AND ${tasks.id} > ${parsedCursor.id})`
+          : sql`(${sort.expression} > ${compareValue}) OR (${sort.expression} = ${compareValue} AND ${tasks.id} > ${parsedCursor.id})`;
+      })()
+    : null;
+
+  const queryConditions = cursorCondition ? [...conditions, cursorCondition] : conditions;
+  const rows = await db
+    .select({
+      task: tasks,
+      statusName: workflowStatuses.name,
+      assigneeDisplayName: users.displayName,
+      assigneeAvatarUrl: users.avatarUrl,
+    })
+    .from(tasks)
+    .leftJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .leftJoin(users, eq(tasks.assigneeId, users.id))
+    .where(and(...queryConditions))
+    .orderBy(sort.order === 'desc' ? desc(sort.expression) : asc(sort.expression), asc(tasks.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const visibleRows = hasMore ? rows.slice(0, limit) : rows;
+  const items = await attachTaskLabels(visibleRows);
+  const lastVisible = visibleRows[visibleRows.length - 1];
+  const cursor =
+    hasMore && lastVisible
+      ? encodeCursor({
+          id: lastVisible.task.id,
+          sortField: sort.field,
+          sortOrder: sort.order,
+          sortValue: getRowSortValue(lastVisible, sort.field),
+        })
+      : null;
+
+  return { items, cursor, hasMore, totalCount };
 }
 
 export async function getTask(taskId: string, userId?: string): Promise<TaskOutput> {
@@ -934,11 +1415,99 @@ export async function removeTaskLabel(
 
 // --- Position / Reordering ---
 
+export interface TaskMoveInput {
+  statusId?: string;
+  position?: number;
+  beforeTaskId?: string;
+  afterTaskId?: string;
+}
+
+interface TaskAnchor {
+  id: string;
+  statusId: string;
+  position: number;
+}
+
+async function getTaskAnchor(projectId: string, taskId: string): Promise<TaskAnchor | null> {
+  const row = await db
+    .select({
+      id: tasks.id,
+      statusId: tasks.statusId,
+      position: tasks.position,
+    })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, projectId), eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+    .limit(1);
+
+  return row[0] ?? null;
+}
+
+async function hasPositionConflict(
+  projectId: string,
+  statusId: string,
+  position: number,
+  taskId: string,
+): Promise<boolean> {
+  const conflict = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.projectId, projectId),
+        eq(tasks.statusId, statusId),
+        eq(tasks.position, position),
+        isNull(tasks.deletedAt),
+        sql`${tasks.id} != ${taskId}`,
+      ),
+    )
+    .limit(1);
+
+  return conflict.length > 0;
+}
+
+async function rebalanceStatusPositions(projectId: string, statusId: string): Promise<void> {
+  const rows = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(eq(tasks.projectId, projectId), eq(tasks.statusId, statusId), isNull(tasks.deletedAt)),
+    )
+    .orderBy(asc(tasks.position), asc(tasks.id));
+
+  for (const [index, row] of rows.entries()) {
+    await db
+      .update(tasks)
+      .set({ position: (index + 1) * POSITION_GAP, updatedAt: new Date() })
+      .where(eq(tasks.id, row.id));
+  }
+}
+
+function computeAnchoredPosition(
+  beforeTask: TaskAnchor | null,
+  afterTask: TaskAnchor | null,
+): number | null {
+  if (beforeTask && afterTask) {
+    const gap = beforeTask.position - afterTask.position;
+    if (gap <= 1) return null;
+    return afterTask.position + Math.floor(gap / 2);
+  }
+
+  if (afterTask) {
+    return afterTask.position + POSITION_GAP;
+  }
+
+  if (beforeTask) {
+    const candidate = beforeTask.position - POSITION_GAP;
+    return candidate >= 0 ? candidate : null;
+  }
+
+  return null;
+}
+
 export async function updateTaskPosition(
   taskId: string,
   projectId: string,
-  position: number,
-  statusId?: string,
+  input: TaskMoveInput,
   actorId?: string,
 ): Promise<TaskOutput> {
   // Defense-in-depth: verify task.update.project permission
@@ -966,36 +1535,102 @@ export async function updateTaskPosition(
     throw new AppError(404, ErrorCode.NOT_FOUND, 'Task not found');
   }
 
-  const targetStatusId = statusId ?? existing[0].statusId;
+  if (input.position !== undefined) {
+    const targetStatusId = input.statusId ?? existing[0].statusId;
 
-  if (statusId) {
-    await validateStatusBelongsToProject(statusId, projectId);
+    if (input.statusId) {
+      await validateStatusBelongsToProject(input.statusId, projectId);
+    }
+
+    const updates: Record<string, unknown> = {
+      position: input.position,
+      updatedAt: new Date(),
+    };
+
+    if (input.statusId) {
+      updates.statusId = input.statusId;
+    }
+
+    await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+
+    // Legacy positional mode shifts collisions forward.
+    await db
+      .update(tasks)
+      .set({ position: sql`${tasks.position} + ${POSITION_GAP}` })
+      .where(
+        and(
+          eq(tasks.projectId, projectId),
+          eq(tasks.statusId, targetStatusId),
+          gte(tasks.position, input.position),
+          isNull(tasks.deletedAt),
+          sql`${tasks.id} != ${taskId}`,
+        ),
+      );
+
+    await syncTaskSearch(taskId);
+    return getTask(taskId);
   }
 
-  const updates: Record<string, unknown> = {
-    position,
-    updatedAt: new Date(),
-  };
+  const beforeTask = input.beforeTaskId ? await getTaskAnchor(projectId, input.beforeTaskId) : null;
+  const afterTask = input.afterTaskId ? await getTaskAnchor(projectId, input.afterTaskId) : null;
 
-  if (statusId) {
-    updates.statusId = statusId;
+  if (input.beforeTaskId && !beforeTask) {
+    throw new AppError(422, ErrorCode.UNPROCESSABLE_ENTITY, 'beforeTaskId is invalid');
+  }
+  if (input.afterTaskId && !afterTask) {
+    throw new AppError(422, ErrorCode.UNPROCESSABLE_ENTITY, 'afterTaskId is invalid');
+  }
+  if (beforeTask?.id === taskId || afterTask?.id === taskId) {
+    throw new AppError(422, ErrorCode.UNPROCESSABLE_ENTITY, 'Task cannot be anchored to itself');
+  }
+  if (beforeTask && afterTask && beforeTask.statusId !== afterTask.statusId) {
+    throw new AppError(422, ErrorCode.UNPROCESSABLE_ENTITY, 'Anchor tasks must share a status');
   }
 
-  await db.update(tasks).set(updates).where(eq(tasks.id, taskId));
+  const targetStatusId =
+    input.statusId ?? beforeTask?.statusId ?? afterTask?.statusId ?? existing[0].statusId;
+  if (input.statusId) {
+    await validateStatusBelongsToProject(input.statusId, projectId);
+  }
+  if (beforeTask && beforeTask.statusId !== targetStatusId) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'beforeTaskId must be in target status',
+    );
+  }
+  if (afterTask && afterTask.statusId !== targetStatusId) {
+    throw new AppError(422, ErrorCode.UNPROCESSABLE_ENTITY, 'afterTaskId must be in target status');
+  }
 
-  // Shift positions of tasks at or after the new position (excluding the moved task)
+  let targetPosition = computeAnchoredPosition(beforeTask, afterTask);
+  if (targetPosition === null) {
+    await rebalanceStatusPositions(projectId, targetStatusId);
+    const refreshedBefore = input.beforeTaskId
+      ? await getTaskAnchor(projectId, input.beforeTaskId)
+      : null;
+    const refreshedAfter = input.afterTaskId
+      ? await getTaskAnchor(projectId, input.afterTaskId)
+      : null;
+    targetPosition = computeAnchoredPosition(refreshedBefore, refreshedAfter);
+  }
+  if (targetPosition === null) {
+    targetPosition = await getNextPosition(projectId, targetStatusId);
+  }
+
+  if (await hasPositionConflict(projectId, targetStatusId, targetPosition, taskId)) {
+    await rebalanceStatusPositions(projectId, targetStatusId);
+    targetPosition = await getNextPosition(projectId, targetStatusId);
+  }
+
   await db
     .update(tasks)
-    .set({ position: sql`${tasks.position} + ${POSITION_GAP}` })
-    .where(
-      and(
-        eq(tasks.projectId, projectId),
-        eq(tasks.statusId, targetStatusId),
-        gte(tasks.position, position),
-        isNull(tasks.deletedAt),
-        sql`${tasks.id} != ${taskId}`,
-      ),
-    );
+    .set({
+      statusId: targetStatusId,
+      position: targetPosition,
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId));
 
   await syncTaskSearch(taskId);
 

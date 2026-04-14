@@ -284,6 +284,7 @@ vi.mock('../search.service.js', () => ({
   removeTask: vi.fn().mockResolvedValue(undefined),
   removeProject: vi.fn().mockResolvedValue(undefined),
   removeComment: vi.fn().mockResolvedValue(undefined),
+  searchProjectTaskIds: vi.fn().mockResolvedValue([]),
   initIndexes: vi.fn().mockResolvedValue(undefined),
 }));
 

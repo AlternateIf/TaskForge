@@ -1,5 +1,12 @@
 import type { Label, ProjectMember, WorkflowStatus } from '@/api/projects';
-import { type Task, type TaskFilters, taskKeys, useMoveTask, useTasks } from '@/api/tasks';
+import {
+  type Task,
+  type TaskFilters,
+  applyTaskMoveToCacheData,
+  taskKeys,
+  useBoardTasks,
+  useMoveTask,
+} from '@/api/tasks';
 import { KanbanCardOverlay } from '@/components/kanban/kanban-card';
 import { KanbanColumn } from '@/components/kanban/kanban-column';
 import {
@@ -80,7 +87,12 @@ export function KanbanBoard({
   }, []);
 
   const queryClient = useQueryClient();
-  const { data: tasks, isLoading } = useTasks(projectId, filters);
+  const {
+    data: boardData,
+    isLoading,
+    loadMore,
+    loadingMoreByStatus,
+  } = useBoardTasks(projectId, filters, 15);
   const moveTask = useMoveTask();
 
   const sensors = useSensors(
@@ -101,15 +113,31 @@ export function KanbanBoard({
     for (const status of statuses) {
       grouped.set(status.id, []);
     }
-    for (const task of tasks ?? []) {
-      const bucket = grouped.get(task.statusId);
-      if (bucket) bucket.push(task);
+    for (const column of boardData?.columns ?? []) {
+      const bucket = grouped.get(column.statusId);
+      if (!bucket) continue;
+      bucket.push(...column.items);
     }
     for (const [, bucket] of grouped) {
       bucket.sort((a, b) => a.position - b.position);
     }
     return grouped;
-  }, [tasks, statuses]);
+  }, [boardData, statuses]);
+
+  const columnMetaByStatus = useMemo(() => {
+    const meta = new Map<
+      string,
+      { hasMore: boolean; totalCount: number; nextUnloadedTaskId: string | null }
+    >();
+    for (const column of boardData?.columns ?? []) {
+      meta.set(column.statusId, {
+        hasMore: column.meta.hasMore,
+        totalCount: column.meta.totalCount,
+        nextUnloadedTaskId: column.meta.nextUnloadedTaskId,
+      });
+    }
+    return meta;
+  }, [boardData]);
 
   // What gets rendered — live during drag, server data otherwise
   const displayTasks = activeTasksByStatus ?? tasksByStatus;
@@ -212,94 +240,65 @@ export function KanbanBoard({
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      // Use the original task (captured at drag start) as source of truth —
-      // active.data.current.task may have been mutated by handleDragOver re-renders.
       const originalTask = activeTask;
       const finalTasksByStatus = activeTasksByStatus ?? tasksByStatus;
-
       const { over } = event;
+
       if (!over || !originalTask) {
         resetDragState();
         return;
       }
 
-      // Detect if the task crossed into a different column during the drag
-      let finalStatusId = originalTask.statusId;
-      for (const [sid, col] of finalTasksByStatus) {
-        if (col.some((t) => t.id === originalTask.id)) {
-          finalStatusId = sid;
+      let targetStatusId = originalTask.statusId;
+      for (const [statusId, columnTasks] of finalTasksByStatus) {
+        if (columnTasks.some((task) => task.id === originalTask.id)) {
+          targetStatusId = statusId;
           break;
         }
       }
 
-      let targetStatusId = originalTask.statusId;
-      let targetPosition = originalTask.position;
-
-      if (finalStatusId !== originalTask.statusId) {
-        // Cross-column drop: compute position from live neighbors
-        targetStatusId = finalStatusId;
-        const finalCol = finalTasksByStatus.get(finalStatusId) ?? [];
-        const idx = finalCol.findIndex((t) => t.id === originalTask.id);
-        const prev = finalCol[idx - 1];
-        const next = finalCol[idx + 1];
-
-        if (prev && next) {
-          targetPosition = (prev.position + next.position) / 2;
-        } else if (prev) {
-          targetPosition = prev.position + 1000;
-        } else if (next) {
-          targetPosition = Math.max(0, next.position - 1000);
-        } else {
-          targetPosition = 1000;
-        }
-      } else {
-        // Within-column drop: use over event data (SortableContext handled the visual)
-        const overData = over.data.current as
-          | { type: string; statusId?: string; task?: Task }
-          | undefined;
-
-        if (overData?.type === 'column') {
-          targetStatusId = overData.statusId ?? originalTask.statusId;
-          const columnTasks = (finalTasksByStatus.get(targetStatusId) ?? []).filter(
-            (t) => t.id !== originalTask.id,
-          );
-          targetPosition = (columnTasks[columnTasks.length - 1]?.position ?? 0) + 1000;
-        } else if (overData?.type === 'card' && overData.task) {
-          targetStatusId = overData.task.statusId;
-          targetPosition = overData.task.position;
-        }
-      }
-
-      if (targetStatusId === originalTask.statusId && targetPosition === originalTask.position) {
+      const finalColumnTasks = finalTasksByStatus.get(targetStatusId) ?? [];
+      const targetIndex = finalColumnTasks.findIndex((task) => task.id === originalTask.id);
+      if (targetIndex === -1) {
         resetDragState();
         return;
       }
 
-      const roundedPosition = Math.round(targetPosition);
+      const initialColumnTasks = tasksByStatus.get(originalTask.statusId) ?? [];
+      const initialIndex = initialColumnTasks.findIndex((task) => task.id === originalTask.id);
+      if (targetStatusId === originalTask.statusId && targetIndex === initialIndex) {
+        resetDragState();
+        return;
+      }
 
-      // Pre-update the query cache synchronously so that when activeTasksByStatus
-      // is cleared below, tasksByStatus already reflects the new position.
-      // Without this there is one render frame where the card snaps back.
-      queryClient.setQueriesData<Task[]>({ queryKey: taskKeys.forProject(projectId) }, (old) =>
-        old?.map((t) =>
-          t.id === originalTask.id
-            ? { ...t, statusId: targetStatusId, position: roundedPosition }
-            : t,
-        ),
+      const afterTaskId = finalColumnTasks[targetIndex - 1]?.id;
+      let beforeTaskId = finalColumnTasks[targetIndex + 1]?.id;
+      if (!beforeTaskId) {
+        const meta = columnMetaByStatus.get(targetStatusId);
+        if (meta?.hasMore && meta.nextUnloadedTaskId) {
+          beforeTaskId = meta.nextUnloadedTaskId;
+        }
+      }
+
+      const payload = {
+        taskId: originalTask.id,
+        statusId: targetStatusId,
+        beforeTaskId,
+        afterTaskId,
+        projectId,
+      };
+
+      queryClient.setQueriesData({ queryKey: taskKeys.forProject(projectId) }, (old) =>
+        applyTaskMoveToCacheData(old, payload),
       );
 
       resetDragState();
-
-      moveTask.mutate({
-        taskId: originalTask.id,
-        statusId: targetStatusId,
-        position: roundedPosition,
-        projectId,
-      });
+      moveTask.mutate(payload);
     },
     [
       activeTask,
       activeTasksByStatus,
+      columnMetaByStatus,
       tasksByStatus,
       queryClient,
       moveTask,
@@ -362,6 +361,10 @@ export function KanbanBoard({
             canCreateTask={canCreateTask}
             canEditTask={canDragAndDrop}
             isLoading={isLoading}
+            hasMore={columnMetaByStatus.get(status.id)?.hasMore ?? false}
+            totalCount={columnMetaByStatus.get(status.id)?.totalCount}
+            isLoadingMore={Boolean(loadingMoreByStatus[status.id])}
+            onLoadMore={() => void loadMore(status.id)}
           />
         ))}
       </div>

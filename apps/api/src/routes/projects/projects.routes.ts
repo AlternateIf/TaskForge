@@ -86,7 +86,15 @@ export async function projectRoutes(fastify: FastifyInstance) {
     createProjectHandler,
   );
 
-  fastify.get<{ Params: { orgId: string }; Querystring: { status?: string; search?: string } }>(
+  fastify.get<{
+    Params: { orgId: string };
+    Querystring: {
+      status?: string;
+      search?: string;
+      page?: string | number;
+      limit?: string | number;
+    };
+  }>(
     '/api/v1/organizations/:orgId/projects',
     {
       preHandler: authorize({

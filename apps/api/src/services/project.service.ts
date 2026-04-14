@@ -11,7 +11,7 @@ import {
   workflows,
 } from '@taskforge/db';
 import type { CreateProjectInput, UpdateProjectInput } from '@taskforge/shared';
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { hasOrgPermission } from './permission.service.js';
@@ -118,6 +118,100 @@ function toProjectOutput(p: typeof projects.$inferSelect): ProjectOutput {
   };
 }
 
+async function assertCanReadProjects(orgId: string, userId?: string): Promise<void> {
+  if (!userId) return;
+
+  const canRead = await hasOrgPermission(userId, orgId, 'project', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to list projects in this organization',
+    );
+  }
+}
+
+function normalizeProjectStatus(status?: string): 'active' | 'archived' | 'deleted' | undefined {
+  if (status === 'active' || status === 'archived' || status === 'deleted') {
+    return status;
+  }
+  return undefined;
+}
+
+async function enrichProjects(
+  projectRows: Array<typeof projects.$inferSelect>,
+): Promise<ProjectOutput[]> {
+  const base = projectRows.map(toProjectOutput);
+  if (base.length === 0) return base;
+
+  const projectIds = base.map((p) => p.id);
+
+  // Batch: task counts
+  const taskCountRows = await db
+    .select({
+      projectId: tasks.projectId,
+      count: count(tasks.id),
+    })
+    .from(tasks)
+    .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.deletedAt)))
+    .groupBy(tasks.projectId);
+  const taskCountMap = new Map(taskCountRows.map((r) => [r.projectId, r.count]));
+
+  // Batch: open task counts (tasks in non-final statuses)
+  const openTaskCountRows = await db
+    .select({
+      projectId: tasks.projectId,
+      count: count(tasks.id),
+    })
+    .from(tasks)
+    .innerJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
+    .where(
+      and(
+        inArray(tasks.projectId, projectIds),
+        isNull(tasks.deletedAt),
+        eq(workflowStatuses.isFinal, false),
+      ),
+    )
+    .groupBy(tasks.projectId);
+  const openTaskCountMap = new Map(openTaskCountRows.map((r) => [r.projectId, r.count]));
+
+  // Batch: members
+  const memberRows = await db
+    .select({
+      projectId: projectMembers.projectId,
+      userId: projectMembers.userId,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(projectMembers)
+    .innerJoin(users, eq(projectMembers.userId, users.id))
+    .where(inArray(projectMembers.projectId, projectIds));
+  const membersMap = new Map<
+    string,
+    Array<{ userId: string; displayName: string; avatarUrl: string | null }>
+  >();
+  for (const m of memberRows) {
+    let members = membersMap.get(m.projectId);
+    if (!members) {
+      members = [];
+      membersMap.set(m.projectId, members);
+    }
+    members.push({ userId: m.userId, displayName: m.displayName, avatarUrl: m.avatarUrl ?? null });
+  }
+
+  return base.map((p) => ({
+    ...p,
+    taskCount: taskCountMap.get(p.id) ?? 0,
+    openTaskCount: openTaskCountMap.get(p.id) ?? 0,
+    completedTaskCount: Math.max(
+      (taskCountMap.get(p.id) ?? 0) - (openTaskCountMap.get(p.id) ?? 0),
+      0,
+    ),
+    memberCount: membersMap.get(p.id)?.length ?? 0,
+    members: membersMap.get(p.id) ?? [],
+  }));
+}
+
 export async function createProject(
   orgId: string,
   userId: string,
@@ -204,22 +298,13 @@ export async function listProjects(
   filters?: { status?: string; search?: string },
   userId?: string,
 ): Promise<ProjectOutput[]> {
-  // Defense-in-depth: verify the user has project.read.org permission
-  if (userId) {
-    const canRead = await hasOrgPermission(userId, orgId, 'project', 'read');
-    if (!canRead) {
-      throw new AppError(
-        403,
-        ErrorCode.FORBIDDEN,
-        'Insufficient permissions to list projects in this organization',
-      );
-    }
-  }
+  await assertCanReadProjects(orgId, userId);
 
   const conditions = [eq(projects.organizationId, orgId), isNull(projects.deletedAt)];
+  const normalizedStatus = normalizeProjectStatus(filters?.status);
 
-  if (filters?.status) {
-    conditions.push(eq(projects.status, filters.status as 'active' | 'archived' | 'deleted'));
+  if (normalizedStatus) {
+    conditions.push(eq(projects.status, normalizedStatus));
   }
 
   const result = await db
@@ -235,75 +320,94 @@ export async function listProjects(
     );
   }
 
-  const base = filtered.map(toProjectOutput);
-  if (base.length === 0) return base;
+  return enrichProjects(filtered);
+}
 
-  const projectIds = base.map((p) => p.id);
+export interface ListProjectsPagedInput {
+  status?: string;
+  search?: string;
+  page: number;
+  limit: number;
+}
 
-  // Batch: task counts
-  const taskCountRows = await db
-    .select({
-      projectId: tasks.projectId,
-      count: count(tasks.id),
-    })
-    .from(tasks)
-    .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.deletedAt)))
-    .groupBy(tasks.projectId);
-  const taskCountMap = new Map(taskCountRows.map((r) => [r.projectId, r.count]));
+export interface ListProjectsPagedOutput {
+  items: ProjectOutput[];
+  totalCount: number;
+}
 
-  // Batch: open task counts (tasks in non-final statuses)
-  const openTaskCountRows = await db
-    .select({
-      projectId: tasks.projectId,
-      count: count(tasks.id),
-    })
-    .from(tasks)
-    .innerJoin(workflowStatuses, eq(tasks.statusId, workflowStatuses.id))
-    .where(
-      and(
-        inArray(tasks.projectId, projectIds),
-        isNull(tasks.deletedAt),
-        eq(workflowStatuses.isFinal, false),
-      ),
-    )
-    .groupBy(tasks.projectId);
-  const openTaskCountMap = new Map(openTaskCountRows.map((r) => [r.projectId, r.count]));
+export async function listProjectsPaged(
+  orgId: string,
+  input: ListProjectsPagedInput,
+  userId?: string,
+): Promise<ListProjectsPagedOutput> {
+  await assertCanReadProjects(orgId, userId);
 
-  // Batch: members
-  const memberRows = await db
-    .select({
-      projectId: projectMembers.projectId,
-      userId: projectMembers.userId,
-      displayName: users.displayName,
-      avatarUrl: users.avatarUrl,
-    })
-    .from(projectMembers)
-    .innerJoin(users, eq(projectMembers.userId, users.id))
-    .where(inArray(projectMembers.projectId, projectIds));
-  const membersMap = new Map<
-    string,
-    Array<{ userId: string; displayName: string; avatarUrl: string | null }>
-  >();
-  for (const m of memberRows) {
-    let members = membersMap.get(m.projectId);
-    if (!members) {
-      members = [];
-      membersMap.set(m.projectId, members);
+  const limit = Math.max(1, Math.min(100, input.limit));
+  const page = Math.max(1, input.page);
+  const offset = (page - 1) * limit;
+  const status = normalizeProjectStatus(input.status);
+  const trimmedSearch = input.search?.trim();
+
+  if (trimmedSearch) {
+    const { projectIds, totalHits } = await searchService.searchOrganizationProjects({
+      query: trimmedSearch,
+      organizationId: orgId,
+      status,
+      limit,
+      offset,
+    });
+
+    if (projectIds.length === 0) {
+      return { items: [], totalCount: totalHits };
     }
-    members.push({ userId: m.userId, displayName: m.displayName, avatarUrl: m.avatarUrl ?? null });
+
+    const conditions = [
+      eq(projects.organizationId, orgId),
+      isNull(projects.deletedAt),
+      inArray(projects.id, projectIds),
+      ...(status ? [eq(projects.status, status)] : []),
+    ];
+
+    const rows = await db
+      .select()
+      .from(projects)
+      .where(and(...conditions));
+
+    const rowById = new Map(rows.map((row) => [row.id, row]));
+    const orderedRows = projectIds
+      .map((id) => rowById.get(id))
+      .filter((row): row is typeof projects.$inferSelect => Boolean(row));
+
+    return {
+      items: await enrichProjects(orderedRows),
+      totalCount: totalHits,
+    };
   }
 
-  return base.map((p) => ({
-    ...p,
-    taskCount: taskCountMap.get(p.id) ?? 0,
-    openTaskCount: openTaskCountMap.get(p.id) ?? 0,
-    completedTaskCount: Math.max(
-      (taskCountMap.get(p.id) ?? 0) - (openTaskCountMap.get(p.id) ?? 0),
-      0,
-    ),
-    memberCount: membersMap.get(p.id)?.length ?? 0,
-    members: membersMap.get(p.id) ?? [],
-  }));
+  const conditions = [
+    eq(projects.organizationId, orgId),
+    isNull(projects.deletedAt),
+    ...(status ? [eq(projects.status, status)] : []),
+  ];
+
+  const countResult = await db
+    .select({ count: count(projects.id) })
+    .from(projects)
+    .where(and(...conditions));
+  const totalCount = Number(countResult[0]?.count ?? 0);
+
+  const rows = await db
+    .select()
+    .from(projects)
+    .where(and(...conditions))
+    .orderBy(desc(projects.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    items: await enrichProjects(rows),
+    totalCount,
+  };
 }
 
 export async function getProject(projectId: string, userId?: string): Promise<ProjectOutput> {

@@ -47,7 +47,12 @@ resetChain();
 vi.mock('@taskforge/db', () => ({
   db: { select: mockSelect },
   tasks: { id: 'tasks.id', projectId: 'tasks.projectId', deletedAt: 'tasks.deletedAt' },
-  projects: { id: 'projects.id', name: 'projects.name', deletedAt: 'projects.deletedAt' },
+  projects: {
+    id: 'projects.id',
+    organizationId: 'projects.organizationId',
+    name: 'projects.name',
+    deletedAt: 'projects.deletedAt',
+  },
   comments: { id: 'comments.id', deletedAt: 'comments.deletedAt' },
   users: { id: 'users.id', displayName: 'users.displayName' },
   workflowStatuses: { id: 'workflowStatuses.id', name: 'workflowStatuses.name' },
@@ -69,6 +74,7 @@ const {
   removeProject,
   indexComment,
   removeComment,
+  searchProjectTaskIds,
 } = await import('../search.service.js');
 
 describe('search.service', () => {
@@ -187,6 +193,27 @@ describe('search.service', () => {
       // projectId not in accessible list → empty results
       expect(result.tasks.hits).toEqual([]);
       expect(mockSearch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('searchProjectTaskIds', () => {
+    it('returns task ids from tasks index filtered by project', async () => {
+      mockSearch.mockResolvedValue({
+        hits: [{ id: 'task-1' }, { id: 'task-2' }],
+        estimatedTotalHits: 2,
+      });
+
+      const ids = await searchProjectTaskIds({
+        query: 'login',
+        projectId: 'project-1',
+      });
+
+      expect(ids).toEqual(['task-1', 'task-2']);
+      expect(mockSearch).toHaveBeenCalledWith('login', {
+        filter: 'projectId = "project-1"',
+        limit: 1000,
+        attributesToRetrieve: ['id'],
+      });
     });
   });
 

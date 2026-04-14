@@ -11,7 +11,7 @@ import type {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import * as projectService from '../../services/project.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
-import { success } from '../../utils/response.js';
+import { paginated, success } from '../../utils/response.js';
 
 function requireAuth(request: FastifyRequest): string {
   if (!request.authUser) {
@@ -34,21 +34,56 @@ export async function createProjectHandler(
 export async function listProjectsHandler(
   request: FastifyRequest<{
     Params: { orgId: string };
-    Querystring: { status?: string; search?: string };
+    Querystring: {
+      status?: string;
+      search?: string;
+      page?: string | number;
+      limit?: string | number;
+    };
   }>,
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const query = request.query as { status?: string; search?: string };
-  const projects = await projectService.listProjects(
+  const query = request.query as {
+    status?: string;
+    search?: string;
+    page?: string | number;
+    limit?: string | number;
+  };
+
+  const rawPage =
+    typeof query.page === 'number' ? query.page : Number.parseInt(`${query.page}`, 10);
+  const rawLimit =
+    typeof query.limit === 'number' ? query.limit : Number.parseInt(`${query.limit}`, 10);
+  const hasPagination = Number.isFinite(rawPage) || Number.isFinite(rawLimit);
+
+  if (!hasPagination) {
+    const projects = await projectService.listProjects(
+      request.params.orgId,
+      {
+        status: query.status,
+        search: query.search,
+      },
+      userId,
+    );
+    return reply.status(200).send(success(projects));
+  }
+
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 20;
+  const result = await projectService.listProjectsPaged(
     request.params.orgId,
     {
       status: query.status,
       search: query.search,
+      page,
+      limit,
     },
     userId,
   );
-  return reply.status(200).send(success(projects));
+
+  const hasMore = page * limit < result.totalCount;
+  return reply.status(200).send(paginated(result.items, null, hasMore, result.totalCount));
 }
 
 export async function getProjectHandler(

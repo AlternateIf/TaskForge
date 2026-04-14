@@ -119,6 +119,7 @@ vi.mock('../../../services/activity.service.js', () => ({
 vi.mock('../../../services/search.service.js', () => ({
   indexProject: vi.fn().mockResolvedValue(undefined),
   removeProject: vi.fn().mockResolvedValue(undefined),
+  searchProjectTaskIds: vi.fn().mockResolvedValue([]),
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

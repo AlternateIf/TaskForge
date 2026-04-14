@@ -22,6 +22,7 @@ import {
   deleteTaskHandler,
   getTaskHandler,
   getTaskLabelsHandler,
+  listBoardTasksHandler,
   listTasksHandler,
   removeTaskLabelHandler,
   removeWatcherHandler,
@@ -59,13 +60,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
     Querystring: {
       status?: string | string[];
       priority?: string | string[];
-      assigneeId?: string;
+      assigneeId?: string | string[];
       labelId?: string | string[];
       dueDateFrom?: string;
       dueDateTo?: string;
       search?: string;
       sort?: string;
       order?: string;
+      cursor?: string;
+      limit?: string;
     };
   }>(
     '/api/v1/projects/:projectId/tasks',
@@ -77,6 +80,32 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }),
     },
     listTasksHandler,
+  );
+
+  fastify.get<{
+    Params: { projectId: string };
+    Querystring: {
+      status?: string | string[];
+      priority?: string | string[];
+      assigneeId?: string | string[];
+      labelId?: string | string[];
+      dueDateFrom?: string;
+      dueDateTo?: string;
+      search?: string;
+      statusId?: string;
+      cursor?: string;
+      limit?: string;
+    };
+  }>(
+    '/api/v1/projects/:projectId/board-tasks',
+    {
+      preHandler: authorize({
+        resource: 'task',
+        action: 'read',
+        getProjectId: (req) => (req.params as { projectId: string }).projectId,
+      }),
+    },
+    listBoardTasksHandler,
   );
 
   fastify.get<{ Params: { id: string } }>(

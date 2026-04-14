@@ -39,7 +39,7 @@ export async function initIndexes(): Promise<void> {
   const projectsIdx = client.index(PROJECTS_INDEX);
   await projectsIdx.updateSettings({
     searchableAttributes: ['name', 'slug', 'description'],
-    filterableAttributes: ['id', 'status'],
+    filterableAttributes: ['id', 'status', 'organizationId'],
   });
 
   // Comments index
@@ -120,6 +120,7 @@ export async function indexProject(projectId: string): Promise<void> {
   const result = await db
     .select({
       id: projects.id,
+      organizationId: projects.organizationId,
       name: projects.name,
       description: projects.description,
       status: projects.status,
@@ -139,6 +140,7 @@ export async function indexProject(projectId: string): Promise<void> {
     [
       {
         id: row.id,
+        organizationId: row.organizationId,
         name: row.name,
         description: row.description,
         status: row.status,
@@ -224,6 +226,7 @@ async function reindexAllProjects(): Promise<void> {
   const projectRows = await db
     .select({
       id: projects.id,
+      organizationId: projects.organizationId,
       name: projects.name,
       description: projects.description,
       status: projects.status,
@@ -345,6 +348,93 @@ async function reindexAllComments(): Promise<void> {
     })),
     { primaryKey: 'id' },
   );
+}
+
+export interface SearchOrganizationProjectsOptions {
+  query: string;
+  organizationId: string;
+  status?: string;
+  limit: number;
+  offset: number;
+}
+
+export async function searchOrganizationProjects({
+  query,
+  organizationId,
+  status,
+  limit,
+  offset,
+}: SearchOrganizationProjectsOptions): Promise<{ projectIds: string[]; totalHits: number }> {
+  if (SHOULD_BOOTSTRAP) {
+    try {
+      await bootstrapIndexesIfNeeded();
+    } catch {
+      // Continue with whatever index state is currently available.
+    }
+  }
+
+  const filters = [`organizationId = "${organizationId}"`];
+  if (status) {
+    filters.push(`status = "${status}"`);
+  }
+
+  try {
+    const result = await client.index(PROJECTS_INDEX).search(query, {
+      filter: filters.join(' AND '),
+      limit,
+      offset,
+      attributesToRetrieve: ['id'],
+    });
+
+    const projectIds = result.hits
+      .map((hit) => (typeof hit === 'object' && hit ? (hit as { id?: unknown }).id : undefined))
+      .filter((id): id is string => typeof id === 'string');
+
+    return {
+      projectIds,
+      totalHits: result.estimatedTotalHits ?? 0,
+    };
+  } catch {
+    return { projectIds: [], totalHits: 0 };
+  }
+}
+
+export interface SearchProjectTaskIdsOptions {
+  query: string;
+  projectId: string;
+  limit?: number;
+}
+
+const PROJECT_TASK_SEARCH_MAX_HITS = 1000;
+
+export async function searchProjectTaskIds({
+  query,
+  projectId,
+  limit = PROJECT_TASK_SEARCH_MAX_HITS,
+}: SearchProjectTaskIdsOptions): Promise<string[]> {
+  if (SHOULD_BOOTSTRAP) {
+    try {
+      await bootstrapIndexesIfNeeded();
+    } catch {
+      // Continue with whatever index state is currently available.
+    }
+  }
+
+  const safeLimit = Math.max(1, Math.min(limit, PROJECT_TASK_SEARCH_MAX_HITS));
+
+  try {
+    const result = await client.index(TASKS_INDEX).search(query, {
+      filter: `projectId = "${projectId}"`,
+      limit: safeLimit,
+      attributesToRetrieve: ['id'],
+    });
+
+    return result.hits
+      .map((hit) => (typeof hit === 'object' && hit ? (hit as { id?: unknown }).id : undefined))
+      .filter((id): id is string => typeof id === 'string');
+  } catch {
+    return [];
+  }
 }
 
 // --- Global search ---

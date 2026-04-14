@@ -1,4 +1,4 @@
-import { type Project, useProjects } from '@/api/projects';
+import { type Project, useProjectsPage } from '@/api/projects';
 import { CreateProjectDialog } from '@/components/forms/create-project-dialog';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 250;
 
 type ProjectTab = 'active' | 'finished';
 
@@ -27,10 +28,6 @@ function truncateDescription(description?: string | null): string {
   const normalized = normalizeProjectDescription(description);
   if (!normalized) return 'No description';
   return normalized.length > 200 ? `${normalized.slice(0, 200)}...` : normalized;
-}
-
-function isFinishedProject(project: Project): boolean {
-  return project.status === 'archived';
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -210,7 +207,41 @@ export function ProjectsPage() {
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
   const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
   const canCreateProjects = permissionSet.has(PROJECT_CREATE_PERMISSION);
-  const { data: projects, isLoading } = useProjects();
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const trimmedSearch = debouncedSearch.trim() || undefined;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const activeProjectsQuery = useProjectsPage({
+    status: 'active',
+    search: trimmedSearch,
+    page: activePage,
+    limit: activeTab === 'active' ? PAGE_SIZE : 1,
+    enabled: canReadProjects,
+  });
+  const finishedProjectsQuery = useProjectsPage({
+    status: 'archived',
+    search: trimmedSearch,
+    page: finishedPage,
+    limit: activeTab === 'finished' ? PAGE_SIZE : 1,
+    enabled: canReadProjects,
+  });
+
+  const activeTotal = activeProjectsQuery.data?.totalCount ?? 0;
+  const finishedTotal = finishedProjectsQuery.data?.totalCount ?? 0;
+  const totalAcrossTabs = activeTotal + finishedTotal;
+
+  const currentQuery = activeTab === 'active' ? activeProjectsQuery : finishedProjectsQuery;
+  const currentProjects = currentQuery.data?.items ?? [];
+  const currentTotal = currentQuery.data?.totalCount ?? 0;
+  const currentPage = activeTab === 'active' ? activePage : finishedPage;
+  const totalPages = Math.max(1, Math.ceil(currentTotal / PAGE_SIZE));
 
   useEffect(() => {
     if (canReadProjects) return;
@@ -218,44 +249,18 @@ export function ProjectsPage() {
     void navigate({ to: '/dashboard', replace: true });
   }, [canReadProjects, navigate]);
 
+  useEffect(() => {
+    if (currentPage <= totalPages) return;
+    if (activeTab === 'active') {
+      setActivePage(totalPages);
+    } else {
+      setFinishedPage(totalPages);
+    }
+  }, [activeTab, currentPage, totalPages]);
+
   if (!canReadProjects) {
     return null;
   }
-
-  const filtered = useMemo(() => {
-    if (!projects || !search.trim()) return projects ?? [];
-    const q = search.toLowerCase();
-    return projects.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        normalizeProjectDescription(p.description).toLowerCase().includes(q),
-    );
-  }, [projects, search]);
-
-  const activeProjects = useMemo(
-    () => filtered.filter((project) => !isFinishedProject(project)),
-    [filtered],
-  );
-  const finishedProjects = useMemo(
-    () => filtered.filter((project) => isFinishedProject(project)),
-    [filtered],
-  );
-
-  const activeTotalPages = Math.max(1, Math.ceil(activeProjects.length / PAGE_SIZE));
-  const finishedTotalPages = Math.max(1, Math.ceil(finishedProjects.length / PAGE_SIZE));
-
-  const normalizedActivePage = Math.min(activePage, activeTotalPages);
-  const normalizedFinishedPage = Math.min(finishedPage, finishedTotalPages);
-
-  const pagedActiveProjects = useMemo(() => {
-    const start = (normalizedActivePage - 1) * PAGE_SIZE;
-    return activeProjects.slice(start, start + PAGE_SIZE);
-  }, [activeProjects, normalizedActivePage]);
-
-  const pagedFinishedProjects = useMemo(() => {
-    const start = (normalizedFinishedPage - 1) * PAGE_SIZE;
-    return finishedProjects.slice(start, start + PAGE_SIZE);
-  }, [finishedProjects, normalizedFinishedPage]);
 
   function handleProjectClick(projectId: string) {
     void navigate({
@@ -287,7 +292,7 @@ export function ProjectsPage() {
       </div>
 
       {/* Search */}
-      {(projects?.length ?? 0) > 0 && (
+      {(totalAcrossTabs > 0 || search.length > 0) && (
         <div className="relative mb-lg max-w-96">
           <Search className="absolute left-sm top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input
@@ -305,7 +310,7 @@ export function ProjectsPage() {
         </div>
       )}
 
-      {(projects?.length ?? 0) > 0 && (
+      {totalAcrossTabs > 0 && (
         <div
           className="mb-lg inline-flex rounded-radius-lg border border-border bg-surface-container-low p-xs"
           role="tablist"
@@ -322,7 +327,7 @@ export function ProjectsPage() {
                 : 'rounded-radius-md px-md py-xs text-secondary hover:text-foreground'
             }
           >
-            Active Projects ({activeProjects.length})
+            Active Projects ({activeTotal})
           </button>
           <button
             type="button"
@@ -335,13 +340,13 @@ export function ProjectsPage() {
                 : 'rounded-radius-md px-md py-xs text-secondary hover:text-foreground'
             }
           >
-            Finished/Closed Projects ({finishedProjects.length})
+            Finished/Closed Projects ({finishedTotal})
           </button>
         </div>
       )}
 
       {/* Grid */}
-      {isLoading ? (
+      {currentQuery.isLoading ? (
         <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }, (_unused, index) => `project-skeleton-${index + 1}`).map(
             (key) => (
@@ -349,67 +354,36 @@ export function ProjectsPage() {
             ),
           )}
         </div>
-      ) : filtered.length === 0 && projects?.length === 0 ? (
+      ) : totalAcrossTabs === 0 && !search.trim() ? (
         <EmptyProjects onCreate={() => setCreateOpen(true)} canCreate={canCreateProjects} />
-      ) : filtered.length === 0 ? (
+      ) : currentTotal === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-body text-muted">No projects match "{search}"</p>
+          <p className="text-body text-muted">
+            {activeTab === 'active'
+              ? search.trim()
+                ? 'No active projects match your search.'
+                : 'No active projects yet.'
+              : search.trim()
+                ? 'No finished projects match your search.'
+                : 'No finished projects yet.'}
+          </p>
         </div>
       ) : (
         <section aria-live="polite">
-          {activeTab === 'active' ? (
-            activeProjects.length === 0 ? (
-              <div className="py-16 text-center">
-                <p className="text-body text-muted">
-                  {search.trim()
-                    ? 'No active projects match your search.'
-                    : 'No active projects yet.'}
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
-                  {pagedActiveProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      onOpen={() => handleProjectClick(project.id)}
-                    />
-                  ))}
-                </div>
-                <SectionPagination
-                  page={normalizedActivePage}
-                  totalPages={activeTotalPages}
-                  onChange={setActivePage}
-                />
-              </>
-            )
-          ) : finishedProjects.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-body text-muted">
-                {search.trim()
-                  ? 'No finished projects match your search.'
-                  : 'No finished projects yet.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
-                {pagedFinishedProjects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onOpen={() => handleProjectClick(project.id)}
-                  />
-                ))}
-              </div>
-              <SectionPagination
-                page={normalizedFinishedPage}
-                totalPages={finishedTotalPages}
-                onChange={setFinishedPage}
+          <div className="grid grid-cols-1 gap-md md:grid-cols-2 lg:grid-cols-3">
+            {currentProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onOpen={() => handleProjectClick(project.id)}
               />
-            </>
-          )}
+            ))}
+          </div>
+          <SectionPagination
+            page={currentPage}
+            totalPages={totalPages}
+            onChange={activeTab === 'active' ? setActivePage : setFinishedPage}
+          />
         </section>
       )}
 
