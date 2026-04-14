@@ -7,6 +7,10 @@ const { mockSelect, mockInsert, mockUpdate, mockBcryptHash } = vi.hoisted(() => 
   mockBcryptHash: vi.fn(),
 }));
 
+const { mockGetAvailableProviders } = vi.hoisted(() => ({
+  mockGetAvailableProviders: vi.fn(),
+}));
+
 vi.mock('@taskforge/db', () => ({
   db: {
     select: mockSelect,
@@ -38,6 +42,7 @@ vi.mock('@taskforge/db', () => ({
     email: 'users.email',
     passwordHash: 'users.passwordHash',
     mustChangePassword: 'users.mustChangePassword',
+    deletedAt: 'users.deletedAt',
     updatedAt: 'users.updatedAt',
   },
   verificationTokens: {
@@ -65,6 +70,10 @@ vi.mock('bcrypt', () => ({
   },
 }));
 
+vi.mock('../oauth.service.js', () => ({
+  getAvailableProviders: mockGetAvailableProviders,
+}));
+
 function setupSelectLimit(result: unknown) {
   const chain = {
     from: vi.fn(),
@@ -82,6 +91,7 @@ describe('auth.service bootstrapSuperAdmin', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.unstubAllEnvs();
+    mockGetAvailableProviders.mockReturnValue([]);
   });
 
   it('throws in production when bootstrap env vars are missing', async () => {
@@ -133,5 +143,35 @@ describe('auth.service bootstrapSuperAdmin', () => {
 
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('marks requiresInitialSetup=true when invite-only and no users exist', async () => {
+    vi.stubEnv('AUTH_ALLOW_PUBLIC_REGISTER', 'false');
+    mockGetAvailableProviders.mockReturnValue([{ id: 'google' }]);
+    setupSelectLimit([]);
+
+    const authService = await import('../auth.service.js');
+    const config = await authService.getAuthConfig();
+
+    expect(config).toEqual({
+      allowPublicRegister: false,
+      enabledOAuthProviders: ['google'],
+      requiresInitialSetup: true,
+    });
+  });
+
+  it('marks requiresInitialSetup=false when at least one user exists', async () => {
+    vi.stubEnv('AUTH_ALLOW_PUBLIC_REGISTER', 'false');
+    mockGetAvailableProviders.mockReturnValue([{ id: 'github' }]);
+    setupSelectLimit([{ id: 'user-1' }]);
+
+    const authService = await import('../auth.service.js');
+    const config = await authService.getAuthConfig();
+
+    expect(config).toEqual({
+      allowPublicRegister: false,
+      enabledOAuthProviders: ['github'],
+      requiresInitialSetup: false,
+    });
   });
 });

@@ -36,6 +36,7 @@ interface AuthConfigResponse {
   data: {
     allowPublicRegister: boolean;
     enabledOAuthProviders: string[];
+    requiresInitialSetup: boolean;
   };
 }
 

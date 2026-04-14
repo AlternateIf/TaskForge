@@ -32,6 +32,15 @@ pnpm --filter @taskforge/db seed
 pnpm dev
 ```
 
+If you run invite-only auth (`AUTH_ALLOW_PUBLIC_REGISTER=false`), configure bootstrap admin credentials in `docker/env/common.env` before first start:
+
+```bash
+AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL=admin@example.com
+AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD=<strong-password>
+```
+
+In `NODE_ENV=production`, the API refuses to start until both bootstrap variables are set.
+
 Main local URLs:
 - Web: `http://localhost:5173`
 - API: `http://localhost:3000`

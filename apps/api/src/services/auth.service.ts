@@ -21,6 +21,7 @@ const SEEDED_DEV_MARKER_EMAIL = 'owner@acme.taskforge.local';
 export interface AuthConfig {
   allowPublicRegister: boolean;
   enabledOAuthProviders: string[];
+  requiresInitialSetup: boolean;
 }
 
 export interface TokenPair {
@@ -324,9 +325,16 @@ export function isPublicRegisterAllowed(): boolean {
 
 export async function getAuthConfig(): Promise<AuthConfig> {
   const { getAvailableProviders } = await import('./oauth.service.js');
+  const existingUser = (
+    await db.select({ id: users.id }).from(users).where(isNull(users.deletedAt)).limit(1)
+  )[0];
+
+  const requiresInitialSetup = !AUTH_ALLOW_PUBLIC_REGISTER && !existingUser;
+
   return {
     allowPublicRegister: AUTH_ALLOW_PUBLIC_REGISTER,
     enabledOAuthProviders: getAvailableProviders().map((provider) => provider.id),
+    requiresInitialSetup,
   };
 }
 

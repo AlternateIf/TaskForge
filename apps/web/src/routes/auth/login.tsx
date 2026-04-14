@@ -55,6 +55,19 @@ export function LoginPage() {
               <p className="mt-xs text-sm text-muted">Sign in to your account to continue</p>
             </div>
 
+            {authConfig.data?.requiresInitialSetup ? (
+              <div
+                role="alert"
+                className="rounded-radius-md border border-warning/40 bg-warning/10 p-md text-sm text-foreground"
+              >
+                Initial setup required. Public registration is disabled and no users exist yet. Set
+                <span className="font-mono"> AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL </span>
+                and
+                <span className="font-mono"> AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD </span>
+                on the API service, restart it, then sign in with the bootstrap admin account.
+              </div>
+            ) : null}
+
             {/* OAuth buttons — only rendered when providers are configured */}
             <OAuthButtons dividerLabel="or continue with email" />
 

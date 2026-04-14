@@ -32,6 +32,12 @@ cp docker/env/meilisearch.env.example docker/env/meilisearch.env
 cp docker/env/grafana.env.example docker/env/grafana.env
 ```
 
+Invite-only onboarding setup:
+
+- In `docker/env/common.env`, keep `AUTH_ALLOW_PUBLIC_REGISTER=false` to enforce invitation-only signup.
+- Set `AUTH_BOOTSTRAP_SUPER_ADMIN_EMAIL` and `AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD` before first start so an initial super admin can sign in and send invitations.
+- In `NODE_ENV=production`, API startup fails until both bootstrap variables are present.
+
 3. Start infra services:
 
 ```bash
