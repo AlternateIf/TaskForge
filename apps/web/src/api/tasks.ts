@@ -2,6 +2,7 @@ import { apiClient } from '@/api/client';
 import { dependencyKeys } from '@/api/dependencies';
 import { showErrorToast } from '@/lib/error-toast';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { BulkAction } from '@taskforge/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -438,12 +439,8 @@ function isTaskArray(value: unknown): value is Task[] {
   if (!Array.isArray(value)) return false;
   if (value.length === 0) return true;
   const first = value[0];
-  return (
-    typeof first === 'object' &&
-    first !== null &&
-    'id' in first &&
-    typeof (first as { id?: unknown }).id === 'string'
-  );
+  if (typeof first !== 'object' || first === null) return false;
+  return typeof (first as Record<string, unknown>).id === 'string';
 }
 
 function isBoardColumnsData(value: unknown): value is BoardColumnsData {
@@ -607,11 +604,33 @@ export interface BulkUpdatePayload {
   projectId: string;
 }
 
+type SupportedBulkUpdateAction = Extract<BulkAction, 'updateStatus' | 'assign' | 'updatePriority'>;
+
+function resolveBulkUpdateAction(data: BulkUpdatePayload['data']): SupportedBulkUpdateAction {
+  const hasStatusId = typeof data.statusId === 'string' && data.statusId.length > 0;
+  const hasPriority = data.priority !== undefined;
+  const hasAssigneeId = Object.hasOwn(data, 'assigneeId');
+
+  const matchedActions = [
+    hasStatusId ? 'updateStatus' : null,
+    hasPriority ? 'updatePriority' : null,
+    hasAssigneeId ? 'assign' : null,
+  ].filter((action): action is SupportedBulkUpdateAction => action !== null);
+
+  if (matchedActions.length !== 1) {
+    throw new Error('Bulk update payload must specify exactly one supported update field.');
+  }
+
+  return matchedActions[0];
+}
+
 export function useBulkUpdateTasks() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ ids, data }: BulkUpdatePayload) =>
-      apiClient.post('/tasks/bulk', { action: 'update', ids, data }),
+    mutationFn: ({ ids, data }: BulkUpdatePayload) => {
+      const action = resolveBulkUpdateAction(data);
+      return apiClient.post('/tasks/bulk', { action, ids, data });
+    },
     onSuccess: (_data, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(projectId) });
     },
