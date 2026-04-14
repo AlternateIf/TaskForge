@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { type VariantProps, cva } from 'class-variance-authority';
 import { User } from 'lucide-react';
-import { type ImgHTMLAttributes, forwardRef, useState } from 'react';
+import { type ImgHTMLAttributes, forwardRef, useEffect, useRef, useState } from 'react';
 
 const AVATAR_COLORS = [
   '#2563EB',
@@ -17,6 +17,20 @@ const AVATAR_COLORS = [
   '#4F46E5',
   '#9333EA',
 ] as const;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function resolveAvatarSrc(src?: string | null, userId?: string): string | null {
+  const normalizedSrc = src?.trim();
+  if (normalizedSrc) {
+    return normalizedSrc;
+  }
+
+  if (userId && UUID_PATTERN.test(userId)) {
+    return `/api/v1/users/avatars/${userId}`;
+  }
+
+  return null;
+}
 
 function getAvatarColor(userId: string): string {
   let hash = 0;
@@ -64,13 +78,22 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
   ({ className, src, name, userId = '', size, showPresence, ...props }, ref) => {
     const [imgError, setImgError] = useState(false);
     const bgColor = getAvatarColor(userId);
+    const resolvedSrc = resolveAvatarSrc(src, userId);
+    const previousResolvedSrcRef = useRef<string | null>(resolvedSrc);
+
+    useEffect(() => {
+      if (previousResolvedSrcRef.current !== resolvedSrc) {
+        setImgError(false);
+        previousResolvedSrcRef.current = resolvedSrc;
+      }
+    }, [resolvedSrc]);
 
     return (
       <div ref={ref} className={cn(avatarVariants({ size }), className)}>
-        {src && !imgError ? (
+        {resolvedSrc && !imgError ? (
           // biome-ignore lint/a11y/useAltText: alt is provided dynamically via name prop
           <img
-            src={src}
+            src={resolvedSrc}
             alt={name || 'User avatar'}
             className="size-full object-cover"
             loading="lazy"
@@ -99,5 +122,5 @@ const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
 );
 Avatar.displayName = 'Avatar';
 
-export { Avatar, getAvatarColor, getInitials };
+export { Avatar, getAvatarColor, getInitials, resolveAvatarSrc };
 export type { AvatarProps };

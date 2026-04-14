@@ -1,4 +1,4 @@
-import { getAvatarColor, getInitials } from '@/components/ui/avatar';
+import { getAvatarColor, getInitials, resolveAvatarSrc } from '@/components/ui/avatar';
 import { describe, expect, it } from 'vitest';
 
 describe('getInitials', () => {
@@ -37,5 +37,22 @@ describe('getAvatarColor', () => {
   it('returns a valid hex color', () => {
     const color = getAvatarColor('test');
     expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+});
+
+describe('resolveAvatarSrc', () => {
+  it('returns explicit src when provided', () => {
+    expect(resolveAvatarSrc('https://img.example.com/user.png', 'user-id')).toBe(
+      'https://img.example.com/user.png',
+    );
+  });
+
+  it('derives a user avatar URL from UUID userId when src is missing', () => {
+    const userId = '00000000-0000-4000-8000-000000000001';
+    expect(resolveAvatarSrc(undefined, userId)).toBe(`/api/v1/users/avatars/${userId}`);
+  });
+
+  it('does not derive avatar URL for non-UUID userId when src is missing', () => {
+    expect(resolveAvatarSrc(undefined, 'sp-1')).toBeNull();
   });
 });
