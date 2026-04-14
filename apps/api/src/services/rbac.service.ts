@@ -7,7 +7,7 @@ import {
   roleAssignments,
   roles,
 } from '@taskforge/db';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
 import { hasOrgPermission, loadPermissionContext } from './permission.service.js';
@@ -95,28 +95,21 @@ async function logRbacAudit(args: {
   });
 }
 
-export async function listRoles(organizationId?: string, userId?: string) {
+async function assertCanReadRoles(organizationId?: string, userId?: string): Promise<void> {
   // Defense-in-depth: if userId and organizationId are provided, verify read permission
-  if (userId && organizationId) {
-    const canRead = await hasOrgPermission(userId, organizationId, 'role', 'read');
-    if (!canRead) {
-      throw new AppError(
-        403,
-        ErrorCode.FORBIDDEN,
-        'Insufficient permissions to list roles in this organization',
-      );
-    }
-  }
+  if (!userId || !organizationId) return;
 
-  const roleRows = await db
-    .select()
-    .from(roles)
-    .where(
-      organizationId === undefined
-        ? isNull(roles.organizationId)
-        : eq(roles.organizationId, organizationId),
+  const canRead = await hasOrgPermission(userId, organizationId, 'role', 'read');
+  if (!canRead) {
+    throw new AppError(
+      403,
+      ErrorCode.FORBIDDEN,
+      'Insufficient permissions to list roles in this organization',
     );
+  }
+}
 
+async function withRolePermissions(roleRows: Array<typeof roles.$inferSelect>) {
   if (roleRows.length === 0) {
     return [];
   }
@@ -149,6 +142,63 @@ export async function listRoles(organizationId?: string, userId?: string) {
     ...role,
     permissions: (permissionsByRoleId.get(role.id) ?? []).sort((a, b) => a.localeCompare(b)),
   }));
+}
+
+export async function listRoles(organizationId?: string, userId?: string) {
+  await assertCanReadRoles(organizationId, userId);
+
+  const scopeCondition =
+    organizationId === undefined
+      ? isNull(roles.organizationId)
+      : eq(roles.organizationId, organizationId);
+  const roleRows = await db.select().from(roles).where(scopeCondition).orderBy(asc(roles.name));
+  return withRolePermissions(roleRows);
+}
+
+export interface ListRolesPagedInput {
+  page: number;
+  limit: number;
+}
+
+export interface ListRolesPagedOutput {
+  items: Array<
+    typeof roles.$inferSelect & {
+      permissions: string[];
+    }
+  >;
+  totalCount: number;
+}
+
+export async function listRolesPaged(
+  organizationId: string,
+  input: ListRolesPagedInput,
+  userId?: string,
+): Promise<ListRolesPagedOutput> {
+  await assertCanReadRoles(organizationId, userId);
+
+  const limit = Math.max(1, Math.min(100, input.limit));
+  const page = Math.max(1, input.page);
+  const offset = (page - 1) * limit;
+  const scopeCondition = eq(roles.organizationId, organizationId);
+
+  const [countResult, roleRows] = await Promise.all([
+    db
+      .select({ count: count(roles.id) })
+      .from(roles)
+      .where(scopeCondition),
+    db
+      .select()
+      .from(roles)
+      .where(scopeCondition)
+      .orderBy(asc(roles.name))
+      .limit(limit)
+      .offset(offset),
+  ]);
+
+  return {
+    items: await withRolePermissions(roleRows),
+    totalCount: Number(countResult[0]?.count ?? 0),
+  };
 }
 
 export async function createRole(

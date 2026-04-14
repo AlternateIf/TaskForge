@@ -92,6 +92,7 @@ vi.mock('drizzle-orm', () => ({
   inArray: vi.fn((a, b) => ({ _type: 'inArray', left: a, right: b })),
   isNull: vi.fn((a) => ({ _type: 'isNull', arg: a })),
   count: vi.fn(() => ({ _type: 'count' })),
+  desc: vi.fn((a) => ({ _type: 'desc', arg: a })),
 }));
 
 vi.mock('../permission.service.js', () => ({
@@ -123,38 +124,42 @@ function setupSelect(resolvedRows: unknown[]) {
   const chain: Record<string, ReturnType<typeof vi.fn>> = {
     from: vi.fn(),
     where: vi.fn(),
+    orderBy: vi.fn(),
     limit: vi.fn(),
+    offset: vi.fn(),
     leftJoin: vi.fn(),
     innerJoin: vi.fn(),
     groupBy: vi.fn(),
   };
   mockSelect.mockReturnValueOnce(chain);
   chain.from.mockReturnValue(chain);
-  // Make 'where' return a thenable chain object — it acts as both
-  // a chainable (for .where().limit()) and a thenable (for queries
-  // that don't call .limit() after .where()).
-  chain.where.mockImplementation(() => {
-    // Create a thenable chain — it can be awaited (for queries ending in .where())
-    // or chained (for queries continuing with .limit()).
-    const thenable = Object.assign(() => {}, chain) as unknown as Record<
-      string,
-      ReturnType<typeof vi.fn>
-    > & {
+
+  const createThenableChain = () => {
+    const thenable = Object.assign({}, chain) as Record<string, ReturnType<typeof vi.fn>> & {
       then: (resolve: (value: unknown) => unknown) => Promise<unknown>;
     };
-    // biome-ignore lint/suspicious/noThenProperty: test mock needs to be thenable for DB queries ending in .where()
+    // biome-ignore lint/suspicious/noThenProperty: test mock needs to be thenable for DB queries ending at arbitrary chain steps
     thenable.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve(resolvedRows).then(resolve);
     return thenable;
-  });
-  chain.limit.mockResolvedValueOnce(resolvedRows);
+  };
+
+  // Make 'where' return a thenable chain object — it acts as both
+  // a chainable (for .where().limit()) and a thenable (for queries
+  // that don't call .limit() after .where()).
+  chain.where.mockImplementation(() => createThenableChain());
+  chain.orderBy.mockImplementation(() => createThenableChain());
+  chain.limit.mockImplementation(() => createThenableChain());
+  chain.offset.mockImplementation(() => createThenableChain());
   chain.leftJoin.mockReturnValue(chain as unknown as ReturnType<typeof vi.fn>);
   chain.innerJoin.mockReturnValue(chain as unknown as ReturnType<typeof vi.fn>);
-  chain.groupBy.mockResolvedValueOnce(resolvedRows);
+  chain.groupBy.mockImplementation(() => createThenableChain());
   return chain as unknown as {
     from: ReturnType<typeof vi.fn>;
     where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
+    offset: ReturnType<typeof vi.fn>;
     leftJoin: ReturnType<typeof vi.fn>;
     innerJoin: ReturnType<typeof vi.fn>;
     groupBy: ReturnType<typeof vi.fn>;

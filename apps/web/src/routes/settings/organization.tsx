@@ -15,14 +15,15 @@ import {
   useResendInvitation,
   useRevokeInvitation,
   useRoleAssignments,
-  useRoles,
+  useRolesPage,
   useSentInvitations,
   useUpdateOrganization,
   useUpdateOrganizationAuthSettings,
   useUpdateRole,
   useUploadOrganizationLogo,
 } from '@/api/governance';
-import { useOrgMembers, useRemoveOrgMember } from '@/api/organizations';
+import { useOrgMembersPage, useRemoveOrgMember } from '@/api/organizations';
+import { PickerPopover } from '@/components/data/task-inline-editors';
 import { Avatar, getAvatarColor, getInitials } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,15 @@ import {
   UserMinus,
   Users,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 
 const ORG_INFO_READ_PERMISSION = ORGANIZATION_READ_PERMISSION;
@@ -83,6 +92,8 @@ const INVITE_UPDATE_PERMISSION = INVITATION_UPDATE_PERMISSION;
 const INVITE_DELETE_PERMISSION = INVITATION_DELETE_PERMISSION;
 const ROLE_PERMISSION_PREVIEW_COUNT = 4;
 const DIRECT_PERMISSION_PREVIEW_COUNT = 4;
+const MEMBERS_PAGE_SIZE = 10;
+const ROLES_PAGE_SIZE = 5;
 const MAX_LOGO_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_LOGO_MIME_TYPES = new Set([
   'image/png',
@@ -167,6 +178,49 @@ function SectionCard({
   );
 }
 
+function SectionPagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (next: number) => void;
+}) {
+  const pageNumbers = Array.from({ length: totalPages }, (_unused, index) => index + 1);
+
+  return (
+    <div className="mt-md flex flex-wrap items-center justify-between gap-sm">
+      <span className="text-label text-secondary" aria-live="polite">
+        Page {page} of {totalPages}
+      </span>
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-xs">
+        <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+          Prev
+        </Button>
+        {pageNumbers.map((pageNumber) => (
+          <Button
+            key={pageNumber}
+            variant={pageNumber === page ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => onChange(pageNumber)}
+          >
+            {pageNumber}
+          </Button>
+        ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={page >= totalPages}
+          onClick={() => onChange(page + 1)}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function collectMemberRoleNames(
   memberUserId: string,
   roleAssignments: RoleAssignmentRow[],
@@ -187,6 +241,120 @@ function collectDirectPermissions(
     .filter((assignment) => assignment.userId === memberUserId)
     .map((assignment) => assignment.permissionKey)
     .sort((a, b) => a.localeCompare(b));
+}
+
+const INLINE_SELECT_SEARCH_DEBOUNCE_MS = 250;
+
+interface InlineSearchOption {
+  value: string;
+  label: string;
+  subLabel?: string;
+  keywords?: string;
+}
+
+function InlineSearchSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+  emptyText,
+  disabled,
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+  options: InlineSearchOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim().toLowerCase());
+    }, INLINE_SELECT_SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  const selected = options.find((option) => option.value === value);
+  const filtered = useMemo(() => {
+    if (!debouncedSearch) return options;
+    return options.filter((option) => {
+      const haystack =
+        `${option.label} ${option.subLabel ?? ''} ${option.keywords ?? ''}`.toLowerCase();
+      return haystack.includes(debouncedSearch);
+    });
+  }, [debouncedSearch, options]);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setSearch('');
+    setDebouncedSearch('');
+  }, []);
+
+  return (
+    <PickerPopover
+      open={open}
+      onClose={close}
+      className="w-80 max-w-[min(24rem,calc(100vw-2rem))] p-xs"
+      trigger={
+        <button
+          type="button"
+          className="inline-flex h-9 w-80 max-w-full items-center justify-between rounded-md border border-border bg-surface-container-lowest px-3 text-left text-sm text-foreground transition-colors hover:border-brand-primary disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen((current) => !current);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+          <ChevronDown className="size-3 shrink-0 text-muted" />
+        </button>
+      }
+    >
+      <div className="pb-xs">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={searchPlaceholder}
+          // biome-ignore lint/a11y/noAutofocus: intended inline-search UX
+          autoFocus
+          className="h-8 w-full rounded-md border border-border bg-surface-container-high px-sm text-body text-foreground placeholder:text-muted focus:outline-2 focus:outline-ring"
+        />
+      </div>
+      <div className="max-h-56 overflow-y-auto">
+        {filtered.length > 0 ? (
+          filtered.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="flex w-full flex-col items-start rounded-radius-md px-sm py-xs text-left text-body transition-colors hover:bg-surface-container-low"
+              onClick={() => {
+                onChange(option.value);
+                close();
+              }}
+            >
+              <span className="line-clamp-1 text-foreground">{option.label}</span>
+              {option.subLabel ? (
+                <span className="line-clamp-1 text-label text-muted">{option.subLabel}</span>
+              ) : null}
+            </button>
+          ))
+        ) : (
+          <p className="px-sm py-xs text-label text-muted">{emptyText}</p>
+        )}
+      </div>
+    </PickerPopover>
+  );
 }
 
 function formatInviteDate(value: string): string {
@@ -281,10 +449,20 @@ export function OrganizationSettingsPage() {
   const orgIdForPermissionAssignments = canLoadPermissionAssignments ? activeOrganizationId : null;
   const orgIdForPermissionMatrix = canLoadPermissionMatrix ? activeOrganizationId : null;
 
+  const [membersPage, setMembersPage] = useState(1);
+  const [rolesPage, setRolesPage] = useState(1);
+
   const organization = useOrganization(orgIdForOrgInfo);
   const authSettings = useOrganizationAuthSettings(orgIdForOrgInfo);
-  const members = useOrgMembers(orgIdForMembers);
-  const roles = useRoles(orgIdForRoles);
+  const members = useOrgMembersPage(orgIdForMembers, {
+    page: membersPage,
+    limit: MEMBERS_PAGE_SIZE,
+  });
+  const roles = useRolesPage(orgIdForRoles, {
+    page: rolesPage,
+    limit: ROLES_PAGE_SIZE,
+    enabled: canLoadRoles,
+  });
   const invitations = useSentInvitations(orgIdForInvites);
   const roleAssignments = useRoleAssignments(orgIdForRoleAssignments);
   const permissionAssignments = usePermissionAssignments(orgIdForPermissionAssignments);
@@ -327,12 +505,30 @@ export function OrganizationSettingsPage() {
   const [confirmDeleteOrganization, setConfirmDeleteOrganization] = useState(false);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
 
+  const memberRows = members.data?.items ?? [];
+  const roleRows = roles.data?.items ?? [];
+  const memberTotalCount = members.data?.totalCount ?? 0;
+  const roleTotalCount = roles.data?.totalCount ?? 0;
+  const memberTotalPages = Math.max(1, Math.ceil(memberTotalCount / MEMBERS_PAGE_SIZE));
+  const roleTotalPages = Math.max(1, Math.ceil(roleTotalCount / ROLES_PAGE_SIZE));
+
   useEffect(() => {
     if (!canSeeGovernance) {
       toast.error('You do not have organization governance access.');
       void navigate({ to: '/dashboard', replace: true });
     }
   }, [canSeeGovernance, navigate]);
+
+  useEffect(() => {
+    if (!activeOrganizationId) {
+      setMembersPage(1);
+      setRolesPage(1);
+      return;
+    }
+
+    setMembersPage(1);
+    setRolesPage(1);
+  }, [activeOrganizationId]);
 
   useEffect(() => {
     if (typeof organization.data?.name === 'string') {
@@ -349,11 +545,23 @@ export function OrganizationSettingsPage() {
 
   useEffect(() => {
     if (!memberRemoveConfirmId) return;
-    const exists = (members.data ?? []).some((member) => member.id === memberRemoveConfirmId);
+    const exists = memberRows.some((member) => member.id === memberRemoveConfirmId);
     if (!exists) {
       setMemberRemoveConfirmId(null);
     }
-  }, [memberRemoveConfirmId, members.data]);
+  }, [memberRemoveConfirmId, memberRows]);
+
+  useEffect(() => {
+    if (!members.data || members.isLoading || members.isFetching) return;
+    if (membersPage <= memberTotalPages) return;
+    setMembersPage(memberTotalPages);
+  }, [members.data, members.isFetching, members.isLoading, membersPage, memberTotalPages]);
+
+  useEffect(() => {
+    if (!roles.data || roles.isLoading || roles.isFetching) return;
+    if (rolesPage <= roleTotalPages) return;
+    setRolesPage(roleTotalPages);
+  }, [roleTotalPages, roles.data, roles.isFetching, roles.isLoading, rolesPage]);
 
   const availablePermissionKeys = useMemo(() => {
     const fromUser = (user?.permissions ?? []).filter((key) => key.endsWith('.org'));
@@ -377,7 +585,6 @@ export function OrganizationSettingsPage() {
   );
 
   useEffect(() => {
-    const roleRows = roles.data ?? [];
     if (roleRows.length === 0) return;
     setRolePermissionHintsByRoleId((current) => {
       const next = { ...current };
@@ -388,7 +595,7 @@ export function OrganizationSettingsPage() {
       }
       return next;
     });
-  }, [roles.data]);
+  }, [roleRows]);
 
   useEffect(() => {
     if (!permissionKey) return;
@@ -403,7 +610,7 @@ export function OrganizationSettingsPage() {
       map.set(role.id, role.permissions);
     }
 
-    for (const role of roles.data ?? []) {
+    for (const role of roleRows) {
       if (map.has(role.id)) continue;
       if (role.permissions && role.permissions.length > 0) {
         map.set(role.id, role.permissions);
@@ -413,10 +620,10 @@ export function OrganizationSettingsPage() {
     }
 
     return map;
-  }, [permissionMatrix.data?.roles, roles.data]);
+  }, [permissionMatrix.data?.roles, roleRows]);
 
   const selectedMember =
-    members.data?.find((member) => member.userId === selectedMemberUserId) ?? null;
+    memberRows.find((member) => member.userId === selectedMemberUserId) ?? null;
   const selectedMemberRoleDetails = useMemo(() => {
     if (!selectedMemberUserId) return [];
     const selectedRoleIds = new Set(
@@ -425,7 +632,7 @@ export function OrganizationSettingsPage() {
         .map((assignment) => assignment.roleId),
     );
 
-    return (roles.data ?? [])
+    return roleRows
       .filter((role) => selectedRoleIds.has(role.id))
       .map((role) => ({
         roleId: role.id,
@@ -440,7 +647,7 @@ export function OrganizationSettingsPage() {
     roleAssignments.data,
     rolePermissionHintsByRoleId,
     rolePermissionsByRoleId,
-    roles.data,
+    roleRows,
     selectedMemberUserId,
   ]);
   const selectedMemberDirectPermissions = selectedMemberUserId
@@ -752,13 +959,13 @@ export function OrganizationSettingsPage() {
           <SectionCard title="Members" icon={<Users className="size-4" />}>
             {members.isLoading ? (
               <p className="text-body text-secondary">Loading members…</p>
-            ) : members.data && members.data.length > 0 ? (
+            ) : memberRows.length > 0 ? (
               <div className="space-y-sm">
-                {members.data.map((member) => {
+                {memberRows.map((member) => {
                   const roleNames = collectMemberRoleNames(
                     member.userId,
                     roleAssignments.data ?? [],
-                    roles.data ?? [],
+                    roleRows,
                   );
 
                   return (
@@ -815,6 +1022,13 @@ export function OrganizationSettingsPage() {
                     </div>
                   );
                 })}
+                {memberTotalPages > 1 ? (
+                  <SectionPagination
+                    page={membersPage}
+                    totalPages={memberTotalPages}
+                    onChange={setMembersPage}
+                  />
+                ) : null}
               </div>
             ) : (
               <p className="text-body text-secondary">No members found.</p>
@@ -954,44 +1168,49 @@ export function OrganizationSettingsPage() {
             <div className="rounded-lg border border-border/30 p-3">
               <p className="mb-2 text-small font-semibold text-foreground">Assign role to member</p>
               {canManageRoleAssignments && canViewMembers ? (
-                <form
-                  className="grid gap-sm lg:grid-cols-4"
-                  onSubmit={(event) => void handleAssignRole(event)}
-                >
-                  <select
-                    className="h-9 rounded-md border border-border bg-surface-container-lowest px-3 text-sm text-foreground"
-                    value={memberForRole}
-                    onChange={(event) => setMemberForRole(event.target.value)}
-                    required
+                <div className="space-y-2">
+                  <form
+                    className="flex flex-wrap items-start gap-sm"
+                    onSubmit={(event) => void handleAssignRole(event)}
                   >
-                    <option value="">Select member</option>
-                    {(members.data ?? []).map((member) => (
-                      <option key={member.id} value={member.userId}>
-                        {member.displayName}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="h-9 rounded-md border border-border bg-surface-container-lowest px-3 text-sm text-foreground"
-                    value={roleForAssignment}
-                    onChange={(event) => setRoleForAssignment(event.target.value)}
-                    required
-                  >
-                    <option value="">Select role</option>
-                    {(roles.data ?? []).map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="submit"
-                    loading={createRoleAssignment.isPending}
-                    disabled={!memberForRole || !roleForAssignment}
-                  >
-                    Assign role
-                  </Button>
-                </form>
+                    <InlineSearchSelect
+                      value={memberForRole}
+                      onChange={setMemberForRole}
+                      options={memberRows.map((member) => ({
+                        value: member.userId,
+                        label: member.displayName,
+                        subLabel: member.email,
+                        keywords: member.userId,
+                      }))}
+                      placeholder="Select member"
+                      searchPlaceholder="Search shown members..."
+                      emptyText="No matching members on this page."
+                    />
+                    <InlineSearchSelect
+                      value={roleForAssignment}
+                      onChange={setRoleForAssignment}
+                      options={roleRows.map((role) => ({
+                        value: role.id,
+                        label: role.name,
+                      }))}
+                      placeholder="Select role"
+                      searchPlaceholder="Search shown roles..."
+                      emptyText="No matching roles on this page."
+                    />
+                    <Button
+                      type="submit"
+                      loading={createRoleAssignment.isPending}
+                      disabled={!memberForRole || !roleForAssignment}
+                      className="self-start"
+                    >
+                      Assign role
+                    </Button>
+                  </form>
+                  <p className="text-small text-muted">
+                    Showing {memberRows.length} of {memberTotalCount} members and {roleRows.length}{' '}
+                    of {roleTotalCount} roles on this page... use section pagination to access more.
+                  </p>
+                </div>
               ) : canManageRoleAssignments ? (
                 <p className="text-small text-muted">
                   Member assignment requires membership.read.org to select members.
@@ -1006,48 +1225,55 @@ export function OrganizationSettingsPage() {
                 Assign direct permission
               </p>
               {canEditPermissions && canViewMembers ? (
-                <form
-                  className="grid gap-sm lg:grid-cols-4"
-                  onSubmit={(event) => void handleAssignPermission(event)}
-                >
-                  <select
-                    className="h-9 rounded-md border border-border bg-surface-container-lowest px-3 text-sm text-foreground"
-                    value={memberForPermission}
-                    onChange={(event) => setMemberForPermission(event.target.value)}
-                    required
+                <div className="space-y-2">
+                  <form
+                    className="flex flex-wrap items-start gap-sm"
+                    onSubmit={(event) => void handleAssignPermission(event)}
                   >
-                    <option value="">Select member</option>
-                    {(members.data ?? []).map((member) => (
-                      <option key={member.id} value={member.userId}>
-                        {member.displayName}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="h-9 rounded-md border border-border bg-surface-container-lowest px-3 text-sm text-foreground"
-                    value={permissionKey}
-                    onChange={(event) => setPermissionKey(event.target.value)}
-                    required
-                    disabled={
-                      !memberForPermission ||
-                      availableDirectPermissionKeysForSelectedMember.length === 0
-                    }
-                  >
-                    <option value="">Select direct permission</option>
-                    {availableDirectPermissionKeysForSelectedMember.map((key) => (
-                      <option key={key} value={key}>
-                        {key}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="submit"
-                    loading={createPermissionAssignment.isPending}
-                    disabled={!memberForPermission || !permissionKey}
-                  >
-                    Add Permission
-                  </Button>
-                </form>
+                    <InlineSearchSelect
+                      value={memberForPermission}
+                      onChange={setMemberForPermission}
+                      options={memberRows.map((member) => ({
+                        value: member.userId,
+                        label: member.displayName,
+                        subLabel: member.email,
+                        keywords: member.userId,
+                      }))}
+                      placeholder="Select member"
+                      searchPlaceholder="Search shown members..."
+                      emptyText="No matching members on this page."
+                    />
+                    <select
+                      className="h-9 w-80 max-w-full rounded-md border border-border bg-surface-container-lowest px-3 text-sm text-foreground"
+                      value={permissionKey}
+                      onChange={(event) => setPermissionKey(event.target.value)}
+                      required
+                      disabled={
+                        !memberForPermission ||
+                        availableDirectPermissionKeysForSelectedMember.length === 0
+                      }
+                    >
+                      <option value="">Select direct permission</option>
+                      {availableDirectPermissionKeysForSelectedMember.map((key) => (
+                        <option key={key} value={key}>
+                          {key}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="submit"
+                      loading={createPermissionAssignment.isPending}
+                      disabled={!memberForPermission || !permissionKey}
+                      className="self-start"
+                    >
+                      Add Permission
+                    </Button>
+                  </form>
+                  <p className="text-small text-muted">
+                    Showing {memberRows.length} of {memberTotalCount} members on this page... use
+                    Members pagination to access more.
+                  </p>
+                </div>
               ) : canEditPermissions ? (
                 <p className="text-small text-muted">
                   Direct permission assignment requires membership.read.org to select members.
@@ -1076,9 +1302,9 @@ export function OrganizationSettingsPage() {
               </p>
             ) : roles.isLoading ? (
               <p className="text-body text-secondary">Loading roles…</p>
-            ) : roles.data && roles.data.length > 0 ? (
+            ) : roleRows.length > 0 ? (
               <div className="space-y-sm">
-                {roles.data.map((role) => {
+                {roleRows.map((role) => {
                   const assignmentsForRole = (roleAssignments.data ?? []).filter(
                     (assignment) => assignment.roleId === role.id,
                   );
@@ -1186,6 +1412,13 @@ export function OrganizationSettingsPage() {
                     </div>
                   );
                 })}
+                {roleTotalPages > 1 ? (
+                  <SectionPagination
+                    page={rolesPage}
+                    totalPages={roleTotalPages}
+                    onChange={setRolesPage}
+                  />
+                ) : null}
               </div>
             ) : (
               <p className="text-body text-secondary">No roles found.</p>

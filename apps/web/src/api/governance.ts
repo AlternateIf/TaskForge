@@ -1,9 +1,13 @@
 import { apiClient, queryClient } from '@/api/client';
 import { showErrorToast } from '@/lib/error-toast';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 
 interface ApiEnvelope<T> {
   data: T;
+  meta?: {
+    hasMore?: boolean;
+    totalCount?: number;
+  };
 }
 
 export interface InvitationRow {
@@ -67,6 +71,14 @@ export interface PermissionMatrixResponse {
   roles: PermissionMatrixRole[];
 }
 
+export interface RolesPageResult {
+  items: RoleRow[];
+  totalCount: number;
+  hasMore: boolean;
+  page: number;
+  limit: number;
+}
+
 interface RolePermissionInput {
   resource: string;
   action: string;
@@ -122,6 +134,8 @@ export const governanceKeys = {
   organization: (orgId: string) => ['governance', orgId, 'organization'] as const,
   authSettings: (orgId: string) => ['governance', orgId, 'auth-settings'] as const,
   roles: (orgId: string) => ['governance', orgId, 'roles'] as const,
+  rolesPaged: (orgId: string, params: { page: number; limit: number }) =>
+    ['governance', orgId, 'roles', 'paged', params] as const,
   roleAssignments: (orgId: string) => ['governance', orgId, 'role-assignments'] as const,
   permissionAssignments: (orgId: string) =>
     ['governance', orgId, 'permission-assignments'] as const,
@@ -300,6 +314,36 @@ export function useRoles(orgId: string | null) {
         .get<ApiEnvelope<RoleRow[]>>(`/organizations/${orgId}/roles`)
         .then((res) => res.data),
     enabled: Boolean(orgId),
+  });
+}
+
+export function useRolesPage(
+  orgId: string | null,
+  options: { page: number; limit: number; enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: governanceKeys.rolesPaged(orgId ?? '', {
+      page: options.page,
+      limit: options.limit,
+    }),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('page', `${options.page}`);
+      params.set('limit', `${options.limit}`);
+
+      const response = await apiClient.get<ApiEnvelope<RoleRow[]>>(
+        `/organizations/${orgId}/roles?${params.toString()}`,
+      );
+      return {
+        items: response.data,
+        totalCount: response.meta?.totalCount ?? response.data.length,
+        hasMore: response.meta?.hasMore ?? false,
+        page: options.page,
+        limit: options.limit,
+      } satisfies RolesPageResult;
+    },
+    placeholderData: keepPreviousData,
+    enabled: Boolean(orgId && (options.enabled ?? true)),
   });
 }
 

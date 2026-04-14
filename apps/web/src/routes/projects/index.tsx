@@ -250,13 +250,21 @@ export function ProjectsPage() {
   }, [canReadProjects, navigate]);
 
   useEffect(() => {
+    if (!currentQuery.data || currentQuery.isLoading || currentQuery.isFetching) return;
     if (currentPage <= totalPages) return;
     if (activeTab === 'active') {
       setActivePage(totalPages);
     } else {
       setFinishedPage(totalPages);
     }
-  }, [activeTab, currentPage, totalPages]);
+  }, [
+    activeTab,
+    currentPage,
+    currentQuery.data,
+    currentQuery.isFetching,
+    currentQuery.isLoading,
+    totalPages,
+  ]);
 
   if (!canReadProjects) {
     return null;

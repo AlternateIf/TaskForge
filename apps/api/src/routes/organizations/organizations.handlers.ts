@@ -12,7 +12,7 @@ import * as orgService from '../../services/organization.service.js';
 import { getPermissionMatrix } from '../../services/permission-matrix.service.js';
 import { getEffectivePermissions } from '../../services/permission.service.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
-import { success } from '../../utils/response.js';
+import { paginated, success } from '../../utils/response.js';
 
 function requireAuth(request: FastifyRequest): string {
   if (!request.authUser) {
@@ -64,12 +64,36 @@ export async function deleteOrganizationHandler(
 }
 
 export async function listMembersHandler(
-  request: FastifyRequest<{ Params: { id: string } }>,
+  request: FastifyRequest<{
+    Params: { id: string };
+    Querystring: {
+      page?: string | number;
+      limit?: string | number;
+    };
+  }>,
   reply: FastifyReply,
 ) {
   const userId = requireAuth(request);
-  const members = await orgService.listMembers(request.params.id, userId);
-  return reply.status(200).send(success(members));
+  const query = request.query as {
+    page?: string | number;
+    limit?: string | number;
+  };
+  const rawPage =
+    typeof query.page === 'number' ? query.page : Number.parseInt(`${query.page}`, 10);
+  const rawLimit =
+    typeof query.limit === 'number' ? query.limit : Number.parseInt(`${query.limit}`, 10);
+  const hasPagination = Number.isFinite(rawPage) || Number.isFinite(rawLimit);
+
+  if (!hasPagination) {
+    const members = await orgService.listMembers(request.params.id, userId);
+    return reply.status(200).send(success(members));
+  }
+
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.floor(rawLimit) : 20;
+  const result = await orgService.listMembersPaged(request.params.id, userId, { page, limit });
+  const hasMore = page * limit < result.totalCount;
+  return reply.status(200).send(paginated(result.items, null, hasMore, result.totalCount));
 }
 
 export async function updateMemberRoleHandler(

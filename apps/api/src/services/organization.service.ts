@@ -14,7 +14,7 @@ import {
   users,
 } from '@taskforge/db';
 import type { MemberOutput, OrganizationOutput, UpdateOrganizationInput } from '@taskforge/shared';
-import { and, count, eq, inArray, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
@@ -423,7 +423,27 @@ export async function getOrganizationLogoFilePath(
   };
 }
 
-export async function listMembers(orgId: string, userId: string): Promise<MemberOutput[]> {
+function toMemberOutput(row: {
+  id: string;
+  userId: string;
+  roleId: string | null;
+  joinedAt: Date;
+  email: string;
+  displayName: string;
+  roleName: string | null;
+}): MemberOutput {
+  return {
+    id: row.id,
+    userId: row.userId,
+    email: row.email,
+    displayName: row.displayName,
+    roleName: row.roleName ?? null,
+    roleId: row.roleId ?? null,
+    joinedAt: row.joinedAt.toISOString(),
+  };
+}
+
+async function assertCanReadMembers(orgId: string, userId: string): Promise<void> {
   await requireMembership(orgId, userId);
 
   const canRead = await hasOrgPermission(userId, orgId, 'membership', 'read');
@@ -434,6 +454,10 @@ export async function listMembers(orgId: string, userId: string): Promise<Member
       'Insufficient permissions to view members in this organization',
     );
   }
+}
+
+export async function listMembers(orgId: string, userId: string): Promise<MemberOutput[]> {
+  await assertCanReadMembers(orgId, userId);
 
   const members = await db
     .select({
@@ -448,17 +472,61 @@ export async function listMembers(orgId: string, userId: string): Promise<Member
     .from(organizationMembers)
     .innerJoin(users, eq(organizationMembers.userId, users.id))
     .leftJoin(roles, eq(organizationMembers.roleId, roles.id))
-    .where(eq(organizationMembers.organizationId, orgId));
+    .where(eq(organizationMembers.organizationId, orgId))
+    .orderBy(desc(organizationMembers.joinedAt), desc(organizationMembers.createdAt));
 
-  return members.map((m) => ({
-    id: m.id,
-    userId: m.userId,
-    email: m.email,
-    displayName: m.displayName,
-    roleName: m.roleName ?? null,
-    roleId: m.roleId ?? null,
-    joinedAt: m.joinedAt.toISOString(),
-  }));
+  return members.map(toMemberOutput);
+}
+
+export interface ListMembersPagedInput {
+  page: number;
+  limit: number;
+}
+
+export interface ListMembersPagedOutput {
+  items: MemberOutput[];
+  totalCount: number;
+}
+
+export async function listMembersPaged(
+  orgId: string,
+  userId: string,
+  input: ListMembersPagedInput,
+): Promise<ListMembersPagedOutput> {
+  await assertCanReadMembers(orgId, userId);
+
+  const limit = Math.max(1, Math.min(100, input.limit));
+  const page = Math.max(1, input.page);
+  const offset = (page - 1) * limit;
+
+  const [countResult, rows] = await Promise.all([
+    db
+      .select({ count: count(organizationMembers.id) })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, orgId)),
+    db
+      .select({
+        id: organizationMembers.id,
+        userId: organizationMembers.userId,
+        roleId: organizationMembers.roleId,
+        joinedAt: organizationMembers.joinedAt,
+        email: users.email,
+        displayName: users.displayName,
+        roleName: roles.name,
+      })
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .leftJoin(roles, eq(organizationMembers.roleId, roles.id))
+      .where(eq(organizationMembers.organizationId, orgId))
+      .orderBy(desc(organizationMembers.joinedAt), desc(organizationMembers.createdAt))
+      .limit(limit)
+      .offset(offset),
+  ]);
+
+  return {
+    items: rows.map(toMemberOutput),
+    totalCount: Number(countResult[0]?.count ?? 0),
+  };
 }
 
 export async function addMember(

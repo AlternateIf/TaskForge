@@ -110,7 +110,13 @@ export async function organizationRoutes(fastify: FastifyInstance) {
   );
 
   // Members
-  fastify.get<{ Params: { id: string } }>(
+  fastify.get<{
+    Params: { id: string };
+    Querystring: {
+      page?: string | number;
+      limit?: string | number;
+    };
+  }>(
     '/api/v1/organizations/:id/members',
     { preHandler: authorize({ resource: 'membership', action: 'read' }) },
     listMembersHandler,

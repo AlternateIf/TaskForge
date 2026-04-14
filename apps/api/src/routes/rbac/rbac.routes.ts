@@ -30,7 +30,13 @@ export async function rbacRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
   // Org roles
-  fastify.get<{ Params: { orgId: string } }>(
+  fastify.get<{
+    Params: { orgId: string };
+    Querystring: {
+      page?: string | number;
+      limit?: string | number;
+    };
+  }>(
     '/api/v1/organizations/:orgId/roles',
     { preHandler: authorize({ resource: 'role', action: 'read' }) },
     listOrgRolesHandler,

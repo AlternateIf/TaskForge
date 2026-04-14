@@ -1,7 +1,7 @@
 import { apiClient } from '@/api/client';
 import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +133,7 @@ export function useProjectsPage(options: UseProjectsPageOptions) {
         limit: options.limit,
       } satisfies ProjectsPageResult;
     },
+    placeholderData: keepPreviousData,
     enabled: Boolean(orgId && (options.enabled ?? true)),
   });
 }
