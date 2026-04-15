@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN npm install -g corepack@latest && corepack enable && corepack prepare pnpm@10.27.0 --activate
 
 WORKDIR /app
 RUN chown node:node /app

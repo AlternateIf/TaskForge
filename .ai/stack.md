@@ -3,7 +3,7 @@
 ## Runtime Baseline
 
 - Node.js: `>=22`
-- Package manager: `pnpm@9`
+- Package manager: `pnpm@10`
 - Monorepo: Turborepo
 - Language: TypeScript (strict mode)
 

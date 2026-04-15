@@ -32,7 +32,7 @@ Boundary rule:
 
 Runtime baseline:
 - Node `>=22`
-- `pnpm@9`
+- `pnpm@10`
 
 ## Coding and Testing Rules
 

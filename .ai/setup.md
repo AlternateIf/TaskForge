@@ -5,7 +5,7 @@ How to run TaskForge locally for development and testing.
 ## Prerequisites
 
 - Node.js `>=22`
-- `pnpm@9`
+- `pnpm@10`
 - Docker + Docker Compose
 
 ## First-Time Setup
