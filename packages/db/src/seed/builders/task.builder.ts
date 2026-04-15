@@ -5,7 +5,15 @@
 
 import type * as schema from '../../schema/index.js';
 import { TARGET_COUNTS, TASK_TYPE_DISTRIBUTION, type TaskTypeName } from '../dataset-config.js';
-import { PROJECT_IDS, SUPER_USER_ID, USER_IDS, WORKFLOW_STATUS_IDS, id } from '../id-registry.js';
+import {
+  ORG_IDS,
+  PROJECT_IDS,
+  PROJECT_ORG_MAP,
+  SUPER_USER_ID,
+  USER_IDS,
+  WORKFLOW_STATUS_IDS,
+  id,
+} from '../id-registry.js';
 
 const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
 
@@ -223,24 +231,61 @@ export function buildTasks(): (typeof schema.tasks.$inferInsert)[] {
     }
   }
 
-  const taskAssignees = [
-    SUPER_USER_ID,
-    USER_IDS.taskforgeAgencyOwner,
-    USER_IDS.acmeCorpOwner,
-    USER_IDS.globexIncOwner,
-    USER_IDS.soylentCorpOwner,
-    USER_IDS.umbrellaCorpOwner,
-    USER_IDS.tfBackendDev1,
-    USER_IDS.tfFrontendDev1,
-    USER_IDS.tfQaEngineer1,
-    USER_IDS.acmeBackendDev1,
-    USER_IDS.acmeFrontendDev1,
-    USER_IDS.globexBackendDev1,
-    USER_IDS.soylentBackendDev1,
-    USER_IDS.umbrellaBackendDev1,
-    USER_IDS.sharedQa,
-    USER_IDS.sharedDevops,
-  ];
+  const assigneePoolsByOrg: Record<string, string[]> = {
+    [ORG_IDS.taskforgeAgency]: [
+      SUPER_USER_ID,
+      USER_IDS.taskforgeAgencyOwner,
+      USER_IDS.tfBackendDev1,
+      USER_IDS.tfFrontendDev1,
+      USER_IDS.tfQaEngineer1,
+      USER_IDS.tfDevopsSre1,
+      USER_IDS.tfProductManager1,
+      USER_IDS.sharedQa,
+      USER_IDS.sharedSupport,
+      USER_IDS.sharedDevops,
+    ],
+    [ORG_IDS.acmeCorp]: [
+      SUPER_USER_ID,
+      USER_IDS.acmeCorpOwner,
+      USER_IDS.acmeBackendDev1,
+      USER_IDS.acmeFrontendDev1,
+      USER_IDS.acmeQaEngineer1,
+      USER_IDS.acmeDevopsSre1,
+      USER_IDS.acmeProductManager1,
+      USER_IDS.acmeCustomerReporter1,
+      USER_IDS.sharedQa,
+      USER_IDS.sharedSupport,
+    ],
+    [ORG_IDS.globexInc]: [
+      SUPER_USER_ID,
+      USER_IDS.globexIncOwner,
+      USER_IDS.globexBackendDev1,
+      USER_IDS.globexFrontendDev1,
+      USER_IDS.globexDesigner1,
+      USER_IDS.globexSeoSpecialist1,
+      USER_IDS.globexProductManager1,
+      USER_IDS.globexCustomerReporter1,
+    ],
+    [ORG_IDS.soylentCorp]: [
+      SUPER_USER_ID,
+      USER_IDS.soylentCorpOwner,
+      USER_IDS.soylentBackendDev1,
+      USER_IDS.soylentSupportEngineer1,
+      USER_IDS.soylentCustomerReporter1,
+      USER_IDS.soylentCustomerStakeholder1,
+    ],
+    [ORG_IDS.umbrellaCorp]: [
+      SUPER_USER_ID,
+      USER_IDS.umbrellaCorpOwner,
+      USER_IDS.umbrellaBackendDev1,
+      USER_IDS.umbrellaQaEngineer1,
+      USER_IDS.umbrellaDevopsSre1,
+      USER_IDS.umbrellaCustomerReporter1,
+      USER_IDS.umbrellaCustomerStakeholder1,
+      USER_IDS.sharedQa,
+      USER_IDS.sharedDevops,
+    ],
+  };
 
   const statusChoices = ['todo', 'inProgress', 'review', 'done'] as const;
 
@@ -252,6 +297,8 @@ export function buildTasks(): (typeof schema.tasks.$inferInsert)[] {
     const title = titleTemplate.replace('{area}', area);
 
     const projectId = projectList[i % projectList.length];
+    const projectOrgId = PROJECT_ORG_MAP[projectId];
+    const taskAssignees = assigneePoolsByOrg[projectOrgId] ?? [SUPER_USER_ID];
     const statusKey = statusChoices[Math.floor(rng() * 4)];
     const statusId = WORKFLOW_STATUS_IDS[projectId][statusKey];
     const priority = priorities[Math.floor(rng() * 5)];

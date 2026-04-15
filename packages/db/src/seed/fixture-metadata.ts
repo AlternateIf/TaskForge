@@ -28,7 +28,7 @@ export const CORE_COUNTS = {
   projects: 22,
   workflows: 22,
   workflowStatuses: 88,
-  projectMembers: 112,
+  projectMembers: 188,
   labels: 48,
   tasks: 430,
   taskLabels: 657,

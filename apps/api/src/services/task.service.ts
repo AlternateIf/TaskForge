@@ -5,6 +5,7 @@ import {
   db,
   labels,
   organizationMembers,
+  projectMembers,
   projects,
   taskLabels,
   taskWatchers,
@@ -192,6 +193,34 @@ async function validateAssigneeInOrg(assigneeId: string, projectId: string): Pro
       'Assignee is not a member of the organization',
     );
   }
+}
+
+async function ensureProjectMember(projectId: string, userId: string): Promise<void> {
+  const existingMember = await db
+    .select({ id: projectMembers.id })
+    .from(projectMembers)
+    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+    .limit(1);
+
+  if (existingMember.length > 0) {
+    return;
+  }
+
+  await db.insert(projectMembers).values({
+    id: crypto.randomUUID(),
+    projectId,
+    userId,
+    roleId: null,
+    createdAt: new Date(),
+  });
+}
+
+export async function ensureAssigneeProjectMembership(
+  assigneeId: string,
+  projectId: string,
+): Promise<void> {
+  await validateAssigneeInOrg(assigneeId, projectId);
+  await ensureProjectMember(projectId, assigneeId);
 }
 
 /**
@@ -388,7 +417,7 @@ export async function createTask(
   await validateStatusBelongsToProject(statusId, projectId);
 
   if (input.assigneeId) {
-    await validateAssigneeInOrg(input.assigneeId, projectId);
+    await ensureAssigneeProjectMembership(input.assigneeId, projectId);
   }
 
   const taskId = crypto.randomUUID();
@@ -1143,7 +1172,7 @@ export async function updateTask(
   }
 
   if (input.assigneeId) {
-    await validateAssigneeInOrg(input.assigneeId, projectId);
+    await ensureAssigneeProjectMembership(input.assigneeId, projectId);
   }
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -1300,7 +1329,7 @@ export async function assignTask(
   }
 
   if (assigneeId) {
-    await validateAssigneeInOrg(assigneeId, projectId);
+    await ensureAssigneeProjectMembership(assigneeId, projectId);
 
     // Add as watcher if not already
     const existingWatcher = await db

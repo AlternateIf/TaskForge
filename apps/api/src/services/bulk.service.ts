@@ -13,7 +13,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import type { TransitionBlockDetails } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
-import { validateStatusTransition } from './task.service.js';
+import { ensureAssigneeProjectMembership, validateStatusTransition } from './task.service.js';
 
 interface BulkFailure {
   id: string;
@@ -157,6 +157,9 @@ export async function executeBulkAction(
 
         case 'assign': {
           const assigneeId = input.data?.assigneeId ?? null;
+          if (assigneeId) {
+            await ensureAssigneeProjectMembership(assigneeId, task.projectId);
+          }
           await db
             .update(tasks)
             .set({ assigneeId, updatedAt: new Date() })
@@ -315,6 +318,9 @@ export async function executeBulkAction(
           }
 
           // Move task: update project, status, clear labels
+          if (task.assigneeId) {
+            await ensureAssigneeProjectMembership(task.assigneeId, targetProjectId);
+          }
           await db
             .update(tasks)
             .set({

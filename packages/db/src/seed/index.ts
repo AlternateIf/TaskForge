@@ -8,6 +8,7 @@
 import { db, pool } from '../client.js';
 import * as schema from '../schema/index.js';
 import { getAllSeededTables } from './fixture-metadata.js';
+import { id } from './id-registry.js';
 import { resolveSeedOptions } from './options.js';
 import { printSeedSummary } from './summary.js';
 
@@ -92,6 +93,42 @@ async function normalizeWorkflowStatusFlagsByName(): Promise<void> {
   );
 }
 
+function augmentProjectMembersWithTaskAssignees(
+  projectMembers: (typeof schema.projectMembers.$inferInsert)[],
+  taskRows: (typeof schema.tasks.$inferInsert)[],
+): (typeof schema.projectMembers.$inferInsert)[] {
+  const nextMembers = [...projectMembers];
+  const existingMembershipKeys = new Set(
+    nextMembers.map((member) => `${member.projectId}:${member.userId}`),
+  );
+  const existingIds = nextMembers
+    .map((member) => Number.parseInt(member.id.slice(-12), 10))
+    .filter((value) => Number.isFinite(value));
+  let nextMemberId = (existingIds.length > 0 ? Math.max(...existingIds) : 700) + 1;
+  const createdAt = new Date('2026-03-01T13:00:00.000Z');
+
+  const assigneePairs = [...new Set(taskRows.map((task) => `${task.projectId}:${task.assigneeId}`))]
+    .filter((pair) => !pair.endsWith(':null'))
+    .sort();
+
+  for (const pair of assigneePairs) {
+    const [projectId, userId] = pair.split(':');
+    if (!projectId || !userId) continue;
+    if (existingMembershipKeys.has(pair)) continue;
+
+    existingMembershipKeys.add(pair);
+    nextMembers.push({
+      id: id(nextMemberId++),
+      projectId,
+      userId,
+      roleId: null,
+      createdAt,
+    });
+  }
+
+  return nextMembers;
+}
+
 async function seed(): Promise<void> {
   const options = resolveSeedOptions();
 
@@ -146,7 +183,7 @@ async function seed(): Promise<void> {
   const projects = buildProjects();
   const workflows = buildWorkflows();
   const workflowStatuses = buildWorkflowStatuses();
-  const projectMembers = buildProjectMembers();
+  const manuallyAddedProjectMembers = buildProjectMembers();
   const labels = buildLabels();
 
   console.log('Building tasks...');
@@ -167,6 +204,7 @@ async function seed(): Promise<void> {
   const checklists = buildChecklists(taskIds);
   const checklistIds = checklists.map((c) => c.id as string);
   const checklistItems = buildChecklistItems(checklistIds, allUserIds);
+  const projectMembers = augmentProjectMembersWithTaskAssignees(manuallyAddedProjectMembers, tasks);
 
   console.log('Building comments...');
   const comments = buildComments(taskIds);
