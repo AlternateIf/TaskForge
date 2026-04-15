@@ -55,6 +55,10 @@ const SPECIAL_DESCRIPTIONS: Record<string, string> = {
     'Mark a project as finished. All non-deleted tasks must be in a final workflow status (isFinal=true). Returns 422 if non-final tasks exist. Idempotent: returns current state if already finished.',
   'POST /api/v1/projects/:id/archive':
     'Archive a project. Validates that all non-deleted tasks are in a final workflow status. Returns 422 if non-final tasks exist. Idempotent: returns current state if already archived.',
+  'PATCH /api/v1/tasks/:id':
+    'Update a task. When changing statusId to a final or validated workflow status (isFinal=true or isValidated=true), returns 422 TRANSITION_BLOCKED if the task has unresolved blockers or incomplete checklist items.',
+  'PATCH /api/v1/tasks/:id/position':
+    'Update task position. When the new position implies a status change to a final or validated workflow status (isFinal=true or isValidated=true), returns 422 TRANSITION_BLOCKED if the task has unresolved blockers or incomplete checklist items.',
 };
 
 const TAGS_BY_ROOT: Record<string, string> = {

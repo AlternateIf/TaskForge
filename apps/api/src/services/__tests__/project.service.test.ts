@@ -48,6 +48,7 @@ vi.mock('@taskforge/db', () => ({
     position: 'workflowStatuses.position',
     isInitial: 'workflowStatuses.isInitial',
     isFinal: 'workflowStatuses.isFinal',
+    isValidated: 'workflowStatuses.isValidated',
     createdAt: 'workflowStatuses.createdAt',
   },
   labels: {
@@ -225,9 +226,43 @@ describe('project.service', () => {
       expect(setArgs.name).toBe('In Progress');
       expect(setArgs.color).toBe('#3B82F6');
       expect(setArgs.position).toBe(0);
+      expect(setArgs.isInitial).toBeUndefined();
+      expect(setArgs.isFinal).toBeUndefined();
+      expect(setArgs.isValidated).toBeUndefined();
 
       expect(mockDbInsert).not.toHaveBeenCalled();
       expect(mockDbDelete).not.toHaveBeenCalled();
+    });
+
+    it('updates workflow guard flags for existing statuses', async () => {
+      const existingId = 'existing-status-flags-uuid';
+
+      let selectCount = 0;
+      mockDbSelect.mockImplementation(() => {
+        selectCount++;
+        if (selectCount === 1) return makeQueryChain([workflowRow]);
+        return makeQueryChain([{ id: existingId }]);
+      });
+
+      const updateChain = makeQueryChain(undefined);
+      mockDbUpdate.mockReturnValue(updateChain);
+
+      await bulkUpsertWorkflowStatuses(projectId, [
+        {
+          id: existingId,
+          name: 'Review',
+          color: '#F59E0B',
+          position: 1,
+          isInitial: false,
+          isFinal: false,
+          isValidated: true,
+        },
+      ]);
+
+      const setArgs = (updateChain.set as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(setArgs.isInitial).toBe(false);
+      expect(setArgs.isFinal).toBe(false);
+      expect(setArgs.isValidated).toBe(true);
     });
 
     it('deletes statuses not present in the input list', async () => {

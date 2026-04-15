@@ -1,5 +1,6 @@
-import { apiClient } from '@/api/client';
+import { apiClient, isApiError } from '@/api/client';
 import { dependencyKeys } from '@/api/dependencies';
+import type { WorkflowStatus } from '@/api/projects';
 import { showErrorToast } from '@/lib/error-toast';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { BulkAction } from '@taskforge/shared';
@@ -35,6 +36,46 @@ export interface Task {
   labels?: Array<{ id: string; name: string; color: string | null }>;
   createdAt: string;
   updatedAt: string;
+}
+
+export type TaskWithRelations = Task & {
+  blockers?: Array<{ isResolved: boolean }> | null;
+};
+
+export interface StatusTransitionEligibility {
+  blocked: boolean;
+  blockersCount: number;
+  checklistCount: number;
+}
+
+export function isStatusTransitionBlocked(
+  task: TaskWithRelations,
+  targetStatus: WorkflowStatus,
+): StatusTransitionEligibility {
+  const needsValidation = Boolean(targetStatus.isFinal || targetStatus.isValidated);
+  if (!needsValidation) {
+    return { blocked: false, blockersCount: 0, checklistCount: 0 };
+  }
+
+  const blockersCount = task.blockers
+    ? task.blockers.filter((blocker) => !blocker.isResolved).length
+    : (task.blockedByCount ?? 0);
+  const checklistTotal = task.progress?.checklistTotal ?? 0;
+  const checklistCompleted = task.progress?.checklistCompleted ?? 0;
+  const checklistCount = Math.max(0, checklistTotal - checklistCompleted);
+
+  return {
+    blocked: blockersCount > 0 || checklistCount > 0,
+    blockersCount,
+    checklistCount,
+  };
+}
+
+export function getBlockedStatusTransitionMessage(
+  statusName: string,
+  eligibility: Pick<StatusTransitionEligibility, 'blockersCount' | 'checklistCount'>,
+): string {
+  return `Cannot move to ${statusName}: ${eligibility.blockersCount} unresolved blocker(s), ${eligibility.checklistCount} incomplete checklist item(s)`;
 }
 
 export interface TaskFilters {
@@ -389,6 +430,14 @@ export function useUpdateTask(taskId: string) {
       if (context?.previousTask) {
         queryClient.setQueryData(taskKeys.detail(taskId), context.previousTask);
       }
+
+      if (isApiError(error) && error.status === 422 && error.code === 'TRANSITION_BLOCKED') {
+        showErrorToast(error, error.message, {
+          id: 'update-task-transition-blocked-error',
+        });
+        return;
+      }
+
       showErrorToast(error, 'Failed to update task. Changes have been reverted.', {
         id: 'update-task-error',
       });
@@ -590,6 +639,12 @@ export function useMoveTask() {
         }
       }
       void queryClient.invalidateQueries({ queryKey: taskKeys.forProject(projectId) });
+
+      if (isApiError(error) && error.status === 422 && error.code === 'TRANSITION_BLOCKED') {
+        showErrorToast(error, error.message, { id: 'move-task-transition-blocked-error' });
+        return;
+      }
+
       showErrorToast(error, 'Failed to move task. Please try again.', { id: 'move-task-error' });
     },
     onSettled: (_data, _err, { projectId }) => {

@@ -72,6 +72,26 @@ async function waitForDb(retries = 20, delay = 2000): Promise<void> {
   throw new Error('Could not connect to database');
 }
 
+async function normalizeWorkflowStatusFlagsByName(): Promise<void> {
+  const [todoUpdate] = await pool.query(
+    "UPDATE workflow_statuses SET is_initial = 1 WHERE REPLACE(LOWER(TRIM(name)), ' ', '-') IN ('to-do', 'todo') AND is_initial <> 1",
+  );
+  const [doneUpdate] = await pool.query(
+    "UPDATE workflow_statuses SET is_final = 1 WHERE LOWER(TRIM(name)) = 'done' AND is_final <> 1",
+  );
+  const [reviewUpdate] = await pool.query(
+    "UPDATE workflow_statuses SET is_validated = 1 WHERE LOWER(TRIM(name)) = 'review' AND is_validated <> 1",
+  );
+
+  const todoAffected = Number((todoUpdate as { affectedRows?: number }).affectedRows ?? 0);
+  const doneAffected = Number((doneUpdate as { affectedRows?: number }).affectedRows ?? 0);
+  const reviewAffected = Number((reviewUpdate as { affectedRows?: number }).affectedRows ?? 0);
+
+  console.log(
+    `Normalized workflow status flags: isInitial on ${todoAffected} To-Do column(s), isFinal on ${doneAffected} Done column(s), isValidated on ${reviewAffected} Review column(s).`,
+  );
+}
+
 async function seed(): Promise<void> {
   const options = resolveSeedOptions();
 
@@ -218,6 +238,8 @@ async function seed(): Promise<void> {
     await tx.insert(schema.notificationPreferences).values(notificationPreferences);
     await tx.insert(schema.notifications).values(notifications);
   });
+
+  await normalizeWorkflowStatusFlagsByName();
 
   printSeedSummary(options.profile);
 }

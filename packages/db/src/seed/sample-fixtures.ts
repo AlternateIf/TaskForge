@@ -55,6 +55,7 @@ export const sampleWorkflowStatuses: (typeof schema.workflowStatuses.$inferInser
     position: 0,
     isInitial: true,
     isFinal: false,
+    isValidated: false,
     createdAt: at(200),
   },
   {
@@ -65,6 +66,7 @@ export const sampleWorkflowStatuses: (typeof schema.workflowStatuses.$inferInser
     position: 1,
     isInitial: false,
     isFinal: false,
+    isValidated: false,
     createdAt: at(201),
   },
   {
@@ -75,6 +77,7 @@ export const sampleWorkflowStatuses: (typeof schema.workflowStatuses.$inferInser
     position: 2,
     isInitial: false,
     isFinal: false,
+    isValidated: true,
     createdAt: at(202),
   },
   {
@@ -85,6 +88,7 @@ export const sampleWorkflowStatuses: (typeof schema.workflowStatuses.$inferInser
     position: 3,
     isInitial: false,
     isFinal: true,
+    isValidated: false,
     createdAt: at(203),
   },
 ];

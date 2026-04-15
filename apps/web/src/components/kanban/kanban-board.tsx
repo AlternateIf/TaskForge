@@ -2,8 +2,8 @@ import type { Label, ProjectMember, WorkflowStatus } from '@/api/projects';
 import {
   type Task,
   type TaskFilters,
-  applyTaskMoveToCacheData,
-  taskKeys,
+  getBlockedStatusTransitionMessage,
+  isStatusTransitionBlocked,
   useBoardTasks,
   useMoveTask,
 } from '@/api/tasks';
@@ -31,10 +31,10 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { useQueryClient } from '@tanstack/react-query';
 import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { Settings } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 interface KanbanBoardProps {
   projectId: string;
@@ -86,7 +86,6 @@ export function KanbanBoard({
     return closestCorners(args);
   }, []);
 
-  const queryClient = useQueryClient();
   const {
     data: boardData,
     isLoading,
@@ -271,6 +270,18 @@ export function KanbanBoard({
         return;
       }
 
+      if (targetStatusId !== originalTask.statusId) {
+        const targetStatus = statuses.find((status) => status.id === targetStatusId);
+        if (targetStatus) {
+          const eligibility = isStatusTransitionBlocked(originalTask, targetStatus);
+          if (eligibility.blocked) {
+            toast.info(getBlockedStatusTransitionMessage(targetStatus.name, eligibility));
+            resetDragState();
+            return;
+          }
+        }
+      }
+
       const afterTaskId = finalColumnTasks[targetIndex - 1]?.id;
       let beforeTaskId = finalColumnTasks[targetIndex + 1]?.id;
       if (!beforeTaskId) {
@@ -288,10 +299,6 @@ export function KanbanBoard({
         projectId,
       };
 
-      queryClient.setQueriesData({ queryKey: taskKeys.forProject(projectId) }, (old) =>
-        applyTaskMoveToCacheData(old, payload),
-      );
-
       resetDragState();
       moveTask.mutate(payload);
     },
@@ -299,8 +306,8 @@ export function KanbanBoard({
       activeTask,
       activeTasksByStatus,
       columnMetaByStatus,
+      statuses,
       tasksByStatus,
-      queryClient,
       moveTask,
       projectId,
       resetDragState,

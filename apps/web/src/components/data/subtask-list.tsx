@@ -9,6 +9,7 @@ interface SubtaskListProps {
   subtasks: Task[];
   subtaskCount: number;
   subtaskCompletedCount: number;
+  finalStatusIds?: string[];
   onCreateSubtask?: () => void;
 }
 
@@ -17,9 +18,11 @@ export function SubtaskList({
   subtasks,
   subtaskCount,
   subtaskCompletedCount,
+  finalStatusIds = [],
   onCreateSubtask,
 }: SubtaskListProps) {
   const progress = calculateSubtaskProgress(subtaskCount, subtaskCompletedCount);
+  const finalStatusIdSet = new Set(finalStatusIds);
 
   return (
     <details
@@ -72,7 +75,7 @@ export function SubtaskList({
                 className="flex items-center gap-sm rounded-radius-md p-xs hover:bg-surface-container-low"
               >
                 <Checkbox
-                  checked={subtask.statusName?.toLowerCase() === 'done'}
+                  checked={finalStatusIdSet.has(subtask.statusId)}
                   readOnly
                   aria-label={`Subtask ${subtask.title}`}
                 />

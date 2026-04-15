@@ -81,6 +81,7 @@ vi.mock('@taskforge/db', () => ({
     workflowId: 'workflowStatuses.workflowId',
     isInitial: 'workflowStatuses.isInitial',
     isFinal: 'workflowStatuses.isFinal',
+    isValidated: 'workflowStatuses.isValidated',
   },
   workflows: { id: 'workflows.id', projectId: 'workflows.projectId' },
 }));

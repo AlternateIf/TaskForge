@@ -118,6 +118,14 @@ describe('project schemas', () => {
       expect(result.isFinal).toBe(true);
       expect(result.isInitial).toBe(false);
     });
+
+    it('should accept isValidated flag', () => {
+      const result = createWorkflowStatusSchema.parse({
+        name: 'Review',
+        isValidated: true,
+      });
+      expect(result.isValidated).toBe(true);
+    });
   });
 
   describe('updateWorkflowStatusSchema', () => {

@@ -1,0 +1,1 @@
+ALTER TABLE `workflow_statuses` ADD `is_validated` boolean NOT NULL DEFAULT false AFTER `is_final`;

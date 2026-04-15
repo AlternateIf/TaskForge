@@ -248,6 +248,7 @@ export async function updateWorkflowHandler(
         position: number;
         isInitial?: boolean;
         isFinal?: boolean;
+        isValidated?: boolean;
       }>;
     };
   }>,

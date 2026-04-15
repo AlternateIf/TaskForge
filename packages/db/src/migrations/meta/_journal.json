@@ -8,6 +8,13 @@
       "when": 1775676142713,
       "tag": "0000_sweet_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775676142714,
+      "tag": "0001_add_is_validated_to_workflow_statuses",
+      "breakpoints": true
     }
   ]
 }

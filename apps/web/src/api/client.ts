@@ -32,6 +32,10 @@ async function refreshAccessToken(): Promise<string | null> {
 export interface ApiError extends Error {
   status: number;
   code?: string;
+  details?: {
+    unresolvedBlockersCount: number;
+    incompleteChecklistCount: number;
+  };
 }
 
 export function isApiError(error: unknown): error is ApiError {
@@ -42,10 +46,16 @@ export function isApiError(error: unknown): error is ApiError {
   );
 }
 
-function createApiError(message: string, status: number, code?: string): ApiError {
+function createApiError(
+  message: string,
+  status: number,
+  code?: string,
+  details?: ApiError['details'],
+): ApiError {
   const error = new Error(message) as ApiError;
   error.status = status;
   error.code = code;
+  error.details = details;
   return error;
 }
 
@@ -97,6 +107,7 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
   if (!res.ok) {
     let message = res.statusText;
     let code: string | undefined;
+    let details: ApiError['details'];
     try {
       const body = (await res.json()) as {
         code?: string;
@@ -106,6 +117,8 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
           | {
               code?: string;
               message?: string;
+              details?: ApiError['details'];
+              transitionDetails?: ApiError['details'];
             };
       };
       if (body.code) {
@@ -116,13 +129,14 @@ async function request<T>(path: string, options: RequestInit = {}, _isRetry = fa
       } else if (body.error && typeof body.error === 'object') {
         message = body.error.message ?? body.message ?? message;
         code = body.error.code ?? code;
+        details = body.error.transitionDetails ?? body.error.details;
       } else {
         message = body.message ?? message;
       }
     } catch {
       // non-JSON error body
     }
-    throw createApiError(message, res.status, code);
+    throw createApiError(message, res.status, code, details);
   }
 
   if (res.status === 204) return undefined as T;

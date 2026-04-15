@@ -254,6 +254,39 @@ async function validateTaskLabelProjectScoping(): Promise<void> {
   console.log('[seed:validate] Task-label project scoping check passed.\n');
 }
 
+async function validateWorkflowStatusGuardFlags(): Promise<void> {
+  console.log('[seed:validate] Checking workflow status guard flags...');
+
+  const [todoRows] = await pool.query(
+    "SELECT id FROM workflow_statuses WHERE REPLACE(LOWER(TRIM(name)), ' ', '-') IN ('to-do', 'todo') AND is_initial <> 1",
+  );
+  const todoWithoutInitial = todoRows as Array<{ id: string }>;
+  assert(
+    todoWithoutInitial.length === 0,
+    `Found ${todoWithoutInitial.length} To-Do status(es) without is_initial=1`,
+  );
+
+  const [doneRows] = await pool.query(
+    "SELECT id FROM workflow_statuses WHERE LOWER(TRIM(name)) = 'done' AND is_final <> 1",
+  );
+  const doneWithoutFinal = doneRows as Array<{ id: string }>;
+  assert(
+    doneWithoutFinal.length === 0,
+    `Found ${doneWithoutFinal.length} Done status(es) without is_final=1`,
+  );
+
+  const [reviewRows] = await pool.query(
+    "SELECT id FROM workflow_statuses WHERE LOWER(TRIM(name)) = 'review' AND is_validated <> 1",
+  );
+  const reviewWithoutValidated = reviewRows as Array<{ id: string }>;
+  assert(
+    reviewWithoutValidated.length === 0,
+    `Found ${reviewWithoutValidated.length} Review status(es) without is_validated=1`,
+  );
+
+  console.log('[seed:validate] Workflow status guard flags check passed.\n');
+}
+
 // ---------------------------------------------------------------------------
 // Org/project ownership invariants
 // ---------------------------------------------------------------------------
@@ -594,6 +627,7 @@ async function main(): Promise<void> {
   await validatePermissionConsistency();
   await validateOwnershipInvariants();
   await validateTaskLabelProjectScoping();
+  await validateWorkflowStatusGuardFlags();
 
   if (options.skipReindex) {
     console.log('[seed:validate] Skipping Meilisearch validation (SEED_SKIP_REINDEX=1).');

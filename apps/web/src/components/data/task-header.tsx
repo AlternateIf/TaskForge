@@ -1,5 +1,10 @@
 import type { WorkflowStatus } from '@/api/projects';
-import type { Priority } from '@/api/tasks';
+import {
+  type Priority,
+  type TaskWithRelations,
+  getBlockedStatusTransitionMessage,
+  isStatusTransitionBlocked,
+} from '@/api/tasks';
 import { PriorityPicker } from '@/components/data/task-inline-editors';
 import { PriorityBadge } from '@/components/priority-badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +16,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { CalendarDays, ChevronDown, Maximize2, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 interface TaskHeaderProps {
   variant?: 'panel' | 'page';
@@ -19,6 +25,7 @@ interface TaskHeaderProps {
   title: string;
   statusId: string;
   priority?: Priority;
+  taskForValidation?: TaskWithRelations;
   statuses: WorkflowStatus[];
   projectName?: string;
   createdAt?: string;
@@ -51,6 +58,7 @@ export function TaskHeader({
   title,
   statusId,
   priority = 'none',
+  taskForValidation,
   statuses,
   projectName,
   createdAt,
@@ -78,6 +86,14 @@ export function TaskHeader({
   }, [isEditingTitle]);
 
   const status = statuses.find((item) => item.id === statusId);
+  const blockedByStatusId = useMemo(() => {
+    if (!taskForValidation) return new Map<string, ReturnType<typeof isStatusTransitionBlocked>>();
+    return new Map(
+      statuses.map(
+        (item) => [item.id, isStatusTransitionBlocked(taskForValidation, item)] as const,
+      ),
+    );
+  }, [statuses, taskForValidation]);
 
   function submitTitle() {
     const normalized = draftTitle.trim();
@@ -170,20 +186,36 @@ export function TaskHeader({
                 <ChevronDown className="size-4 text-muted" />
               </DropdownMenuTrigger>
               <DropdownMenuContent className="left-0 right-auto min-w-[10rem]">
-                {statuses.map((item) => (
-                  <DropdownMenuItem
-                    key={item.id}
-                    className={cn(item.id === statusId && 'bg-surface-container-low')}
-                    onClick={() => onStatusChange(item.id)}
-                  >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                      aria-hidden
-                    />
-                    <span>{item.name}</span>
-                  </DropdownMenuItem>
-                ))}
+                {statuses.map((item) => {
+                  const eligibility = blockedByStatusId.get(item.id);
+                  const isBlocked = item.id !== statusId && Boolean(eligibility?.blocked);
+                  return (
+                    <DropdownMenuItem
+                      key={item.id}
+                      aria-disabled={isBlocked}
+                      className={cn(
+                        item.id === statusId && 'bg-surface-container-low',
+                        isBlocked &&
+                          'cursor-not-allowed text-muted opacity-65 hover:bg-transparent focus-visible:bg-transparent',
+                      )}
+                      onClick={(event) => {
+                        if (isBlocked && eligibility) {
+                          event.preventDefault();
+                          toast.info(getBlockedStatusTransitionMessage(item.name, eligibility));
+                          return;
+                        }
+                        onStatusChange(item.id);
+                      }}
+                    >
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                        aria-hidden
+                      />
+                      <span>{item.name}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (

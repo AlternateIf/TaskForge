@@ -1,3 +1,4 @@
+import type { ApiError } from '@/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,6 +96,117 @@ describe('apiClient', () => {
       const result = await apiClient.delete('/test');
       expect(result).toBeUndefined();
     });
+
+    it('parses transition details from nested error payload', async () => {
+      const { apiClient } = await import('./client');
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          jsonResponse(
+            {
+              error: {
+                code: 'TRANSITION_BLOCKED',
+                message: 'Task cannot be moved to Done while blockers remain.',
+                transitionDetails: {
+                  unresolvedBlockersCount: 2,
+                  incompleteChecklistCount: 3,
+                },
+              },
+            },
+            422,
+          ),
+        ]),
+      );
+
+      await expect(apiClient.patch('/tasks/task-1', { statusId: 'done' })).rejects.toMatchObject({
+        status: 422,
+        code: 'TRANSITION_BLOCKED',
+        message: 'Task cannot be moved to Done while blockers remain.',
+        details: {
+          unresolvedBlockersCount: 2,
+          incompleteChecklistCount: 3,
+        },
+      });
+    });
+
+    it('parses TRANSITION_BLOCKED error at top level for backend rejection', async () => {
+      const { apiClient } = await import('./client');
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          jsonResponse(
+            {
+              code: 'TRANSITION_BLOCKED',
+              message: 'Cannot transition to Done: 3 incomplete checklist items.',
+            },
+            422,
+          ),
+        ]),
+      );
+
+      const error = (await apiClient
+        .patch('/tasks/task-1', { statusId: 'done' })
+        .catch((e) => e)) as ApiError;
+      expect(error.status).toBe(422);
+      expect(error.code).toBe('TRANSITION_BLOCKED');
+      expect(error.message).toBe('Cannot transition to Done: 3 incomplete checklist items.');
+    });
+
+    it('preserves error message for generic 422 validation rejection', async () => {
+      const { apiClient } = await import('./client');
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          jsonResponse(
+            {
+              message: 'Validation failed: statusId is not a valid transition.',
+            },
+            422,
+          ),
+        ]),
+      );
+
+      const error = (await apiClient
+        .patch('/tasks/task-1', { statusId: 'invalid' })
+        .catch((e) => e)) as ApiError;
+      expect(error.status).toBe(422);
+      expect(error.message).toBe('Validation failed: statusId is not a valid transition.');
+    });
+
+    it('extracts nested error.details for backend rejection with transitionDetails', async () => {
+      const { apiClient, isApiError } = await import('./client');
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          jsonResponse(
+            {
+              error: {
+                code: 'TRANSITION_BLOCKED',
+                message: 'Blocked transition.',
+                transitionDetails: {
+                  unresolvedBlockersCount: 5,
+                  incompleteChecklistCount: 2,
+                },
+              },
+            },
+            422,
+          ),
+        ]),
+      );
+
+      try {
+        await apiClient.patch('/tasks/task-1', { statusId: 'done' });
+      } catch (err) {
+        expect(isApiError(err)).toBe(true);
+        expect((err as ApiError).status).toBe(422);
+        expect((err as ApiError).code).toBe('TRANSITION_BLOCKED');
+        expect((err as ApiError).message).toBe('Blocked transition.');
+        expect((err as ApiError).details).toEqual({
+          unresolvedBlockersCount: 5,
+          incompleteChecklistCount: 2,
+        });
+      }
+    });
   });
 
   describe('token refresh', () => {
@@ -173,6 +285,26 @@ describe('apiClient', () => {
       expect(retryFn(0, { status: 500 })).toBe(true);
       expect(retryFn(1, { status: 500 })).toBe(true);
       expect(retryFn(2, { status: 500 })).toBe(false);
+    });
+  });
+
+  describe('isApiError helper', () => {
+    it('identifies ApiError instances', async () => {
+      const { apiClient, isApiError } = await import('./client');
+      vi.stubGlobal('fetch', mockFetch([errorResponse(422, 'Error')]));
+      try {
+        await apiClient.get('/fail');
+      } catch (err) {
+        expect(isApiError(err)).toBe(true);
+      }
+    });
+
+    it('returns false for non-ApiError values', async () => {
+      const { isApiError } = await import('./client');
+      expect(isApiError(new Error('generic'))).toBe(false);
+      expect(isApiError(null)).toBe(false);
+      expect(isApiError('string')).toBe(false);
+      expect(isApiError(42)).toBe(false);
     });
   });
 });

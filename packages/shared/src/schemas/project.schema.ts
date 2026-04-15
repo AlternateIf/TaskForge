@@ -39,6 +39,7 @@ export const createWorkflowStatusSchema = z.object({
     .optional(),
   isInitial: z.boolean().optional(),
   isFinal: z.boolean().optional(),
+  isValidated: z.boolean().optional(),
 });
 
 export const updateWorkflowStatusSchema = z.object({
@@ -51,6 +52,7 @@ export const updateWorkflowStatusSchema = z.object({
   position: z.number().int().min(0).optional(),
   isInitial: z.boolean().optional(),
   isFinal: z.boolean().optional(),
+  isValidated: z.boolean().optional(),
 });
 
 export const createLabelSchema = z.object({

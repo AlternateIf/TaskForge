@@ -168,6 +168,10 @@ export function TaskDetailContent({
       })),
     [canViewOrgMembers, orgMembers, project?.members],
   );
+  const finalStatusIds = useMemo(
+    () => (project?.statuses ?? []).filter((status) => status.isFinal).map((status) => status.id),
+    [project?.statuses],
+  );
 
   const timelineItems = useMemo(
     () => buildTimelineEntries(activity, comments),
@@ -316,6 +320,7 @@ export function TaskDetailContent({
         title={localTask.title}
         statusId={localTask.statusId}
         priority={localTask.priority}
+        taskForValidation={localTask}
         statuses={project?.statuses ?? []}
         projectName={project?.name}
         createdAt={localTask.createdAt}
@@ -496,6 +501,7 @@ export function TaskDetailContent({
               subtasks={subtasks}
               subtaskCount={localTask.progress?.subtaskCount ?? subtasks.length}
               subtaskCompletedCount={localTask.progress?.subtaskCompletedCount ?? 0}
+              finalStatusIds={finalStatusIds}
               onCreateSubtask={canUpdateTask ? () => setSubtaskDialogOpen(true) : undefined}
             />
 

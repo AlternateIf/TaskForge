@@ -38,7 +38,9 @@ export function registerErrorHandler(fastify: FastifyInstance) {
     if (error instanceof AppError) {
       return reply
         .status(error.statusCode)
-        .send(buildErrorResponse(error.code, error.message, error.details));
+        .send(
+          buildErrorResponse(error.code, error.message, error.details, error.transitionDetails),
+        );
     }
 
     if (error instanceof ZodError) {

@@ -20,6 +20,9 @@ export interface WorkflowStatus {
   color: string;
   position: number;
   isDefault: boolean;
+  isInitial?: boolean;
+  isFinal?: boolean;
+  isValidated?: boolean;
 }
 
 export interface Label {

@@ -43,10 +43,38 @@ async function getOrgIdForProject(projectId: string): Promise<string | null> {
 }
 
 const DEFAULT_STATUSES = [
-  { name: 'To Do', color: '#6B7280', position: 0, isInitial: true, isFinal: false },
-  { name: 'In Progress', color: '#3B82F6', position: 1, isInitial: false, isFinal: false },
-  { name: 'Review', color: '#EAB308', position: 2, isInitial: false, isFinal: false },
-  { name: 'Done', color: '#22C55E', position: 3, isInitial: false, isFinal: true },
+  {
+    name: 'To Do',
+    color: '#6B7280',
+    position: 0,
+    isInitial: true,
+    isFinal: false,
+    isValidated: false,
+  },
+  {
+    name: 'In Progress',
+    color: '#3B82F6',
+    position: 1,
+    isInitial: false,
+    isFinal: false,
+    isValidated: false,
+  },
+  {
+    name: 'Review',
+    color: '#EAB308',
+    position: 2,
+    isInitial: false,
+    isFinal: false,
+    isValidated: true,
+  },
+  {
+    name: 'Done',
+    color: '#22C55E',
+    position: 3,
+    isInitial: false,
+    isFinal: true,
+    isValidated: false,
+  },
 ];
 
 function slugify(name: string): string {
@@ -265,6 +293,7 @@ export async function createProject(
       position: s.position,
       isInitial: s.isInitial,
       isFinal: s.isFinal,
+      isValidated: s.isValidated,
       createdAt: now,
     });
   }
@@ -936,6 +965,7 @@ export interface WorkflowStatusOutput {
   position: number;
   isInitial: boolean;
   isFinal: boolean;
+  isValidated: boolean;
 }
 
 export async function getProjectWorkflows(projectId: string): Promise<WorkflowOutput[]> {
@@ -960,6 +990,7 @@ export async function getProjectWorkflows(projectId: string): Promise<WorkflowOu
         position: s.position,
         isInitial: s.isInitial,
         isFinal: s.isFinal,
+        isValidated: s.isValidated,
       })),
     });
   }
@@ -985,7 +1016,13 @@ export async function createWorkflow(projectId: string, name: string): Promise<W
 
 export async function addWorkflowStatus(
   projectId: string,
-  input: { name: string; color?: string; isInitial?: boolean; isFinal?: boolean },
+  input: {
+    name: string;
+    color?: string;
+    isInitial?: boolean;
+    isFinal?: boolean;
+    isValidated?: boolean;
+  },
   actorId?: string,
 ): Promise<WorkflowStatusOutput> {
   // Find the default workflow for this project
@@ -1019,6 +1056,7 @@ export async function addWorkflowStatus(
     position: maxPosition + 1,
     isInitial: input.isInitial ?? false,
     isFinal: input.isFinal ?? false,
+    isValidated: input.isValidated ?? false,
     createdAt: new Date(),
   });
 
@@ -1043,6 +1081,7 @@ export async function addWorkflowStatus(
     position: maxPosition + 1,
     isInitial: input.isInitial ?? false,
     isFinal: input.isFinal ?? false,
+    isValidated: input.isValidated ?? false,
   };
 }
 
@@ -1054,6 +1093,7 @@ export async function updateWorkflowStatus(
     position?: number;
     isInitial?: boolean;
     isFinal?: boolean;
+    isValidated?: boolean;
   },
 ): Promise<WorkflowStatusOutput> {
   const status = (
@@ -1070,6 +1110,7 @@ export async function updateWorkflowStatus(
   if (input.position !== undefined) updateData.position = input.position;
   if (input.isInitial !== undefined) updateData.isInitial = input.isInitial;
   if (input.isFinal !== undefined) updateData.isFinal = input.isFinal;
+  if (input.isValidated !== undefined) updateData.isValidated = input.isValidated;
 
   if (Object.keys(updateData).length > 0) {
     await db.update(workflowStatuses).set(updateData).where(eq(workflowStatuses.id, statusId));
@@ -1086,6 +1127,7 @@ export async function updateWorkflowStatus(
     position: updated.position,
     isInitial: updated.isInitial,
     isFinal: updated.isFinal,
+    isValidated: updated.isValidated,
   };
 }
 
@@ -1145,6 +1187,7 @@ export async function bulkUpsertWorkflowStatuses(
     position: number;
     isInitial?: boolean;
     isFinal?: boolean;
+    isValidated?: boolean;
   }>,
 ): Promise<void> {
   const workflow = (
@@ -1175,14 +1218,27 @@ export async function bulkUpsertWorkflowStatuses(
         position,
         isInitial: status.isInitial ?? false,
         isFinal: status.isFinal ?? false,
+        isValidated: status.isValidated ?? false,
         createdAt: now,
       });
     } else {
       keptIds.push(status.id);
-      await db
-        .update(workflowStatuses)
-        .set({ name: status.name, color: status.color ?? null, position })
-        .where(eq(workflowStatuses.id, status.id));
+      const updateData: {
+        name: string;
+        color: string | null;
+        position: number;
+        isInitial?: boolean;
+        isFinal?: boolean;
+        isValidated?: boolean;
+      } = {
+        name: status.name,
+        color: status.color ?? null,
+        position,
+      };
+      if (status.isInitial !== undefined) updateData.isInitial = status.isInitial;
+      if (status.isFinal !== undefined) updateData.isFinal = status.isFinal;
+      if (status.isValidated !== undefined) updateData.isValidated = status.isValidated;
+      await db.update(workflowStatuses).set(updateData).where(eq(workflowStatuses.id, status.id));
     }
   }
 

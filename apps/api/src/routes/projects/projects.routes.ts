@@ -53,6 +53,7 @@ type UpdateWorkflowInput = {
     position: number;
     isInitial?: boolean;
     isFinal?: boolean;
+    isValidated?: boolean;
   }>;
 };
 

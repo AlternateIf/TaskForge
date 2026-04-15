@@ -17,6 +17,7 @@ import type { CreateSubtaskInput, CreateTaskInput, UpdateTaskInput } from '@task
 import type { SQL } from 'drizzle-orm';
 import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import type { TransitionBlockDetails } from '../utils/errors.js';
 import { decodeCursor, encodeCursor, normalizeLimit } from '../utils/pagination.js';
 import * as activityService from './activity.service.js';
 import { computeBlockedStatus, createDependency } from './dependency.service.js';
@@ -190,6 +191,75 @@ async function validateAssigneeInOrg(assigneeId: string, projectId: string): Pro
       ErrorCode.UNPROCESSABLE_ENTITY,
       'Assignee is not a member of the organization',
     );
+  }
+}
+
+/**
+ * Validate that a status transition is allowed.
+ * When the target status has isFinal === true OR isValidated === true,
+ * the task must have zero unresolved blockers and zero incomplete checklist items.
+ */
+export async function validateStatusTransition(
+  taskId: string,
+  targetStatusId: string,
+  projectId: string,
+): Promise<void> {
+  // Check if target status is final or validated
+  const targetStatus = await db
+    .select({
+      isFinal: workflowStatuses.isFinal,
+      isValidated: workflowStatuses.isValidated,
+    })
+    .from(workflowStatuses)
+    .innerJoin(workflows, eq(workflows.id, workflowStatuses.workflowId))
+    .where(and(eq(workflowStatuses.id, targetStatusId), eq(workflows.projectId, projectId)))
+    .limit(1);
+
+  if (targetStatus.length === 0) {
+    throw new AppError(
+      422,
+      ErrorCode.UNPROCESSABLE_ENTITY,
+      'Status does not belong to this project',
+    );
+  }
+
+  const { isFinal, isValidated } = targetStatus[0];
+
+  // If neither flag is true, no transition guard needed
+  if (!isFinal && !isValidated) {
+    return;
+  }
+
+  // Check unresolved blockers
+  const blockedStatus = await computeBlockedStatus(taskId);
+  const unresolvedBlockersCount = blockedStatus.isBlocked ? blockedStatus.blockedByCount : 0;
+
+  // Check incomplete checklist items
+  const progress = await loadTaskProgress(taskId);
+  const incompleteChecklistCount = progress.checklistTotal - progress.checklistCompleted;
+
+  if (unresolvedBlockersCount > 0 || incompleteChecklistCount > 0) {
+    const details: TransitionBlockDetails = {
+      unresolvedBlockersCount,
+      incompleteChecklistCount,
+    };
+
+    const reasons: string[] = [];
+    if (unresolvedBlockersCount > 0) {
+      reasons.push(
+        `${unresolvedBlockersCount} unresolved blocker${unresolvedBlockersCount > 1 ? 's' : ''}`,
+      );
+    }
+    if (incompleteChecklistCount > 0) {
+      reasons.push(
+        `${incompleteChecklistCount} incomplete checklist item${incompleteChecklistCount > 1 ? 's' : ''}`,
+      );
+    }
+
+    const statusLabel = isValidated ? 'validated' : 'final';
+    const message = `Cannot move to ${statusLabel} status: ${reasons.join(' and ')}`;
+
+    throw new AppError(422, ErrorCode.TRANSITION_BLOCKED, message, undefined, details);
   }
 }
 
@@ -1066,6 +1136,10 @@ export async function updateTask(
 
   if (input.statusId) {
     await validateStatusBelongsToProject(input.statusId, projectId);
+    // Enforce transition guard for final/validated statuses
+    if (input.statusId !== existing[0].statusId) {
+      await validateStatusTransition(taskId, input.statusId, projectId);
+    }
   }
 
   if (input.assigneeId) {
@@ -1540,6 +1614,10 @@ export async function updateTaskPosition(
 
     if (input.statusId) {
       await validateStatusBelongsToProject(input.statusId, projectId);
+      // Enforce transition guard for final/validated statuses
+      if (input.statusId !== existing[0].statusId) {
+        await validateStatusTransition(taskId, input.statusId, projectId);
+      }
     }
 
     const updates: Record<string, unknown> = {
@@ -1591,6 +1669,10 @@ export async function updateTaskPosition(
     input.statusId ?? beforeTask?.statusId ?? afterTask?.statusId ?? existing[0].statusId;
   if (input.statusId) {
     await validateStatusBelongsToProject(input.statusId, projectId);
+  }
+  // Enforce transition guard for final/validated statuses in anchored branch
+  if (targetStatusId !== existing[0].statusId) {
+    await validateStatusTransition(taskId, targetStatusId, projectId);
   }
   if (beforeTask && beforeTask.statusId !== targetStatusId) {
     throw new AppError(

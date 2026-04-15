@@ -82,6 +82,7 @@ export const workflowStatuses = mysqlTable(
     position: int('position').notNull().default(0),
     isInitial: boolean('is_initial').notNull().default(false),
     isFinal: boolean('is_final').notNull().default(false),
+    isValidated: boolean('is_validated').notNull().default(false),
     createdAt: datetime('created_at').notNull().default(new Date()),
   },
   (table) => [index('wf_statuses_workflow_idx').on(table.workflowId)],

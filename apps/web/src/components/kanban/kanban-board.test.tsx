@@ -1,5 +1,6 @@
 import type { WorkflowStatus } from '@/api/projects';
-import type { Task } from '@/api/tasks';
+import { isStatusTransitionBlocked } from '@/api/tasks';
+import type { Task, TaskWithRelations } from '@/api/tasks';
 import { describe, expect, it } from 'vitest';
 
 // ─── Helpers (pure logic extracted from KanbanBoard) ──────────────────────────
@@ -49,7 +50,7 @@ const makeTask = (overrides: Partial<Task> & { id: string; statusId: string }): 
 const statuses: WorkflowStatus[] = [
   { id: 'todo', name: 'To Do', color: '#64748B', position: 0, isDefault: true },
   { id: 'in_progress', name: 'In Progress', color: '#3B82F6', position: 1, isDefault: false },
-  { id: 'done', name: 'Done', color: '#22C55E', position: 2, isDefault: false },
+  { id: 'done', name: 'Done', color: '#22C55E', position: 2, isDefault: false, isFinal: true },
 ];
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -152,5 +153,116 @@ describe('optimistic task move state update', () => {
 
     expect(original[0].statusId).toBe('todo');
     expect(updated[0].statusId).toBe('done');
+  });
+});
+
+// ─── Transition validation logic (unit tests) ──────────────────────────────────
+
+describe('isStatusTransitionBlocked', () => {
+  it('returns blocked=false for non-final, non-validated statuses', () => {
+    const task: TaskWithRelations = makeTask({
+      id: 't1',
+      statusId: 'todo',
+    }) as TaskWithRelations;
+    const inProgress = statuses.find((s) => s.id === 'in_progress');
+    if (!inProgress) throw new Error('in_progress status not found in fixture');
+    const result = isStatusTransitionBlocked(task, inProgress);
+    expect(result.blocked).toBe(false);
+  });
+
+  it('returns blocked=true for isFinal status with unresolved blockers', () => {
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'todo' }),
+      blockers: [{ isResolved: false }],
+    };
+    const doneStatus = statuses.find((s) => s.id === 'done');
+    if (!doneStatus) throw new Error('done status not found in fixture');
+    const result = isStatusTransitionBlocked(task, doneStatus);
+    expect(result.blocked).toBe(true);
+    expect(result.blockersCount).toBe(1);
+  });
+
+  it('returns blocked=false for isFinal status with all blockers resolved', () => {
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'todo' }),
+      blockers: [{ isResolved: true }],
+    };
+    const doneStatus = statuses.find((s) => s.id === 'done');
+    if (!doneStatus) throw new Error('done status not found in fixture');
+    const result = isStatusTransitionBlocked(task, doneStatus);
+    expect(result.blocked).toBe(false);
+  });
+
+  it('returns blocked=true for isValidated status with incomplete checklists', () => {
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'todo' }),
+      blockers: [],
+      progress: {
+        subtaskCount: 3,
+        subtaskCompletedCount: 1,
+        checklistTotal: 5,
+        checklistCompleted: 2,
+      },
+    };
+    const validatedStatus: WorkflowStatus = {
+      id: 'released',
+      name: 'Released',
+      color: '#a855f7',
+      position: 3,
+      isDefault: false,
+      isValidated: true,
+    };
+    const result = isStatusTransitionBlocked(task, validatedStatus);
+    expect(result.blocked).toBe(true);
+    expect(result.checklistCount).toBe(3);
+  });
+
+  it('returns blocked=false for isFinal task with no blockers and complete checklists', () => {
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'todo' }),
+      blockers: [{ isResolved: true }],
+      progress: {
+        subtaskCount: 2,
+        subtaskCompletedCount: 2,
+        checklistTotal: 3,
+        checklistCompleted: 3,
+      },
+    };
+    const doneStatus = statuses.find((s) => s.id === 'done');
+    if (!doneStatus) throw new Error('done status not found in fixture');
+    const result = isStatusTransitionBlocked(task, doneStatus);
+    expect(result.blocked).toBe(false);
+  });
+});
+
+describe('kanban drag transition blocking', () => {
+  it('shows INFO toast when dragging to a final column with unresolved blockers', async () => {
+    // Simulating the same logic used in handleDragEnd
+    const { getBlockedStatusTransitionMessage } = await import('@/api/tasks');
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'in_progress' }),
+      blockers: [{ isResolved: false }, { isResolved: true }],
+    };
+    const targetStatus = statuses.find((s) => s.id === 'done');
+    if (!targetStatus) throw new Error('done status not found in fixture');
+    const eligibility = isStatusTransitionBlocked(task, targetStatus);
+
+    expect(eligibility.blocked).toBe(true);
+
+    const message = getBlockedStatusTransitionMessage(targetStatus.name, eligibility);
+    expect(message).toBe(
+      'Cannot move to Done: 1 unresolved blocker(s), 0 incomplete checklist item(s)',
+    );
+  });
+
+  it('does not block transition to a non-final column', () => {
+    const task: TaskWithRelations = {
+      ...makeTask({ id: 't1', statusId: 'todo' }),
+      blockers: [{ isResolved: false }],
+    };
+    const inProgress = statuses.find((s) => s.id === 'in_progress');
+    if (!inProgress) throw new Error('in_progress status not found in fixture');
+    const eligibility = isStatusTransitionBlocked(task, inProgress);
+    expect(eligibility.blocked).toBe(false);
   });
 });

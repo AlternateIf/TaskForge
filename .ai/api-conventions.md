@@ -103,6 +103,51 @@ Rules:
 }
 ```
 
+## Task State Transition Validation
+
+### New Error Code: `TRANSITION_BLOCKED`
+
+When a task cannot transition to a final or validated workflow status due to unresolved blockers or incomplete checklist items, the API returns:
+
+```json
+{
+  "error": {
+    "code": "TRANSITION_BLOCKED",
+    "message": "Cannot move to validated status: 2 unresolved blockers and 1 incomplete checklist item",
+    "transitionDetails": {
+      "unresolvedBlockersCount": 2,
+      "incompleteChecklistCount": 1
+    }
+  }
+}
+```
+
+### Affected Endpoints
+
+- `PATCH /api/v1/tasks/:id` — when `statusId` changes to a final or validated status
+- `PATCH /api/v1/tasks/:id/position` — when position change implies status change to final or validated
+- `POST /api/v1/tasks/bulk` with `action: "updateStatus"` — per-task failures may include `transitionDetails`
+
+### Validation Rules
+
+When moving to a workflow status where `isFinal = true` OR `isValidated = true`:
+- Must have zero unresolved blockers (task dependencies)
+- Must have zero incomplete checklist items
+
+The error message uses "validated" for `isValidated` statuses and "final" for `isFinal` statuses.
+
+### Workflow Status Schema
+
+`WorkflowStatusOutput` now includes `isValidated: boolean` field.
+
+- `POST /api/v1/projects/:id/workflow-statuses` accepts `isValidated?: boolean`
+- `PATCH /api/v1/projects/:id/workflow-statuses/:statusId` accepts `isValidated?: boolean`
+- `PATCH /api/v1/projects/:id/workflow` accepts `isValidated?: boolean` per status in bulk upsert
+
+### Database Migration
+
+Migration `0001_add_is_validated_to_workflow_statuses.sql` adds `is_validated` boolean column (default `false`).
+
 ## Documentation And Validation Gate
 
 For backend contract changes:

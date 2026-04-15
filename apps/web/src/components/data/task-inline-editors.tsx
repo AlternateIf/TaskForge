@@ -1,6 +1,12 @@
 import { useOrgMembers } from '@/api/organizations';
 import type { ProjectMember, WorkflowStatus } from '@/api/projects';
-import { type Priority, useUpdateTask } from '@/api/tasks';
+import {
+  type Priority,
+  type TaskWithRelations,
+  getBlockedStatusTransitionMessage,
+  isStatusTransitionBlocked,
+  useUpdateTask,
+} from '@/api/tasks';
 import { PriorityBadge } from '@/components/priority-badge';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -8,6 +14,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { X } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 
 const MEMBERS_READ_PERMISSION = 'membership.read.org';
 
@@ -85,11 +92,13 @@ export function PickerPopover({
 
 export function StatusPicker({
   taskId,
+  task,
   statusId,
   statuses,
   children,
 }: {
   taskId: string;
+  task: TaskWithRelations;
   statusId: string;
   statuses: WorkflowStatus[];
   children: ReactNode;
@@ -97,6 +106,11 @@ export function StatusPicker({
   const [open, setOpen] = useState(false);
   const update = useUpdateTask(taskId);
   const close = useCallback(() => setOpen(false), []);
+  const blockedByStatusId = useMemo(() => {
+    return new Map(
+      statuses.map((status) => [status.id, isStatusTransitionBlocked(task, status)] as const),
+    );
+  }, [statuses, task]);
 
   return (
     <PickerPopover
@@ -117,23 +131,34 @@ export function StatusPicker({
         </button>
       }
     >
-      {statuses.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          className={cn(
-            'flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low',
-            s.id === statusId && 'bg-surface-container-low',
-          )}
-          onClick={() => {
-            update.mutate({ statusId: s.id });
-            close();
-          }}
-        >
-          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
-          {s.name}
-        </button>
-      ))}
+      {statuses.map((s) => {
+        const eligibility = blockedByStatusId.get(s.id);
+        const isBlocked = s.id !== statusId && Boolean(eligibility?.blocked);
+        return (
+          <button
+            key={s.id}
+            type="button"
+            aria-disabled={isBlocked}
+            className={cn(
+              'flex w-full items-center gap-sm rounded-radius-md px-sm py-xs text-body transition-colors hover:bg-surface-container-low',
+              s.id === statusId && 'bg-surface-container-low',
+              isBlocked &&
+                'cursor-not-allowed text-muted opacity-65 hover:bg-transparent hover:text-muted',
+            )}
+            onClick={() => {
+              if (isBlocked && eligibility) {
+                toast.info(getBlockedStatusTransitionMessage(s.name, eligibility));
+                return;
+              }
+              update.mutate({ statusId: s.id });
+              close();
+            }}
+          >
+            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+            {s.name}
+          </button>
+        );
+      })}
     </PickerPopover>
   );
 }

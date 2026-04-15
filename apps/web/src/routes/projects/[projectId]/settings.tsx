@@ -47,7 +47,18 @@ import {
   PROJECT_READ_PERMISSION,
   PROJECT_UPDATE_PERMISSION,
 } from '@taskforge/shared';
-import { ArrowLeft, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Circle,
+  Flag,
+  GripVertical,
+  type LucideIcon,
+  Play,
+  Plus,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -105,23 +116,116 @@ function ColorPickerPopover({
   );
 }
 
+type WorkflowStatusRole = 'normal' | 'initial' | 'validated' | 'final' | 'final-validated';
+
+type WorkflowStatusFlags = Pick<WorkflowStatus, 'isInitial' | 'isFinal' | 'isValidated'>;
+
+const WORKFLOW_ROLE_META: Record<
+  WorkflowStatusRole,
+  {
+    label: string;
+    icon: LucideIcon;
+    helpText: string;
+    badgeClassName: string;
+    iconClassName: string;
+  }
+> = {
+  normal: {
+    label: 'Normal',
+    icon: Circle,
+    helpText: 'No completion gate is enforced for this column.',
+    badgeClassName: 'border-border/70 bg-surface-container-low text-secondary',
+    iconClassName: 'text-muted',
+  },
+  initial: {
+    label: 'Initial',
+    icon: Play,
+    helpText: 'New tasks start in this column. Exactly one initial column is required.',
+    badgeClassName: 'border-sky-200/80 bg-sky-100/65 text-sky-900',
+    iconClassName: 'text-sky-700',
+  },
+  validated: {
+    label: 'Validated',
+    icon: ShieldCheck,
+    helpText:
+      'Tasks can enter this column only when blockers and checklist items are fully resolved.',
+    badgeClassName: 'border-amber-300 bg-amber-100 text-amber-900',
+    iconClassName: 'text-amber-700',
+  },
+  final: {
+    label: 'Final',
+    icon: Flag,
+    helpText:
+      'Final statuses are treated as completed and also enforce blockers/checklist completion.',
+    badgeClassName: 'border-emerald-300/80 bg-emerald-100/65 text-emerald-900',
+    iconClassName: 'text-emerald-700',
+  },
+  'final-validated': {
+    label: 'Final + Validated',
+    icon: ShieldCheck,
+    helpText: 'Combines both completion semantics on a single workflow column.',
+    badgeClassName: 'border-violet-300/80 bg-violet-100/65 text-violet-900',
+    iconClassName: 'text-violet-700',
+  },
+};
+
+function getWorkflowStatusRole(status: WorkflowStatusFlags): WorkflowStatusRole {
+  if (status.isInitial) return 'initial';
+  if (status.isFinal && status.isValidated) return 'final-validated';
+  if (status.isFinal) return 'final';
+  if (status.isValidated) return 'validated';
+  return 'normal';
+}
+
+function applyWorkflowStatusRole(status: WorkflowStatus, role: WorkflowStatusRole): WorkflowStatus {
+  switch (role) {
+    case 'initial':
+      return { ...status, isInitial: true, isFinal: false, isValidated: false };
+    case 'validated':
+      return { ...status, isInitial: false, isFinal: false, isValidated: true };
+    case 'final':
+      return { ...status, isInitial: false, isFinal: true, isValidated: false };
+    case 'final-validated':
+      return { ...status, isInitial: false, isFinal: true, isValidated: true };
+    default:
+      return { ...status, isInitial: false, isFinal: false, isValidated: false };
+  }
+}
+
 // ─── Sortable status row ──────────────────────────────────────────────────────
 
 function SortableStatusRow({
   status,
   onNameChange,
   onColorChange,
+  onRoleChange,
   onRemove,
 }: {
   status: WorkflowStatus;
   onNameChange: (name: string) => void;
   onColorChange: (color: string) => void;
+  onRoleChange: (role: WorkflowStatusRole) => void;
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: status.id,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const role = getWorkflowStatusRole({
+    isInitial: Boolean(status.isInitial),
+    isFinal: Boolean(status.isFinal),
+    isValidated: Boolean(status.isValidated),
+  });
+  const roleMeta = WORKFLOW_ROLE_META[role];
+  const RoleIcon = roleMeta.icon;
+  const stateSelectShellClassName = cn(
+    'relative ml-1 inline-flex items-center rounded-full border pl-sm pr-lg focus-within:outline-2 focus-within:outline-ring',
+    role === 'normal'
+      ? 'border-border/70 bg-surface-container-lowest'
+      : role === 'validated'
+        ? 'border-amber-200 bg-amber-50 shadow-inner'
+        : 'border-white/70 bg-white/80 shadow-inner',
+  );
 
   return (
     <div
@@ -150,6 +254,35 @@ function SortableStatusRow({
         placeholder="Status name"
         aria-label="Status name"
       />
+      <Tooltip>
+        <TooltipTrigger className="relative inline-flex">
+          <div
+            className={cn(
+              'inline-flex items-center gap-xs overflow-hidden rounded-full border px-xs py-[3px]',
+              roleMeta.badgeClassName,
+            )}
+          >
+            <RoleIcon className={cn('size-3.5', roleMeta.iconClassName)} />
+            <span className="text-label font-semibold">State</span>
+            <span className={stateSelectShellClassName}>
+              <select
+                value={role}
+                onChange={(event) => onRoleChange(event.target.value as WorkflowStatusRole)}
+                className="h-7 min-w-[10.5rem] appearance-none border-0 bg-transparent py-0 text-small font-medium text-foreground outline-none"
+                aria-label={`Workflow state for ${status.name}`}
+              >
+                {Object.entries(WORKFLOW_ROLE_META).map(([value, meta]) => (
+                  <option key={value} value={value}>
+                    {meta.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 size-3.5 text-muted" />
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="right-0 top-full mt-1 w-72">{roleMeta.helpText}</TooltipContent>
+      </Tooltip>
       <button
         type="button"
         onClick={onRemove}
@@ -512,7 +645,16 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
   const [statuses, setStatuses] = useState<WorkflowStatus[]>([]);
 
   useEffect(() => {
-    if (project) setStatuses([...(project.statuses ?? [])]);
+    if (project) {
+      setStatuses(
+        [...(project.statuses ?? [])].map((status) => ({
+          ...status,
+          isInitial: Boolean(status.isInitial),
+          isFinal: Boolean(status.isFinal),
+          isValidated: Boolean(status.isValidated),
+        })),
+      );
+    }
   }, [project]);
 
   const sensors = useSensors(
@@ -539,12 +681,21 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
         color: '#3B82F6',
         position: prev.length,
         isDefault: false,
+        isInitial: false,
+        isFinal: false,
+        isValidated: false,
       },
     ]);
   }
 
   function removeStatus(id: string) {
-    setStatuses((prev) => prev.filter((s) => s.id !== id));
+    setStatuses((prev) => {
+      const remaining = prev.filter((s) => s.id !== id);
+      if (remaining.length === 0 || remaining.some((s) => s.isInitial)) {
+        return remaining;
+      }
+      return remaining.map((s, idx) => (idx === 0 ? { ...s, isInitial: true } : s));
+    });
   }
 
   function updateName(id: string, name: string) {
@@ -555,13 +706,30 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
     setStatuses((prev) => prev.map((s) => (s.id === id ? { ...s, color } : s)));
   }
 
+  function updateRole(id: string, role: WorkflowStatusRole) {
+    setStatuses((prev) =>
+      prev.map((status) => {
+        if (status.id === id) {
+          return applyWorkflowStatusRole(status, role);
+        }
+        if (role === 'initial' && status.isInitial) {
+          return { ...status, isInitial: false };
+        }
+        return status;
+      }),
+    );
+  }
+
+  const initialCount = statuses.filter((status) => status.isInitial).length;
+  const hasSingleInitial = initialCount === 1;
+
   return (
     <div className="flex flex-col gap-lg">
       <div className="rounded-radius-xl border border-border bg-surface-container-lowest p-xl">
         <h2 className="mb-xs text-heading-3 font-semibold text-foreground">Workflow Statuses</h2>
         <p className="mb-lg text-body text-secondary">
           {canEdit
-            ? 'Drag to reorder statuses. These columns appear in the Kanban board.'
+            ? 'Drag to reorder statuses and assign one role per column.'
             : 'These columns appear in the Kanban board.'}
         </p>
         {canEdit ? (
@@ -582,6 +750,7 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
                       status={status}
                       onNameChange={(name) => updateName(status.id, name)}
                       onColorChange={(color) => updateColor(status.id, color)}
+                      onRoleChange={(role) => updateRole(status.id, role)}
                       onRemove={() => removeStatus(status.id)}
                     />
                   ))}
@@ -596,6 +765,15 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
               <Plus className="size-4" />
               Add Status
             </button>
+            {!hasSingleInitial ? (
+              <p className="mt-sm text-label text-danger">
+                {initialCount === 0
+                  ? 'Choose exactly one Initial column before saving.'
+                  : 'Only one column can be Initial. Update the roles before saving.'}
+              </p>
+            ) : (
+              <p className="mt-sm text-label text-muted">Initial column is configured correctly.</p>
+            )}
           </>
         ) : (
           <div className="flex flex-col gap-sm">
@@ -609,6 +787,27 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
                   style={{ backgroundColor: status.color }}
                 />
                 <span className="flex-1 text-body text-foreground">{status.name}</span>
+                {(() => {
+                  const role = getWorkflowStatusRole({
+                    isInitial: Boolean(status.isInitial),
+                    isFinal: Boolean(status.isFinal),
+                    isValidated: Boolean(status.isValidated),
+                  });
+                  if (role === 'normal') return null;
+                  const roleMeta = WORKFLOW_ROLE_META[role];
+                  const RoleIcon = roleMeta.icon;
+                  return (
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-sm py-0.5 text-label font-medium',
+                        roleMeta.badgeClassName,
+                      )}
+                    >
+                      <RoleIcon className={cn('size-3', roleMeta.iconClassName)} />
+                      {roleMeta.label}
+                    </span>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -618,7 +817,7 @@ function WorkflowTab({ projectId, canEdit }: { projectId: string; canEdit: boole
         <Button
           variant="primary"
           onClick={() => update.mutate(statuses)}
-          disabled={update.isPending}
+          disabled={update.isPending || !hasSingleInitial}
           className="self-start"
         >
           {update.isPending ? 'Saving…' : 'Save Workflow'}

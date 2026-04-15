@@ -78,7 +78,7 @@ export function TaskRow({
       <td className="hidden px-sm py-sm sm:table-cell">
         {status &&
           (canEditTask ? (
-            <StatusPicker taskId={task.id} statusId={task.statusId} statuses={statuses}>
+            <StatusPicker taskId={task.id} task={task} statusId={task.statusId} statuses={statuses}>
               <span
                 className="inline-flex items-center gap-xs rounded px-sm py-0.5 text-label font-medium"
                 style={{ backgroundColor: `${status.color}22`, color: status.color }}

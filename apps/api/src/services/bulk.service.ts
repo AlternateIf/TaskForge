@@ -11,11 +11,13 @@ import {
 import type { BulkActionInput } from '@taskforge/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import type { TransitionBlockDetails } from '../utils/errors.js';
 import * as activityService from './activity.service.js';
+import { validateStatusTransition } from './task.service.js';
 
 interface BulkFailure {
   id: string;
-  error: { code: string; message: string };
+  error: { code: string; message: string; transitionDetails?: TransitionBlockDetails };
 }
 
 export interface BulkResult {
@@ -125,6 +127,11 @@ export async function executeBulkAction(
               error: { code: 'UNPROCESSABLE_ENTITY', message: 'Status not in project workflow' },
             });
             continue;
+          }
+
+          // Enforce transition guard for final/validated statuses
+          if (statusId !== task.statusId) {
+            await validateStatusTransition(taskId, statusId, task.projectId);
           }
 
           await db
@@ -341,7 +348,11 @@ export async function executeBulkAction(
     } catch (err) {
       const message = err instanceof AppError ? err.message : 'Internal error';
       const code = err instanceof AppError ? err.code : 'INTERNAL_ERROR';
-      failed.push({ id: taskId, error: { code, message } });
+      const transitionDetails =
+        err instanceof AppError && err.code === ErrorCode.TRANSITION_BLOCKED
+          ? err.transitionDetails
+          : undefined;
+      failed.push({ id: taskId, error: { code, message, transitionDetails } });
     }
   }
 

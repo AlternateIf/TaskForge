@@ -9,6 +9,7 @@ export const ErrorCode = {
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
   UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
   UNPROCESSABLE_ENTITY: 'UNPROCESSABLE_ENTITY',
+  TRANSITION_BLOCKED: 'TRANSITION_BLOCKED',
   RATE_LIMITED: 'RATE_LIMITED',
   MFA_ENFORCED_BY_ORG: 'MFA_ENFORCED_BY_ORG',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -21,11 +22,17 @@ export interface ErrorDetail {
   message: string;
 }
 
+export interface TransitionBlockDetails {
+  unresolvedBlockersCount: number;
+  incompleteChecklistCount: number;
+}
+
 export interface ErrorResponse {
   error: {
     code: ErrorCode;
     message: string;
     details?: ErrorDetail[];
+    transitionDetails?: TransitionBlockDetails;
   };
 }
 
@@ -35,6 +42,7 @@ export class AppError extends Error {
     public readonly code: ErrorCode,
     message: string,
     public readonly details?: ErrorDetail[],
+    public readonly transitionDetails?: TransitionBlockDetails,
   ) {
     super(message);
     this.name = 'AppError';
@@ -45,10 +53,14 @@ export function buildErrorResponse(
   code: ErrorCode,
   message: string,
   details?: ErrorDetail[],
+  transitionDetails?: TransitionBlockDetails,
 ): ErrorResponse {
   const response: ErrorResponse = { error: { code, message } };
   if (details && details.length > 0) {
     response.error.details = details;
+  }
+  if (transitionDetails) {
+    response.error.transitionDetails = transitionDetails;
   }
   return response;
 }

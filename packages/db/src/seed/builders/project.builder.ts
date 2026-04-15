@@ -119,6 +119,7 @@ export function buildWorkflowStatuses(): (typeof schema.workflowStatuses.$inferI
         position: 0,
         isInitial: true,
         isFinal: false,
+        isValidated: false,
         createdAt: at(70 + counter),
       },
       {
@@ -129,6 +130,7 @@ export function buildWorkflowStatuses(): (typeof schema.workflowStatuses.$inferI
         position: 1,
         isInitial: false,
         isFinal: false,
+        isValidated: false,
         createdAt: at(71 + counter),
       },
       {
@@ -139,6 +141,7 @@ export function buildWorkflowStatuses(): (typeof schema.workflowStatuses.$inferI
         position: 2,
         isInitial: false,
         isFinal: false,
+        isValidated: true,
         createdAt: at(72 + counter),
       },
       {
@@ -149,6 +152,7 @@ export function buildWorkflowStatuses(): (typeof schema.workflowStatuses.$inferI
         position: 3,
         isInitial: false,
         isFinal: true,
+        isValidated: false,
         createdAt: at(73 + counter),
       },
     );
