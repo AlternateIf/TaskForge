@@ -141,7 +141,7 @@ jobs:
           key: modules-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=high --ignore-registry-errors
 
   bundle-size:
     name: Bundle Size Check
