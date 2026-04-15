@@ -333,6 +333,7 @@ function MemberCombobox({
     <PickerPopover
       open={open}
       onClose={close}
+      align="end"
       className="w-64 p-xs"
       trigger={
         <Button

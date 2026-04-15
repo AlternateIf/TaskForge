@@ -26,23 +26,75 @@ export function PickerPopover({
   trigger,
   children,
   className,
+  align = 'start',
 }: {
   open: boolean;
   onClose: () => void;
   trigger: ReactNode;
   children: ReactNode;
   className?: string;
+  align?: 'start' | 'end';
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const VIEWPORT_MARGIN = 8;
+  const OFFSET_Y = 4;
 
   // Capture trigger position when opening
   useEffect(() => {
     if (open && triggerRef.current) {
       setRect(triggerRef.current.getBoundingClientRect());
+      setPosition(null);
     }
   }, [open]);
+
+  // Keep anchor rect fresh while open (resize/scroll)
+  useEffect(() => {
+    if (!open) return;
+    function refreshAnchorRect() {
+      if (triggerRef.current) {
+        setRect(triggerRef.current.getBoundingClientRect());
+      }
+    }
+    window.addEventListener('resize', refreshAnchorRect);
+    window.addEventListener('scroll', refreshAnchorRect, true);
+    return () => {
+      window.removeEventListener('resize', refreshAnchorRect);
+      window.removeEventListener('scroll', refreshAnchorRect, true);
+    };
+  }, [open]);
+
+  // Resolve final popover position with viewport collision handling
+  useEffect(() => {
+    if (!open || !rect || !contentRef.current) return;
+
+    const content = contentRef.current;
+    const contentWidth = content.offsetWidth;
+    const contentHeight = content.offsetHeight;
+
+    let left = align === 'end' ? rect.right - contentWidth : rect.left;
+    const minLeft = VIEWPORT_MARGIN;
+    const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - contentWidth - VIEWPORT_MARGIN);
+    left = Math.min(Math.max(left, minLeft), maxLeft);
+
+    let top = rect.bottom + OFFSET_Y;
+    const maxBottomTop = window.innerHeight - contentHeight - VIEWPORT_MARGIN;
+    if (top > maxBottomTop) {
+      const openUpTop = rect.top - contentHeight - OFFSET_Y;
+      if (openUpTop >= VIEWPORT_MARGIN) {
+        top = openUpTop;
+      } else {
+        top = Math.max(VIEWPORT_MARGIN, maxBottomTop);
+      }
+    }
+
+    setPosition((prev) => {
+      if (prev && prev.left === left && prev.top === top) return prev;
+      return { top, left };
+    });
+  }, [open, rect, align]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +125,12 @@ export function PickerPopover({
         createPortal(
           <div
             ref={contentRef}
-            style={{ position: 'fixed', top: rect.bottom + 4, left: rect.left, zIndex: 9999 }}
+            style={{
+              position: 'fixed',
+              top: position?.top ?? rect.bottom + OFFSET_Y,
+              left: position?.left ?? rect.left,
+              zIndex: 9999,
+            }}
             className={cn(
               'rounded-radius-lg border border-border bg-surface-container-lowest shadow-2',
               className,
