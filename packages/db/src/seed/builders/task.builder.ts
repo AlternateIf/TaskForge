@@ -15,7 +15,12 @@ import {
   id,
 } from '../id-registry.js';
 
-const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
+function getRuntimeSeedBaseTime(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 9, 0, 0, 0));
+}
+
+const BASE_TIME = getRuntimeSeedBaseTime();
 
 function at(minutesFromBase: number): Date {
   return new Date(BASE_TIME.getTime() + minutesFromBase * 60_000);
@@ -305,7 +310,11 @@ export function buildTasks(): (typeof schema.tasks.$inferInsert)[] {
     const assignee = taskAssignees[Math.floor(rng() * taskAssignees.length)];
     const reporterIdx = Math.floor(rng() * taskAssignees.length);
     const reporter = taskAssignees[reporterIdx];
-    const minutesOffset = 110 + i * 5;
+    const createdAtOffsetMinutes =
+      (-45 + Math.floor(rng() * 20)) * 24 * 60 + Math.floor(rng() * 12 * 60);
+    const updatedAtOffsetMinutes = createdAtOffsetMinutes + Math.floor(rng() * 7 * 24 * 60);
+    const startOffsetDays = Math.floor(rng() * 21) - 7; // -7..+13 days from today
+    const dueOffsetDays = Math.max(startOffsetDays + 1, 1 + Math.floor(rng() * 45)); // +1..+45
 
     tasks.push({
       id: taskIdList[i],
@@ -317,10 +326,10 @@ export function buildTasks(): (typeof schema.tasks.$inferInsert)[] {
       assigneeId: assignee,
       reporterId: reporter,
       position: i % 20,
-      startDate: at(minutesOffset),
-      dueDate: at(minutesOffset + 500 + Math.floor(rng() * 2000)),
-      createdAt: at(minutesOffset),
-      updatedAt: at(minutesOffset),
+      startDate: at(startOffsetDays * 24 * 60 + 9 * 60 + (i % 8) * 15),
+      dueDate: at(dueOffsetDays * 24 * 60 + 17 * 60 + Math.floor(rng() * 120)),
+      createdAt: at(createdAtOffsetMinutes),
+      updatedAt: at(updatedAtOffsetMinutes),
     });
   }
 

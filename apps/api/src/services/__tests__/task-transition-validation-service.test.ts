@@ -21,7 +21,8 @@ import { AppError, ErrorCode } from '../../utils/errors.js';
 //
 
 const mockComputeBlockedStatus = vi.fn();
-const mockHasOrgPermission = vi.fn();
+const mockCheckPermission = vi.fn();
+const mockLoadPermissionContext = vi.fn();
 const mockIndexTask = vi.fn();
 const mockRemoveTask = vi.fn();
 const mockActivityLog = vi.fn();
@@ -160,7 +161,8 @@ vi.mock('../dependency.service.js', () => ({
 }));
 
 vi.mock('../permission.service.js', () => ({
-  hasOrgPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
+  checkPermission: (...args: unknown[]) => mockCheckPermission(...args),
+  loadPermissionContext: (...args: unknown[]) => mockLoadPermissionContext(...args),
 }));
 
 vi.mock('../search.service.js', () => ({
@@ -186,7 +188,12 @@ describe('validateStatusTransition', () => {
     selectQueue.length = 0;
     selectIdx = 0;
     mockComputeBlockedStatus.mockReset();
-    mockHasOrgPermission.mockResolvedValue(true);
+    mockCheckPermission.mockResolvedValue(true);
+    mockLoadPermissionContext.mockResolvedValue({
+      orgId: 'org-1',
+      effectivePermissions: [],
+      projectCache: new Map(),
+    });
   });
 
   // Scenario 1: Allowed — no blockers, no incomplete checklists
@@ -414,7 +421,7 @@ describe('updateTaskPosition transition guard', () => {
     selectQueue.length = 0;
     selectIdx = 0;
     mockComputeBlockedStatus.mockReset();
-    mockHasOrgPermission.mockResolvedValue(true);
+    mockCheckPermission.mockResolvedValue(true);
     updateSetFn = null;
     updateWhereFn = null;
   });
@@ -473,7 +480,7 @@ describe('executeBulkAction updateStatus with transition guard', () => {
     selectQueue.length = 0;
     selectIdx = 0;
     mockComputeBlockedStatus.mockReset();
-    mockHasOrgPermission.mockResolvedValue(true);
+    mockCheckPermission.mockResolvedValue(true);
     updateSetFn = null;
     updateWhereFn = null;
   });

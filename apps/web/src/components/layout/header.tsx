@@ -2,6 +2,7 @@ import { useLogout } from '@/api/auth';
 import { apiClient } from '@/api/client';
 import {
   type NotificationItem,
+  useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
   useUnreadNotificationCount,
@@ -71,6 +72,7 @@ export function Header({
   const { data: notifications = [] } = useNotifications(8);
   const { data: unreadCount = 0 } = useUnreadNotificationCount();
   const markNotificationRead = useMarkNotificationRead();
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
   const router = useRouter();
   const { resolvedTheme: theme, setTheme } = useTheme();
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
@@ -291,7 +293,23 @@ export function Header({
                 ) : null}
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center justify-between gap-sm">
+                  <span>Notifications</span>
+                  {unreadCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        markAllNotificationsRead.mutate();
+                      }}
+                      disabled={markAllNotificationsRead.isPending}
+                      className="text-label font-medium text-brand-primary transition-colors hover:text-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {markAllNotificationsRead.isPending ? 'Marking…' : 'Mark all as read'}
+                    </button>
+                  ) : null}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {notifications.length === 0 ? (
                   <p className="px-sm py-md text-small text-muted">No notifications</p>

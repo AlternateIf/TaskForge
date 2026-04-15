@@ -6,6 +6,8 @@ import {
   organizations,
   permissionAssignments,
   permissions,
+  projectMembers,
+  projects,
   roleAssignments,
   roles,
   sessions,
@@ -152,8 +154,30 @@ async function getUserPermissionKeys(userId: string, orgId?: string): Promise<st
       ),
     );
 
+  const projectRoleRows =
+    orgId === undefined
+      ? []
+      : await db
+          .select({ roleId: projectMembers.roleId })
+          .from(projectMembers)
+          .innerJoin(projects, eq(projectMembers.projectId, projects.id))
+          .where(
+            and(
+              eq(projectMembers.userId, userId),
+              eq(projects.organizationId, orgId),
+              isNull(projects.deletedAt),
+            ),
+          );
+
+  const roleIds = [
+    ...new Set([
+      ...roleRows.map((row) => row.roleId),
+      ...projectRoleRows.map((row) => row.roleId).filter((roleId): roleId is string => !!roleId),
+    ]),
+  ];
+
   const permissionTuples =
-    roleRows.length === 0
+    roleIds.length === 0
       ? []
       : await db
           .select({
@@ -163,7 +187,7 @@ async function getUserPermissionKeys(userId: string, orgId?: string): Promise<st
             scope: permissions.scope,
           })
           .from(permissions)
-          .where(or(...roleRows.map((row) => eq(permissions.roleId, row.roleId))));
+          .where(or(...roleIds.map((roleId) => eq(permissions.roleId, roleId))));
 
   const tupleKeys = permissionTuples.map((tuple) => {
     const scopeToken = tuple.scope === 'organization' ? 'org' : tuple.scope;

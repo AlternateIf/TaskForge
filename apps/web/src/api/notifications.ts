@@ -78,3 +78,26 @@ export function useMarkNotificationRead() {
     },
   });
 }
+
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.activeOrganizationId);
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!orgId) {
+        throw new Error('No active organization selected.');
+      }
+
+      return apiClient.post(`/notifications/read-all?orgId=${orgId}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to mark all notifications as read. Please try again.', {
+        id: 'mark-all-notifications-read-error',
+      });
+    },
+  });
+}

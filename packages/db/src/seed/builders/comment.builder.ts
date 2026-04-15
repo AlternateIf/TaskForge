@@ -6,7 +6,11 @@ import type * as schema from '../../schema/index.js';
 import { TARGET_COUNTS } from '../dataset-config.js';
 import { USER_IDS, id } from '../id-registry.js';
 
-const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
+function getRuntimeSeedBaseTime(): Date {
+  return new Date();
+}
+
+const BASE_TIME = getRuntimeSeedBaseTime();
 
 function at(minutesFromBase: number): Date {
   return new Date(BASE_TIME.getTime() + minutesFromBase * 60_000);
@@ -56,6 +60,8 @@ const COMMENT_BODIES = [
 export function buildComments(taskIds: string[]): (typeof schema.comments.$inferInsert)[] {
   const comments: (typeof schema.comments.$inferInsert)[] = [];
   const rng = seededRandom(111);
+  const windowMinutes = 21 * 24 * 60;
+  const commentStepMinutes = Math.max(1, Math.floor(windowMinutes / TARGET_COUNTS.comments));
   const commentAuthors = [
     USER_IDS.superAdmin,
     USER_IDS.taskforgeAgencyOwner,
@@ -83,6 +89,12 @@ export function buildComments(taskIds: string[]): (typeof schema.comments.$infer
     const hasParent = rng() > 0.75 && i > 0;
     const parentCommentId = hasParent ? (comments[comments.length - 1]?.id ?? null) : null;
 
+    const createdAtOffsetMinutes =
+      -windowMinutes +
+      i * commentStepMinutes +
+      Math.floor(rng() * Math.max(1, Math.floor(commentStepMinutes / 2)));
+    const updatedAtOffsetMinutes = createdAtOffsetMinutes + Math.floor(rng() * 180);
+
     comments.push({
       id: id(commentIdCounter++),
       entityType: 'task' as const,
@@ -91,8 +103,8 @@ export function buildComments(taskIds: string[]): (typeof schema.comments.$infer
       body,
       visibility: rng() > 0.85 ? 'internal' : 'public',
       parentCommentId: parentCommentId as string | null,
-      createdAt: at(160 + i * 3),
-      updatedAt: at(160 + i * 3),
+      createdAt: at(createdAtOffsetMinutes),
+      updatedAt: at(updatedAtOffsetMinutes),
     });
   }
 

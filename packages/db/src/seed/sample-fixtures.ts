@@ -7,7 +7,11 @@
 
 import type * as schema from '../schema/index.js';
 
-const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
+function getRuntimeSeedBaseTime(): Date {
+  return new Date();
+}
+
+const BASE_TIME = getRuntimeSeedBaseTime();
 
 function id(num: number): string {
   return `00000000-0000-0000-0000-${num.toString().padStart(12, '0')}`;
@@ -117,9 +121,9 @@ export const sampleTasks: (typeof schema.tasks.$inferInsert)[] = [
     assigneeId: id(3),
     reporterId: id(2),
     position: 0,
-    startDate: at(-1440), // started 24h before base
-    dueDate: at(-60), // due 1h before base (overdue)
-    createdAt: at(-1440),
+    startDate: at(-3 * 1440), // started 3 days before now
+    dueDate: at(-60), // due 1h before now (overdue)
+    createdAt: at(-3 * 1440),
     updatedAt: at(-60),
   },
   // Completed task with activity trail
@@ -133,10 +137,10 @@ export const sampleTasks: (typeof schema.tasks.$inferInsert)[] = [
     assigneeId: id(7),
     reporterId: id(1),
     position: 3,
-    startDate: at(300),
-    dueDate: at(1500),
-    createdAt: at(300),
-    updatedAt: at(350),
+    startDate: at(-7 * 1440),
+    dueDate: at(-5 * 1440),
+    createdAt: at(-7 * 1440),
+    updatedAt: at(-4 * 1440),
   },
 ];
 
@@ -157,7 +161,7 @@ export const sampleChecklists: (typeof schema.checklists.$inferInsert)[] = [
     taskId: id(1022), // completed task
     title: 'Playbook review checklist',
     position: 0,
-    createdAt: at(310),
+    createdAt: at(-6 * 1440),
   },
 ];
 
@@ -169,9 +173,9 @@ export const sampleChecklistItems: (typeof schema.checklistItems.$inferInsert)[]
     isCompleted: true,
     position: 0,
     completedBy: id(7),
-    completedAt: at(320),
-    createdAt: at(310),
-    updatedAt: at(320),
+    completedAt: at(-6 * 1440 + 120),
+    createdAt: at(-6 * 1440),
+    updatedAt: at(-6 * 1440 + 120),
   },
   {
     id: id(1033),
@@ -180,9 +184,9 @@ export const sampleChecklistItems: (typeof schema.checklistItems.$inferInsert)[]
     isCompleted: true,
     position: 1,
     completedBy: id(7),
-    completedAt: at(330),
-    createdAt: at(310),
-    updatedAt: at(330),
+    completedAt: at(-6 * 1440 + 240),
+    createdAt: at(-6 * 1440),
+    updatedAt: at(-6 * 1440 + 240),
   },
   {
     id: id(1034),
@@ -191,9 +195,9 @@ export const sampleChecklistItems: (typeof schema.checklistItems.$inferInsert)[]
     isCompleted: true,
     position: 2,
     completedBy: id(1),
-    completedAt: at(340),
-    createdAt: at(310),
-    updatedAt: at(340),
+    completedAt: at(-5 * 1440 + 60),
+    createdAt: at(-6 * 1440),
+    updatedAt: at(-5 * 1440 + 60),
   },
 ];
 
@@ -206,8 +210,8 @@ export const sampleComments: (typeof schema.comments.$inferInsert)[] = [
     body: 'Playbook draft complete. Requesting review from @Alex Acme.',
     visibility: 'public',
     parentCommentId: null,
-    createdAt: at(315),
-    updatedAt: at(315),
+    createdAt: at(-5 * 1440 + 30),
+    updatedAt: at(-5 * 1440 + 30),
   },
   {
     id: id(1052),
@@ -217,13 +221,13 @@ export const sampleComments: (typeof schema.comments.$inferInsert)[] = [
     body: 'Looks good. Approved and closed.',
     visibility: 'public',
     parentCommentId: id(1051),
-    createdAt: at(335),
-    updatedAt: at(335),
+    createdAt: at(-5 * 1440 + 90),
+    updatedAt: at(-5 * 1440 + 90),
   },
 ];
 
 export const sampleCommentMentions: (typeof schema.commentMentions.$inferInsert)[] = [
-  { id: id(1053), commentId: id(1051), userId: id(1), createdAt: at(315) },
+  { id: id(1053), commentId: id(1051), userId: id(1), createdAt: at(-5 * 1440 + 30) },
 ];
 
 export const sampleActivityLog: (typeof schema.activityLog.$inferInsert)[] = [
@@ -238,7 +242,7 @@ export const sampleActivityLog: (typeof schema.activityLog.$inferInsert)[] = [
     changes: {
       statusId: { before: id(623), after: id(624) },
     },
-    createdAt: at(350),
+    createdAt: at(-4 * 1440 + 90),
   },
   {
     id: id(1042),
@@ -251,7 +255,7 @@ export const sampleActivityLog: (typeof schema.activityLog.$inferInsert)[] = [
     changes: {
       isCompleted: { before: false, after: true },
     },
-    createdAt: at(340),
+    createdAt: at(-4 * 1440 + 60),
   },
 ];
 

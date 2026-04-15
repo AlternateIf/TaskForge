@@ -262,7 +262,12 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('../permission.service.js', () => ({
   hasOrgPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
-  loadPermissionContext: vi.fn(),
+  checkPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
+  loadPermissionContext: async () => ({
+    orgId: 'org-1',
+    effectivePermissions: [],
+    projectCache: new Map(),
+  }),
 }));
 
 vi.mock('../activity.service.js', () => ({
@@ -983,7 +988,13 @@ describe('Permission: task.create.project', () => {
       statusId: 'status-1',
     });
 
-    expect(mockHasOrgPermission).toHaveBeenCalledWith(userId, orgId, 'task', 'create');
+    expect(mockHasOrgPermission).toHaveBeenCalledWith(
+      expect.anything(),
+      userId,
+      'task',
+      'create',
+      projectId,
+    );
     expect(result.title).toBe('New Task');
   });
 });
@@ -1092,7 +1103,13 @@ describe('Permission: task.update.project', () => {
     const { updateTask } = await import('../task.service.js');
     await updateTask('task-1', projectId, { title: 'Updated' }, userId);
 
-    expect(mockHasOrgPermission).toHaveBeenCalledWith(userId, orgId, 'task', 'update');
+    expect(mockHasOrgPermission).toHaveBeenCalledWith(
+      expect.anything(),
+      userId,
+      'task',
+      'update',
+      projectId,
+    );
     expect(updateChain.where).toHaveBeenCalled();
   });
 });

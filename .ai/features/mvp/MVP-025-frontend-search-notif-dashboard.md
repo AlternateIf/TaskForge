@@ -91,21 +91,19 @@ Per the [HTML mockup review](../../meetings/2026-03-29-html-mockup-review.md):
 **Note**: `dashboard-mobile-dark.html` contains auth page content (duplicate file error). Mobile dashboard layout should be derived from desktop light + mobile patterns (stacked sections, full-width cards).
 
 ## Acceptance Criteria
-- [ ] Global search input in header, accessible via `/` shortcut
-- [ ] Search results appear as you type (debounced)
-- [ ] Results grouped by type with navigation on click
-- [ ] Notification bell shows unread count badge
-- [ ] Notification dropdown lists recent notifications
-- [ ] Clicking notification navigates and marks as read
-- [ ] "Mark all as read" works
-- [ ] Dashboard uses section-based layout (My Tasks, Overdue, Upcoming, Project Progress)
-- [ ] Dashboard shows my tasks grouped by project
-- [ ] Dashboard shows overdue tasks with red left-border indicator
-- [ ] Dashboard shows upcoming deadlines in 7-day grid
-- [ ] Dashboard shows project progress cards with gradient progress bars
-- [ ] Welcome banner shows on first visit (dismissible)
-- [ ] Loading states with skeletons
-- [ ] Empty states with helpful messages
-- [ ] Responsive on mobile (sections stack vertically, full-width cards)
-- [ ] All components use design tokens, no hardcoded hex colors
-- [ ] Unit tests cover component logic, search debounce behavior, and notification state management
+- [x] Global search input in header, accessible via `/` shortcut
+- [x] Search results appear as you type (debounced)
+- [x] Results grouped by type with navigation on click
+- [x] Notification bell shows unread count badge
+- [x] Notification dropdown lists recent notifications
+- [x] Clicking notification navigates and marks as read
+- [x] "Mark all as read" works
+- [x] Dashboard uses section-based layout (My Tasks, Overdue, Upcoming, Project Progress)
+- [x] Dashboard shows upcoming deadlines in 7-day grid
+- [x] Dashboard shows project progress cards with gradient progress bars
+- [x] Welcome banner shows on first visit (dismissible)
+- [x] Loading states with skeletons
+- [x] Empty states with helpful messages
+- [x] Responsive on mobile (sections stack vertically, full-width cards)
+- [x] All components use design tokens, no hardcoded hex colors
+- [x] Unit tests cover component logic, search debounce behavior, and notification state management

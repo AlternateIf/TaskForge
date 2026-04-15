@@ -19,6 +19,7 @@ import { mfaRoutes } from './routes/auth/mfa.routes.js';
 import { oauthRoutes } from './routes/auth/oauth.routes.js';
 import { checklistRoutes } from './routes/checklists/checklists.routes.js';
 import { commentRoutes } from './routes/comments/comments.routes.js';
+import { dashboardRoutes } from './routes/dashboard/dashboard.routes.js';
 import { healthRoutes } from './routes/health/health.routes.js';
 import { invitationRoutes } from './routes/invitations/invitations.routes.js';
 import { notificationRoutes } from './routes/notifications/notifications.routes.js';
@@ -74,6 +75,7 @@ export async function buildServer() {
   await fastify.register(mfaRoutes);
   await fastify.register(organizationRoutes);
   await fastify.register(projectRoutes);
+  await fastify.register(dashboardRoutes);
   await fastify.register(taskRoutes);
   await fastify.register(subtaskRoutes);
   await fastify.register(dependencyRoutes);

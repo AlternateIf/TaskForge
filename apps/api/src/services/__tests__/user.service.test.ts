@@ -40,6 +40,16 @@ vi.mock('@taskforge/db', () => ({
     organizationId: 'permissionAssignments.organizationId',
     permissionKey: 'permissionAssignments.permissionKey',
   },
+  projectMembers: {
+    roleId: 'projectMembers.roleId',
+    projectId: 'projectMembers.projectId',
+    userId: 'projectMembers.userId',
+  },
+  projects: {
+    id: 'projects.id',
+    organizationId: 'projects.organizationId',
+    deletedAt: 'projects.deletedAt',
+  },
   users: {
     id: 'users.id',
     email: 'users.email',
@@ -163,6 +173,7 @@ describe('user.service', () => {
       setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
       setupSelectWhereChain([]);
       setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await getUserById(userId);
 
@@ -185,6 +196,7 @@ describe('user.service', () => {
       setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
       setupSelectWhereChain([]);
       setupSelectWhereChain([]);
+      setupSelectWhereChain([]);
 
       const result = await updateProfile(userId, { displayName: 'New Name' });
 
@@ -196,6 +208,7 @@ describe('user.service', () => {
       setupUpdateChain();
       setupSelectChain([makeUser({ avatarUrl: 'https://example.com/new.png' })]);
       setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
       setupSelectWhereChain([]);
       setupSelectWhereChain([]);
 
@@ -210,6 +223,7 @@ describe('user.service', () => {
       setupUpdateChain();
       setupSelectChain([makeUser({ avatarUrl: null })]);
       setupSelectWhereChain([{ id: 'org-1', name: 'Acme' }]);
+      setupSelectWhereChain([]);
       setupSelectWhereChain([]);
       setupSelectWhereChain([]);
 

@@ -6,7 +6,11 @@ import type * as schema from '../../schema/index.js';
 import { TARGET_COUNTS } from '../dataset-config.js';
 import { ORG_IDS, SUPER_USER_ID, USER_IDS, id } from '../id-registry.js';
 
-const BASE_TIME = new Date('2026-03-01T09:00:00.000Z');
+function getRuntimeSeedBaseTime(): Date {
+  return new Date();
+}
+
+const BASE_TIME = getRuntimeSeedBaseTime();
 
 function at(minutesFromBase: number): Date {
   return new Date(BASE_TIME.getTime() + minutesFromBase * 60_000);
@@ -47,6 +51,11 @@ export function buildNotifications(
 ): (typeof schema.notifications.$inferInsert)[] {
   const notifications: (typeof schema.notifications.$inferInsert)[] = [];
   const rng = seededRandom(555);
+  const windowMinutes = 14 * 24 * 60;
+  const notificationStepMinutes = Math.max(
+    1,
+    Math.floor(windowMinutes / TARGET_COUNTS.notifications),
+  );
   const notifUsers = [
     SUPER_USER_ID,
     USER_IDS.taskforgeAgencyOwner,
@@ -81,6 +90,15 @@ export function buildNotifications(
       entityId = taskIds[i % taskIds.length];
     }
 
+    const createdAtOffsetMinutes =
+      -windowMinutes +
+      i * notificationStepMinutes +
+      Math.floor(rng() * Math.max(1, Math.floor(notificationStepMinutes / 2)));
+    const readAtOffsetMinutes = Math.min(
+      createdAtOffsetMinutes + 5 + Math.floor(rng() * Math.max(10, notificationStepMinutes)),
+      -1,
+    );
+
     notifications.push({
       id: id(notifIdCounter++),
       userId,
@@ -89,8 +107,8 @@ export function buildNotifications(
       body: template.body,
       entityType,
       entityId,
-      readAt: rng() > 0.6 ? at(190 + i * 3) : null,
-      createdAt: at(190 + i * 3),
+      readAt: rng() > 0.6 ? at(readAtOffsetMinutes) : null,
+      createdAt: at(createdAtOffsetMinutes),
     });
   }
 
@@ -127,8 +145,8 @@ export function buildNotificationPreferences(): (typeof schema.notificationPrefe
           eventType,
           channel,
           enabled: true,
-          createdAt: at(180),
-          updatedAt: at(180),
+          createdAt: at(-60),
+          updatedAt: at(-60),
         });
       }
     }
@@ -143,6 +161,8 @@ export function buildNotificationPreferences(): (typeof schema.notificationPrefe
 
 export function buildActivityLog(taskIds: string[]): (typeof schema.activityLog.$inferInsert)[] {
   const entries: (typeof schema.activityLog.$inferInsert)[] = [];
+  const windowMinutes = 10 * 24 * 60;
+  const activityStepMinutes = Math.max(1, Math.floor(windowMinutes / 80));
   const orgs = [
     ORG_IDS.taskforgeAgency,
     ORG_IDS.acmeCorp,
@@ -178,6 +198,8 @@ export function buildActivityLog(taskIds: string[]): (typeof schema.activityLog.
     const taskId = taskIds[i % taskIds.length];
     const action = actions[i % actions.length];
 
+    const createdAtOffsetMinutes = -windowMinutes + i * activityStepMinutes + (i % 5) * 3;
+
     entries.push({
       id: id(activityIdCounter++),
       organizationId: orgId,
@@ -187,7 +209,7 @@ export function buildActivityLog(taskIds: string[]): (typeof schema.activityLog.
       entityId: taskId,
       action,
       changes: { title: { before: null, after: `Task ${i}` } },
-      createdAt: at(170 + i),
+      createdAt: at(createdAtOffsetMinutes),
     });
   }
 

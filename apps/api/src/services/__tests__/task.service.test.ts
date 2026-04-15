@@ -10,7 +10,12 @@ const mockDbLeftJoin = vi.fn();
 const mockDbInnerJoin = vi.fn();
 const mockDbOrderBy = vi.fn();
 
-const mockHasOrgPermission = vi.fn().mockResolvedValue(true);
+const mockCheckPermission = vi.fn().mockResolvedValue(true);
+const mockLoadPermissionContext = vi.fn().mockResolvedValue({
+  orgId: 'org-1',
+  effectivePermissions: [],
+  projectCache: new Map(),
+});
 const mockSearchProjectTaskIds = vi.fn().mockResolvedValue([]);
 
 const queryChain: Record<string, ReturnType<typeof vi.fn>> = {
@@ -87,7 +92,8 @@ vi.mock('@taskforge/db', () => ({
 }));
 
 vi.mock('../permission.service.js', () => ({
-  hasOrgPermission: (...args: unknown[]) => mockHasOrgPermission(...args),
+  checkPermission: (...args: unknown[]) => mockCheckPermission(...args),
+  loadPermissionContext: (...args: unknown[]) => mockLoadPermissionContext(...args),
 }));
 
 vi.mock('../search.service.js', () => ({
@@ -138,7 +144,12 @@ describe('task.service listTasksPaged', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetQueryChain();
-    mockHasOrgPermission.mockResolvedValue(true);
+    mockCheckPermission.mockResolvedValue(true);
+    mockLoadPermissionContext.mockResolvedValue({
+      orgId: 'org-1',
+      effectivePermissions: [],
+      projectCache: new Map(),
+    });
     mockSearchProjectTaskIds.mockResolvedValue([]);
   });
 
