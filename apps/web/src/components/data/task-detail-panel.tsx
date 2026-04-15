@@ -19,6 +19,7 @@ export function TaskDetailPanel({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        event.stopPropagation();
         onClose();
       }
     }

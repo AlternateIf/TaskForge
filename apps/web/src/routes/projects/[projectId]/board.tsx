@@ -3,6 +3,7 @@ import { ProjectToolbar } from '@/components/data/project-toolbar';
 import { TaskDetailPanel } from '@/components/data/task-detail-panel';
 import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
+import { useShortcutProvider } from '@/components/shortcuts/shortcut-provider';
 import { Button } from '@/components/ui/button';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useProjectFilters } from '@/hooks/use-project-filters';
@@ -37,6 +38,7 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [createStatusId, setCreateStatusId] = useState<string | undefined>();
   const [panelTaskId, setPanelTaskId] = useState<string | null>(null);
+  const { setScopeOverride } = useShortcutProvider();
   const hasHandledInitialSearch = useRef(false);
 
   useDocumentTitle(project?.name ? `${project.name} — Board` : 'Board');
@@ -66,6 +68,28 @@ export function ProjectBoardPage({ projectId }: ProjectBoardPageProps) {
 
     setPanelTaskId(search.task ?? null);
   }, [navigate, projectId, search.task]);
+
+  useEffect(() => {
+    if (!canCreateTask) {
+      return;
+    }
+
+    const handleCreateTaskShortcut = () => {
+      setCreateOpen(true);
+    };
+
+    document.addEventListener('taskforge:shortcut:create-task', handleCreateTaskShortcut);
+    return () => {
+      document.removeEventListener('taskforge:shortcut:create-task', handleCreateTaskShortcut);
+    };
+  }, [canCreateTask]);
+
+  useEffect(() => {
+    setScopeOverride(panelTaskId ? 'task-detail' : null);
+    return () => {
+      setScopeOverride(null);
+    };
+  }, [panelTaskId, setScopeOverride]);
 
   function openTaskPanel(taskId: string) {
     setPanelTaskId(taskId);

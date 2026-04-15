@@ -1,10 +1,12 @@
 import type { Label, ProjectMember, WorkflowStatus } from '@/api/projects';
 import {
+  type Priority,
   type Task,
   type TaskFilters,
   getBlockedStatusTransitionMessage,
   isStatusTransitionBlocked,
   useBoardTasks,
+  useBulkUpdateTasks,
   useMoveTask,
 } from '@/api/tasks';
 import { KanbanCardOverlay } from '@/components/kanban/kanban-card';
@@ -13,6 +15,8 @@ import {
   type DragPreviewSnapshot,
   computeDragPreviewUpdate,
 } from '@/components/kanban/kanban-drag-preview';
+import { useRegisterShortcut } from '@/components/shortcuts/shortcut-provider';
+import { useFocusedTask } from '@/hooks/use-focused-task';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import {
@@ -31,7 +35,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
+import { PRIORITY_KEY_TO_PRIORITY, TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { Settings } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -93,6 +97,7 @@ export function KanbanBoard({
     loadingMoreByStatus,
   } = useBoardTasks(projectId, filters, 15);
   const moveTask = useMoveTask();
+  const bulkUpdateTasks = useBulkUpdateTasks();
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -140,6 +145,12 @@ export function KanbanBoard({
 
   // What gets rendered — live during drag, server data otherwise
   const displayTasks = activeTasksByStatus ?? tasksByStatus;
+  const visibleTaskIds = useMemo(
+    () => statuses.flatMap((status) => (displayTasks.get(status.id) ?? []).map((task) => task.id)),
+    [displayTasks, statuses],
+  );
+  const { focusedTaskId, setFocusedTaskId, focusNextTask, focusPreviousTask } =
+    useFocusedTask(visibleTaskIds);
 
   const cancelPendingDragPreview = useCallback(() => {
     pendingDragPreviewRef.current = null;
@@ -318,6 +329,96 @@ export function KanbanBoard({
     resetDragState();
   }, [resetDragState]);
 
+  const applyFocusedPriority = useCallback(
+    (priority: Priority) => {
+      if (!focusedTaskId || !canUpdateTask) {
+        return;
+      }
+
+      bulkUpdateTasks.mutate({
+        ids: [focusedTaskId],
+        data: { priority },
+        projectId,
+      });
+    },
+    [bulkUpdateTasks, canUpdateTask, focusedTaskId, projectId],
+  );
+
+  useRegisterShortcut({
+    id: 'kanban.focus-next',
+    scope: 'board',
+    key: 'j',
+    preventDefault: true,
+    handler: focusNextTask,
+  });
+
+  useRegisterShortcut({
+    id: 'kanban.focus-previous',
+    scope: 'board',
+    key: 'k',
+    preventDefault: true,
+    handler: focusPreviousTask,
+  });
+
+  useRegisterShortcut({
+    id: 'kanban.open-focused-task',
+    scope: 'board',
+    key: 'enter',
+    preventDefault: true,
+    handler: () => {
+      if (focusedTaskId) {
+        onTaskClick(focusedTaskId);
+      }
+    },
+  });
+
+  useRegisterShortcut({
+    id: 'kanban.priority-critical',
+    scope: 'board',
+    key: '1',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['1']),
+  });
+  useRegisterShortcut({
+    id: 'kanban.priority-high',
+    scope: 'board',
+    key: '2',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['2']),
+  });
+  useRegisterShortcut({
+    id: 'kanban.priority-medium',
+    scope: 'board',
+    key: '3',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['3']),
+  });
+  useRegisterShortcut({
+    id: 'kanban.priority-low',
+    scope: 'board',
+    key: '4',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['4']),
+  });
+  useRegisterShortcut({
+    id: 'kanban.priority-none',
+    scope: 'board',
+    key: '5',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['5']),
+  });
+
+  useEffect(() => {
+    if (!focusedTaskId) {
+      return;
+    }
+
+    const focusedCard = document.querySelector<HTMLElement>(
+      `[data-task-id="${focusedTaskId}"][data-shortcut-focus="true"]`,
+    );
+    focusedCard?.focus();
+  }, [focusedTaskId]);
+
   // ─── Empty state: no statuses configured ─────────────────────────────────────
 
   if (statuses.length === 0) {
@@ -372,6 +473,8 @@ export function KanbanBoard({
             totalCount={columnMetaByStatus.get(status.id)?.totalCount}
             isLoadingMore={Boolean(loadingMoreByStatus[status.id])}
             onLoadMore={() => void loadMore(status.id)}
+            focusedTaskId={focusedTaskId}
+            onTaskFocus={setFocusedTaskId}
           />
         ))}
       </div>

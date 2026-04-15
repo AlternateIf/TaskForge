@@ -23,6 +23,8 @@ interface KanbanColumnProps {
   onLoadMore?: () => void;
   canCreateTask?: boolean;
   canEditTask?: boolean;
+  focusedTaskId?: string | null;
+  onTaskFocus?: (taskId: string) => void;
 }
 
 export function KanbanColumn({
@@ -39,6 +41,8 @@ export function KanbanColumn({
   onLoadMore,
   canCreateTask = true,
   canEditTask = true,
+  focusedTaskId,
+  onTaskFocus,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status.id}`,
@@ -137,6 +141,8 @@ export function KanbanColumn({
                 members={members}
                 allLabels={allLabels}
                 onClick={() => onTaskClick(task.id)}
+                focused={focusedTaskId === task.id}
+                onFocus={() => onTaskFocus?.(task.id)}
                 canEditTask={canEditTask}
               />
             ))

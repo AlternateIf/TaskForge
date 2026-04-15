@@ -21,6 +21,8 @@ interface TaskRowProps {
   selected: boolean;
   onSelect: (selected: boolean) => void;
   onClick: () => void;
+  focused?: boolean;
+  onFocus?: () => void;
   canEditTask?: boolean;
 }
 
@@ -41,6 +43,8 @@ export function TaskRow({
   selected,
   onSelect,
   onClick,
+  focused = false,
+  onFocus,
   canEditTask = true,
 }: TaskRowProps) {
   const status = statuses.find((s) => s.id === task.statusId);
@@ -50,9 +54,15 @@ export function TaskRow({
 
   return (
     <tr
+      data-task-id={task.id}
+      data-shortcut-focus={focused ? 'true' : 'false'}
+      aria-selected={focused}
+      tabIndex={focused ? 0 : -1}
+      onFocus={onFocus}
       className={cn(
         'group border-b border-border transition-colors hover:bg-surface-container-low',
         selected && 'bg-brand-primary/5',
+        focused && 'bg-brand-primary/10 ring-1 ring-brand-primary/40',
       )}
     >
       {/* Checkbox */}

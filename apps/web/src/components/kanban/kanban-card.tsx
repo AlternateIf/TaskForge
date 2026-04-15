@@ -19,6 +19,8 @@ interface KanbanCardProps {
   members: ProjectMember[];
   allLabels: Label[];
   onClick: () => void;
+  focused?: boolean;
+  onFocus?: () => void;
   isDragging?: boolean;
   canEditTask?: boolean;
 }
@@ -216,6 +218,8 @@ export function KanbanCard({
   members,
   allLabels,
   onClick,
+  focused = false,
+  onFocus,
   isDragging = false,
   canEditTask = true,
 }: KanbanCardProps) {
@@ -259,8 +263,15 @@ export function KanbanCard({
       style={cardStyle}
       {...(canEditTask ? attributes : {})}
       {...(canEditTask ? listeners : {})}
+      tabIndex={focused ? 0 : -1}
+      aria-selected={focused}
+      data-shortcut-focus={focused ? 'true' : 'false'}
+      data-task-id={task.id}
+      onFocus={onFocus}
+      onClick={showPlaceholder ? undefined : onClick}
       className={cn(
         'cursor-pointer select-none rounded-radius-md border border-border bg-surface-container-lowest p-sm shadow-2 transition-shadow hover:shadow-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+        focused ? 'ring-2 ring-brand-primary/70' : undefined,
         showPlaceholder
           ? 'cursor-grabbing border-dashed bg-surface-container-lowest/50 p-0 shadow-none hover:shadow-none'
           : undefined,

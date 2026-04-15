@@ -4,6 +4,7 @@ export * from './schemas/organization.schema.js';
 export * from './constants/roles.js';
 export * from './constants/permissions.js';
 export * from './constants/permission.js';
+export * from './constants/shortcuts.js';
 export * from './schemas/project.schema.js';
 export * from './schemas/task.schema.js';
 export * from './schemas/comment.schema.js';

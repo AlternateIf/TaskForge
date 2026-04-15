@@ -377,6 +377,7 @@ export function CommandPalette({
         <div className="flex items-center gap-sm border-b border-border/15 px-md" role="search">
           <Search className="size-4 shrink-0 text-muted" aria-hidden="true" />
           <input
+            id="command-palette-search-input"
             ref={inputRef}
             type="text"
             role="combobox"

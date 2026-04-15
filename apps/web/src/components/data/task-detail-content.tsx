@@ -35,12 +35,13 @@ import { TaskSidebar } from '@/components/data/task-sidebar';
 import type { MentionUser } from '@/components/editor';
 import { AddDependencyDialog } from '@/components/forms/add-dependency-dialog';
 import { CreateTaskDialog } from '@/components/forms/create-task-dialog';
+import { useRegisterShortcut } from '@/components/shortcuts/shortcut-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { ChevronRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 const MEMBERS_READ_PERMISSION = 'membership.read.org';
@@ -114,6 +115,7 @@ export function TaskDetailContent({
   onClose,
   onOpenFullPage,
 }: TaskDetailContentProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const { user, activeOrganizationId } = useAuthStore();
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
   const canViewOrgMembers = permissionSet.has(MEMBERS_READ_PERMISSION);
@@ -298,6 +300,99 @@ export function TaskDetailContent({
       .slice(0, 8);
   }
 
+  function isVisible(element: HTMLElement): boolean {
+    const style = window.getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function getScopedVisibleElement(selector: string): HTMLElement | null {
+    const scope = contentRef.current;
+    const scopedMatches = scope ? Array.from(scope.querySelectorAll<HTMLElement>(selector)) : [];
+    const scopedVisible = scopedMatches.find((element) => isVisible(element));
+    if (scopedVisible) {
+      return scopedVisible;
+    }
+
+    const globalMatches = Array.from(document.querySelectorAll<HTMLElement>(selector));
+    return globalMatches.find((element) => isVisible(element)) ?? globalMatches[0] ?? null;
+  }
+
+  function focusElement(selector: string) {
+    const element = getScopedVisibleElement(selector);
+    if (!element) {
+      return;
+    }
+
+    if (element instanceof HTMLButtonElement) {
+      element.click();
+      return;
+    }
+
+    element.focus();
+  }
+
+  useRegisterShortcut({
+    id: `task-detail-${taskId}-assign`,
+    scope: 'task-detail',
+    key: 'a',
+    preventDefault: true,
+    enabled: canUpdateTask,
+    handler: () => {
+      focusElement('button[aria-label="Change assignee"]');
+    },
+  });
+
+  useRegisterShortcut({
+    id: `task-detail-${taskId}-labels`,
+    scope: 'task-detail',
+    key: 'l',
+    preventDefault: true,
+    enabled: canUpdateTask,
+    handler: () => {
+      focusElement('button[aria-label="Edit labels"]');
+    },
+  });
+
+  useRegisterShortcut({
+    id: `task-detail-${taskId}-status`,
+    scope: 'task-detail',
+    key: 's',
+    preventDefault: true,
+    enabled: canUpdateTask,
+    handler: () => {
+      const trigger =
+        document.querySelector<HTMLElement>('button[aria-label="Task status"]') ??
+        document.querySelector<HTMLElement>('button[aria-label="Change status"]');
+      trigger?.click();
+    },
+  });
+
+  useRegisterShortcut({
+    id: `task-detail-${taskId}-comment`,
+    scope: 'task-detail',
+    key: 'c',
+    preventDefault: true,
+    enabled: canUpdateTask,
+    handler: () => {
+      focusElement('[data-shortcut-comment-input] [contenteditable="true"]');
+    },
+  });
+
+  useRegisterShortcut({
+    id: `task-detail-${taskId}-description`,
+    scope: 'task-detail',
+    key: 'e',
+    preventDefault: true,
+    enabled: canUpdateTask,
+    handler: () => {
+      focusElement('[data-shortcut-description] [contenteditable="true"]');
+    },
+  });
+
   if (isLoading || !localTask) {
     return (
       <div className="space-y-md p-lg">
@@ -313,7 +408,7 @@ export function TaskDetailContent({
   const assigneeDisplay = resolveAssigneeDisplay(localTask, memberUsers);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-container-lowest">
+    <div ref={contentRef} className="flex h-full min-h-0 flex-col bg-surface-container-lowest">
       <TaskHeader
         variant={variant}
         taskId={localTask.id}
@@ -456,13 +551,15 @@ export function TaskDetailContent({
               </p>
             ) : null}
 
-            <TaskDescription
-              value={localTask.description ?? ''}
-              onSave={(description) => handleTaskUpdate({ description })}
-              fetchMentionUsers={fetchMentionUsers}
-              onImageUpload={uploadForEditor}
-              editable={canUpdateTask}
-            />
+            <div data-shortcut-description>
+              <TaskDescription
+                value={localTask.description ?? ''}
+                onSave={(description) => handleTaskUpdate({ description })}
+                fetchMentionUsers={fetchMentionUsers}
+                onImageUpload={uploadForEditor}
+                editable={canUpdateTask}
+              />
+            </div>
 
             <ChecklistSection
               checklists={localChecklists}
@@ -482,7 +579,7 @@ export function TaskDetailContent({
               currentUserId={user?.id}
               composer={
                 canUpdateTask ? (
-                  <div className="hidden md:block">
+                  <div className="hidden md:block" data-shortcut-comment-input>
                     <CommentInput
                       currentUserName={user?.displayName}
                       currentUserId={user?.id}
@@ -567,15 +664,17 @@ export function TaskDetailContent({
             isPanel ? 'sticky bottom-0' : 'sticky bottom-0',
           )}
         >
-          <CommentInput
-            currentUserName={user?.displayName}
-            currentUserId={user?.id}
-            loading={createComment.isPending}
-            onSubmit={handleCreateComment}
-            fetchMentionUsers={fetchMentionUsers}
-            onImageUpload={uploadForEditor}
-            stickyMobile
-          />
+          <div data-shortcut-comment-input>
+            <CommentInput
+              currentUserName={user?.displayName}
+              currentUserId={user?.id}
+              loading={createComment.isPending}
+              onSubmit={handleCreateComment}
+              fetchMentionUsers={fetchMentionUsers}
+              onImageUpload={uploadForEditor}
+              stickyMobile
+            />
+          </div>
         </div>
       ) : null}
 

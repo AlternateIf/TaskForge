@@ -1,6 +1,7 @@
 import type { Label, ProjectMember, WorkflowStatus } from '@/api/projects';
 import {
   type BulkUpdatePayload,
+  type Priority,
   type SortField,
   type SortOrder,
   type Task,
@@ -12,16 +13,17 @@ import { TaskFiltersBar } from '@/components/data/task-filters';
 import { PickerPopover } from '@/components/data/task-inline-editors';
 import { TaskRow } from '@/components/data/task-row';
 import { PriorityBadge } from '@/components/priority-badge';
+import { useRegisterShortcut } from '@/components/shortcuts/shortcut-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useFocusedTask } from '@/hooks/use-focused-task';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
-import { TASK_UPDATE_PERMISSION } from '@taskforge/shared';
+import { PRIORITY_KEY_TO_PRIORITY, TASK_UPDATE_PERMISSION } from '@taskforge/shared';
 import { ChevronDown, ChevronUp, ChevronsUpDown, ClipboardList, Loader2, X } from 'lucide-react';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
-type Priority = 'critical' | 'high' | 'medium' | 'low' | 'none';
 const ALL_PRIORITIES: Priority[] = ['critical', 'high', 'medium', 'low', 'none'];
 
 interface TaskTableProps {
@@ -200,6 +202,9 @@ export function TaskTable({
   const bulkUpdate = useBulkUpdateTasks();
 
   const allTasks = useMemo(() => (data?.pages.flatMap((p) => p.data) ?? []) as Task[], [data]);
+  const visibleTaskIds = useMemo(() => allTasks.map((task) => task.id), [allTasks]);
+  const { focusedTaskId, setFocusedTaskId, focusNextTask, focusPreviousTask } =
+    useFocusedTask(visibleTaskIds);
 
   const hasActiveFilters = !!(
     filters.search ||
@@ -247,6 +252,96 @@ export function TaskTable({
 
   const allSelected = allTasks.length > 0 && selectedIds.size === allTasks.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const applyFocusedPriority = useCallback(
+    (priority: Priority) => {
+      if (!focusedTaskId || !canUpdateTask) {
+        return;
+      }
+
+      bulkUpdate.mutate({
+        ids: [focusedTaskId],
+        data: { priority },
+        projectId,
+      });
+    },
+    [bulkUpdate, canUpdateTask, focusedTaskId, projectId],
+  );
+
+  useRegisterShortcut({
+    id: 'task-table.focus-next',
+    scope: 'list',
+    key: 'j',
+    preventDefault: true,
+    handler: focusNextTask,
+  });
+
+  useRegisterShortcut({
+    id: 'task-table.focus-previous',
+    scope: 'list',
+    key: 'k',
+    preventDefault: true,
+    handler: focusPreviousTask,
+  });
+
+  useRegisterShortcut({
+    id: 'task-table.open-focused-task',
+    scope: 'list',
+    key: 'enter',
+    preventDefault: true,
+    handler: () => {
+      if (focusedTaskId) {
+        onTaskClick(focusedTaskId);
+      }
+    },
+  });
+
+  useRegisterShortcut({
+    id: 'task-table.priority-critical',
+    scope: 'list',
+    key: '1',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['1']),
+  });
+  useRegisterShortcut({
+    id: 'task-table.priority-high',
+    scope: 'list',
+    key: '2',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['2']),
+  });
+  useRegisterShortcut({
+    id: 'task-table.priority-medium',
+    scope: 'list',
+    key: '3',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['3']),
+  });
+  useRegisterShortcut({
+    id: 'task-table.priority-low',
+    scope: 'list',
+    key: '4',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['4']),
+  });
+  useRegisterShortcut({
+    id: 'task-table.priority-none',
+    scope: 'list',
+    key: '5',
+    preventDefault: true,
+    handler: () => applyFocusedPriority(PRIORITY_KEY_TO_PRIORITY['5']),
+  });
+
+  useEffect(() => {
+    if (!focusedTaskId) {
+      return;
+    }
+
+    const row = document.querySelector<HTMLElement>(
+      `tr[data-task-id="${focusedTaskId}"][data-shortcut-focus="true"]`,
+    );
+    row?.focus();
+  }, [focusedTaskId]);
 
   return (
     <div className="flex flex-col gap-md">
@@ -428,6 +523,8 @@ export function TaskTable({
                   members={members}
                   allLabels={labels}
                   selected={selectedIds.has(task.id)}
+                  focused={focusedTaskId === task.id}
+                  onFocus={() => setFocusedTaskId(task.id)}
                   onSelect={() => toggleSelect(task.id)}
                   onClick={() => onTaskClick(task.id)}
                   canEditTask={canUpdateTask}

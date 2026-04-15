@@ -28,9 +28,13 @@ import { showErrorToast } from '@/lib/error-toast';
 import { useAuthStore } from '@/stores/auth.store';
 import { useRouter } from '@tanstack/react-router';
 import { NOTIFICATION_READ_PERMISSION } from '@taskforge/shared';
-import { PROJECT_READ_PERMISSION, TASK_CREATE_PERMISSION } from '@taskforge/shared';
+import {
+  PROJECT_CREATE_PERMISSION,
+  PROJECT_READ_PERMISSION,
+  TASK_CREATE_PERMISSION,
+} from '@taskforge/shared';
 import { Bell, Menu, Moon, Search, Settings, Sun } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface ApiEnvelope<T> {
   data: T;
@@ -81,6 +85,7 @@ export function Header({
   const onOpenChange = onCommandPaletteOpenChange;
   const permissionSet = useMemo(() => new Set(user?.permissions ?? []), [user?.permissions]);
   const canReadProjects = permissionSet.has(PROJECT_READ_PERMISSION);
+  const canCreateProjects = permissionSet.has(PROJECT_CREATE_PERMISSION);
   const canCreateTasks = permissionSet.has(TASK_CREATE_PERMISSION);
   const canReadNotifications = permissionSet.has(NOTIFICATION_READ_PERMISSION);
   const currentProjectId = useMemo(() => {
@@ -242,6 +247,24 @@ export function Header({
     [markNotificationRead, router],
   );
 
+  useEffect(() => {
+    if (!canCreateProjects) {
+      return;
+    }
+
+    const handleCreateProjectShortcut = () => {
+      setCreateProjectOpen(true);
+    };
+
+    document.addEventListener('taskforge:shortcut:create-project', handleCreateProjectShortcut);
+    return () => {
+      document.removeEventListener(
+        'taskforge:shortcut:create-project',
+        handleCreateProjectShortcut,
+      );
+    };
+  }, [canCreateProjects]);
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-sm border-b border-border/30 bg-background px-md">
@@ -263,6 +286,7 @@ export function Header({
           type="button"
           onClick={() => onOpenChange(true)}
           aria-label="Open command palette"
+          data-shortcut-search-trigger="true"
           className="flex h-9 flex-1 items-center gap-sm rounded-radius-md border border-border/50 bg-surface-container-low px-sm text-muted transition-colors hover:border-border hover:bg-surface-container-lowest lg:grow-0 lg:shrink-0 lg:basis-[25%]"
         >
           <Search className="size-4 shrink-0" />
